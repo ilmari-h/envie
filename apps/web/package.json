@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@repo/ui": "*",
+    "@ts-rest/core": "^3.52.1",
     "next": "^15.3.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
