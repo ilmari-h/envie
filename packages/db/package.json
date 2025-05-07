@@ -3,10 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "scripts": {
+    "build": "tsup",
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
     "generate": "drizzle-kit generate:pg",
@@ -14,12 +20,13 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.43.1",
-    "postgres": "^3.4.3"
+    "postgres": "3.4.5"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
-    "drizzle-kit": "^0.20.14",
+    "drizzle-kit": "0.31.1",
+    "tsup": "^8.4.0",
     "typescript": "5.8.2"
   }
-} 
+}

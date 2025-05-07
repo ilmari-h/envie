@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ts-rest/core": "^3.52.1",
+    "@repo/db": "*",
     "zod": "^3.24.4"
   },
   "devDependencies": {
