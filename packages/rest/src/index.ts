@@ -3,23 +3,6 @@ import { z } from 'zod';
 import type { Environment } from '@repo/db';
 
 const c = initContract();
-
-const EnvironmentSchema = z.object({
-  id: z.number(),
-  name: z.string(),
-  projectId: z.number(),
-  createdAt: z.date(),
-  updatedAt: z.date()
-});
-
-const ProjectSchema = z.object({
-  id: z.number(),
-  name: z.string(),
-  organizationId: z.number(),
-  createdAt: z.date(),
-  updatedAt: z.date()
-});
-
 export const contract = c.router({
   getEnvironments: {
     method: 'GET',
