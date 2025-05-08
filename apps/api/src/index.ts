@@ -6,7 +6,13 @@ import { z } from 'zod';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github';
 import jwt from 'jsonwebtoken';
-import { getEnvironment, getEnvironments } from './routes/environments';
+import { 
+  getEnvironment, 
+  getEnvironments, 
+  createEnvironment, 
+  updateEnvironmentContent, 
+  updateEnvironmentAccess 
+} from './routes/environments';
 
 const envSchema = z.object({
   JWT_SECRET: z.string(),
@@ -62,6 +68,18 @@ const router = s.router(contract, {
     getEnvironment: {
       middleware: [validateJWT],
       handler: getEnvironment
+    },
+    createEnvironment: {
+      middleware: [validateJWT],
+      handler: createEnvironment
+    },
+    updateEnvironmentContent: {
+      middleware: [validateJWT],
+      handler: updateEnvironmentContent
+    },
+    updateEnvironmentAccess: {
+      middleware: [validateJWT],
+      handler: updateEnvironmentAccess
     }
   })
 });
