@@ -2,20 +2,11 @@ import express from 'express';
 import { createExpressEndpoints, initServer } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { db, Schema } from '@repo/db';
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github';
 import jwt from 'jsonwebtoken';
-
-declare global {
-  namespace Express {
-    interface User {
-      id?: string;
-      username?: string;
-    }
-  }
-}
+import { getEnvironment, getEnvironments } from './routes/environments';
 
 const envSchema = z.object({
   JWT_SECRET: z.string(),
@@ -25,7 +16,7 @@ const envSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string(),
   GITHUB_CALLBACK_URL: z.string(),
 });
-const env = envSchema.parse(Bun.env);
+const env = envSchema.parse(process.env);
 
 const app = express();
 app.use(express.json());
@@ -33,31 +24,46 @@ app.use(passport.initialize());
 
 const s = initServer();
 
-const router = s.router(contract, {
-
-  getEnvironment: async ({ params: { id } }) => {
-    const environment = await db.query.environments.findFirst({
-      where: eq(Schema.environments.id, id),
-    });
-    if (!environment) {
-      return {
-        status: 404,
-        body: { message: 'Environment not found' }
-      };
-    }
-    return {
-      status: 200,
-      body: environment
-    };
-  },
-
-  getEnvironments: async () => {
-    const environments = await db.query.environments.findMany();
-    return {
-      status: 200,
-      body: environments
-    };
+const validateJWT = async (req: express.Request) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new Error('No token provided');
   }
+
+  const token = authHeader.split(' ')[1];
+  if (!token) {
+    throw new Error('Invalid token format');
+  }
+
+  try {
+    const decoded = jwt.verify(
+      token,
+      env.JWT_SECRET as string) as unknown as { id: string; username: string };
+    req.user = decoded;
+  } catch (err) {
+    throw new Error('Invalid token');
+  }
+};
+
+const router = s.router(contract, {
+  health: s.router(contract.health, {
+    getHealth: {
+      handler: () => Promise.resolve({
+        status: 200 as const,
+        body: { status: 'ok' }
+      })
+    }
+  }),
+  environments: s.router(contract.environments, {
+    getEnvironments: {
+      middleware: [validateJWT],
+      handler: getEnvironments
+    },
+    getEnvironment: {
+      middleware: [validateJWT],
+      handler: getEnvironment
+    }
+  })
 });
 
 passport.use(new GitHubStrategy({
@@ -66,9 +72,24 @@ passport.use(new GitHubStrategy({
     callbackURL: env.GITHUB_CALLBACK_URL
   },
   async (accessToken, refreshToken, profile, done) => {
-    // Here you can create or find a user in your database
-    // For now, we'll just pass the profile
-    return done(null, profile);
+    // Create user if they don't exist
+    const githubUserId = `github:${profile.id}`;
+    await db.insert(Schema.users).values({
+      id: githubUserId,
+      name: profile.displayName,
+      email: profile.emails?.[0]?.value
+    }).onConflictDoUpdate({
+      target: Schema.users.id,
+      set: {
+        name: profile.displayName,
+        email: profile.emails?.[0]?.value
+      }
+    });
+
+    return done(null, {
+      id: githubUserId,
+      username: profile.username || profile.displayName
+    });
   }
 ));
 
@@ -80,12 +101,16 @@ app.get('/auth/github',
 app.get('/auth/github/callback', 
   passport.authenticate('github', { session: false }),
   (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       { 
-        id: req.user?.id, 
-        username: req.user?.username 
-      }, 
+        id: req.user.id, 
+        username: req.user.username 
+      } satisfies Express.User, 
       env.JWT_SECRET, 
       { expiresIn: '1h' }
     );

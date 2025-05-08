@@ -3,7 +3,18 @@ import { z } from 'zod';
 import type { Environment } from '@repo/db';
 
 const c = initContract();
-export const contract = c.router({
+
+const health = c.router({
+  getHealth: {
+    method: 'GET',
+    path: '/health',
+    responses: {
+      200: c.type<{ status: 'ok' }>()
+    }
+  }
+});
+
+const environments = c.router({
   getEnvironments: {
     method: 'GET',
     path: '/environments',
@@ -25,4 +36,9 @@ export const contract = c.router({
     },
     summary: 'Get environment by ID'
   }
+});
+
+export const contract = c.router({
+  health,
+  environments
 });
