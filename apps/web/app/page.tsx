@@ -1,4 +1,4 @@
-import { LoginBox } from "./login-box";
+import { LoginButton } from "./login-button";
 
 export default function Home() {
   return (
@@ -6,7 +6,7 @@ export default function Home() {
       <main className="flex flex-col items-center justify-center gap-3 h-full">
         <h2 className="font-mono">envie</h2>
         <h4 className="font-mono">Manage your envrionments</h4>
-        <LoginBox />
+        <LoginButton />
       </main>
       <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium">
         © {new Date().getFullYear()} envie
