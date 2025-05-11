@@ -5,6 +5,7 @@ import { tsr } from "../tsr";
 import { Bar } from "@repo/ui/bar";
 import { Button } from "@repo/ui/button";
 import Link from "next/link";
+import LoadingScreen from "@repo/ui/loading";
 
 export default function Dashboard() {
   const { data, isLoading } = tsr.organizations.getOrganizations.useQuery({
@@ -15,9 +16,7 @@ export default function Dashboard() {
   });
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">
-        <div className="text-neutral-400 animate-pulse text-sm font-mono"> Loading...</div>
-    </div>;
+    return <LoadingScreen />;
   }
 
   return <div>

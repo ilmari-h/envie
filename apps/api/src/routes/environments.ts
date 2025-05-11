@@ -1,5 +1,5 @@
 import { db, Schema } from '@repo/db';
-import { eq, and, count, exists, not } from 'drizzle-orm';
+import { eq, and, count, exists, not, desc } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 
@@ -68,7 +68,11 @@ export const getEnvironment = async ({ req, params: { id } }:
   };
 }
 
-export const getEnvironments = async ({ req }: { req: TsRestRequest<typeof contract.environments.getEnvironments> }) => {
+export const getEnvironments = async ({ req, query: { projectId } }:
+  {
+    req: TsRestRequest<typeof contract.environments.getEnvironments>,
+    query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
+  }) => {
     if (!req.user) {
       return {
         status: 401 as const,
@@ -79,7 +83,12 @@ export const getEnvironments = async ({ req }: { req: TsRestRequest<typeof contr
     const envAccess = await db.select({environments: Schema.environments})
       .from(Schema.environmentAccess)
       .innerJoin(Schema.environments, eq(Schema.environmentAccess.environmentId, Schema.environments.id))
-      .where(eq(Schema.environmentAccess.userId, req.user.id));
+      .where(
+        and(
+          eq(Schema.environmentAccess.userId, req.user.id),
+          projectId ? eq(Schema.environments.projectId, projectId) : undefined
+        )
+      ).orderBy(desc(Schema.environments.name));
 
     // Get all project access entries for this user, excluding environments with direct access
     const projectAccess = await db.select({environments: Schema.environments})
@@ -92,8 +101,9 @@ export const getEnvironments = async ({ req }: { req: TsRestRequest<typeof contr
           db.select()
             .from(Schema.environmentAccess)
             .where(eq(Schema.environmentAccess.environmentId, Schema.environments.id))
-        ))
-      ));
+        )),
+        projectId ? eq(Schema.projects.id, projectId) : undefined
+      )).orderBy(desc(Schema.environments.name));
 
     return {
       status: 200 as const,

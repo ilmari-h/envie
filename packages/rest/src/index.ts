@@ -25,6 +25,18 @@ const user = c.router({
 });
 
 const projects = c.router({
+  getProject: {
+    method: 'GET',
+    path: '/projects/:id',
+    pathParams: z.object({
+      id: z.string()
+    }),
+    responses: {
+      200: c.type<Project>(),
+      401: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
+  },
   getProjects: {
     method: 'GET',
     path: '/projects',
@@ -38,7 +50,7 @@ const projects = c.router({
     body: z.object({
       name: z.string(),
       description: z.string(),
-      organizationId: z.string()
+      organizationId: z.string(),
     }),
     responses: {
       201: c.type<Project>(),
@@ -51,6 +63,9 @@ const environments = c.router({
   getEnvironments: {
     method: 'GET',
     path: '/environments',
+    query: z.object({
+      projectId: z.string().optional()
+    }),
     responses: {
       200: c.type<Environment[]>()
     },

@@ -1,9 +1,42 @@
 import { db, Schema } from '@repo/db';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 
-export const getProjects = async ({ req }: { req: TsRestRequest<typeof contract.projects.getProjects> }) => {
+export const getProject = async ({ req, params: { id } }:
+  {
+    req: TsRestRequest<typeof contract.projects.getProject>,
+    params: TsRestRequest<typeof contract.projects.getProject>['params']
+  }) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  const project = await db.select({project: Schema.projects})
+    .from(Schema.projects)
+    .innerJoin(Schema.projectAccess, eq(Schema.projects.id, Schema.projectAccess.projectId))
+    .where(and(
+      eq(Schema.projects.id, id),
+      eq(Schema.projectAccess.userId, req.user.id)
+    ));
+
+  if (!project || project.length === 0 || !project[0]?.project) {
+    return {
+      status: 404 as const,
+      body: { message: 'Project not found' }
+    };
+  }
+  return {
+    status: 200 as const,
+    body: project[0].project
+  };
+}
+
+export const getProjects = async ({ req }:
+  { req: TsRestRequest<typeof contract.projects.getProjects> }) => {
   if (!req.user) {
     return {
       status: 401 as const,
@@ -36,21 +69,20 @@ export const createProject = async ({
     };
   }
   
-  // Find organization organization ID where user is the creator or at least in organization-owners
+  // User must be creator of organization or owner of organization to create projects
   const organization = await db.query.organizations.findFirst({
     where: and(
       eq(Schema.organizations.createdById, req.user.id),
       eq(Schema.organizations.id, organizationId)
     )
   });
-
   if (!organization) {
-
     const organizationOwner = await db.select({organization: Schema.organizations})
       .from(Schema.organizationOwners)
       .innerJoin(Schema.organizations, eq(Schema.organizationOwners.organizationId, Schema.organizations.id))
       .where(and(
         eq(Schema.organizationOwners.userId, req.user.id),
+        eq(Schema.organizations.id, organizationId)
       ));
       if (!organizationOwner || organizationOwner.length === 0) {
         return {
