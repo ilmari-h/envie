@@ -6,6 +6,7 @@ import Link from 'next/link';
 import LoadingScreen from '@repo/ui/loading';
 import { useState, useEffect } from 'react';
 import { Button } from '@repo/ui/button';
+
 export default function ProjectContent({ id }: { id: string }) {
   const { data, isLoading } = tsr.projects.getProject.useQuery({
     queryKey: ['project', id],
@@ -67,10 +68,10 @@ export default function ProjectContent({ id }: { id: string }) {
         <div className="space-y-4">
           {environmentsLoading ? (
             <>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                <div className="h-8 w-24 bg-neutral-800 rounded animate-pulse"/>
-                <div className="h-8 w-28 bg-neutral-800 rounded animate-pulse"/>
-                <div className="h-8 w-20 bg-neutral-800 rounded animate-pulse"/>
+              <div className="flex gap-2 overflow-x-auto">
+                <div className="h-8 w-24 bg-neutral-800 rounded-t animate-pulse"/>
+                <div className="h-8 w-28 bg-neutral-800 rounded-t animate-pulse"/>
+                <div className="h-8 w-20 bg-neutral-800 rounded-t animate-pulse"/>
               </div>
               <div className="h-[300px] bg-neutral-800 rounded animate-pulse"/>
             </>
@@ -80,13 +81,17 @@ export default function ProjectContent({ id }: { id: string }) {
               <p className="text-xs">Create an environment to store configuration values for this project</p>
             </div>
           ) : (
-            <>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="overflow-hidden">
+              <div className="flex border-b border-neutral-800">
                 {environments.body.map(env => (
                   <button
                     key={env.id}
                     onClick={() => setActiveEnv(env.id)}
-                    className={`px-3 py-1.5 text-sm rounded transition-colors ${activeEnv === env.id ? 'bg-neutral-700 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                    className={`px-3 py-1.5 text-xs transition-colors rounded-t-lg ${
+                      activeEnv === env.id 
+                        ? 'bg-neutral-900 text-white border-x border-t border-neutral-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900' 
+                        : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                    }`}
                   >
                     {env.name}
                   </button>
@@ -96,15 +101,15 @@ export default function ProjectContent({ id }: { id: string }) {
               {environments.body.map(env => (
                 <div
                   key={env.id}
-                  className={`transition-all ${activeEnv === env.id ? 'block' : 'hidden'}`}
+                  className={activeEnv === env.id ? 'block' : 'hidden'}
                 >
                   <textarea
-                    className="w-full h-[300px] bg-neutral-900 border border-neutral-800 rounded p-3 font-mono text-sm min-h-[600px] max-h-[900px]"
+                    className="w-full bg-neutral-900 p-3 font-mono text-sm min-h-[600px] max-h-[900px] focus:outline-none"
                     defaultValue={env.encryptedContent.toString()}
                   />
                 </div>
               ))}
-            </>
+            </div>
           )}
         </div>
       </main>
