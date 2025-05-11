@@ -7,6 +7,9 @@ import { organizations } from './organizations';
 export const projects = pgTable('projects', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  description: text('description'),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   ...timestamps
 });
+
+export type Project = typeof projects.$inferSelect;

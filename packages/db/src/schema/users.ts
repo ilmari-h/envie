@@ -17,3 +17,5 @@ export const usersRelations = relations(users, ({ many }) => ({
   environmentAccess: many(environmentAccess),
   organizationOwners: many(organizationOwners),
 }));
+
+export type User = typeof users.$inferSelect;

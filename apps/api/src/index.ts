@@ -16,6 +16,9 @@ import {
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization } from './routes/organizations';
+import { getProjects, createProject } from './routes/projects';
+import { and, eq } from 'drizzle-orm';
+import { getMe } from './routes/users';
 const AUTH_COOKIE_NAME = 'envie_token';
 
 const app = express();
@@ -103,6 +106,22 @@ const router = s.router(contract, {
       middleware: [validateJWT],
       handler: createOrganization
     }
+  }),
+  user: s.router(contract.user, {
+    getUser: {
+      middleware: [validateJWT],
+      handler: getMe
+    }
+  }),
+  projects: s.router(contract.projects, {
+    getProjects: {
+      middleware: [validateJWT],
+      handler: getProjects
+    },
+    createProject: {
+      middleware: [validateJWT],
+      handler: createProject
+    }
   })
 });
 
@@ -125,6 +144,21 @@ passport.use(new GitHubStrategy({
         email: profile.emails?.[0]?.value
       }
     });
+
+    // If no hobby organization, create one
+    const hobbyOrg = await db.query.organizations.findFirst({
+      where: and(
+        eq(Schema.organizations.hobby, true),
+        eq(Schema.organizations.createdById, githubUserId)),
+    });
+
+    if (!hobbyOrg) {
+      await db.insert(Schema.organizations).values({
+        name: 'Personal',
+        createdById: githubUserId,
+        hobby: true
+      });
+    }
 
     return done(null, {
       id: githubUserId,

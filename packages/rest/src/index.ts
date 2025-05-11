@@ -1,6 +1,6 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
-import type { Environment, Organization } from '@repo/db';
+import type { Environment, Organization, Project } from '@repo/db';
 
 const c = initContract();
 
@@ -13,6 +13,39 @@ const health = c.router({
     }
   }
 });
+
+const user = c.router({
+  getUser: {
+    method: 'GET',
+    path: '/users/me',
+    responses: {
+      200: c.type<{ id: string, name: string }>()
+    }
+  }
+});
+
+const projects = c.router({
+  getProjects: {
+    method: 'GET',
+    path: '/projects',
+    responses: {
+      200: c.type<Project[]>()
+    }
+  },
+  createProject: {
+    method: 'POST',
+    path: '/projects',
+    body: z.object({
+      name: z.string(),
+      description: z.string(),
+      organizationId: z.string()
+    }),
+    responses: {
+      201: c.type<Project>(),
+      403: z.object({ message: z.string() })
+    }
+  }
+})
 
 const environments = c.router({
   getEnvironments: {
@@ -115,5 +148,7 @@ export const organizations = c.router({
 export const contract = c.router({
   health,
   environments,
-  organizations
+  organizations,
+  user,
+  projects
 });

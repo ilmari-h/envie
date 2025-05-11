@@ -1,5 +1,5 @@
 import { db, Schema } from '@repo/db';
-import { eq, exists } from 'drizzle-orm';
+import { eq, exists, or } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract, organizations } from '@repo/rest';
 
@@ -15,13 +15,16 @@ export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof cont
   const orgs = await db.select({ organizations: Schema.organizations })
     .from(Schema.organizations)
     .where(
-      exists(
-        db.select()
-          .from(Schema.projectAccess)
+      or(
+        eq(Schema.organizations.createdById, req.user.id),
+        exists(
+          db.select()
+            .from(Schema.projectAccess)
           .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
           .where(
             eq(Schema.projectAccess.userId, req.user.id),
           )
+        )
       )
     );
 
