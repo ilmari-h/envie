@@ -1,6 +1,6 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
-import type { Environment } from '@repo/db';
+import type { Environment, Organization } from '@repo/db';
 
 const c = initContract();
 
@@ -87,9 +87,33 @@ const environments = c.router({
     },
     summary: 'Update environment access control'
   }
-});
+})
+
+export const organizations = c.router({
+  getOrganizations: {
+    method: 'GET',
+    path: '/organizations',
+    responses: {
+      200: c.type<Organization[]>()
+    },
+    summary: 'Get all organizations the current user is a member of'
+  },
+  createOrganization: {
+    method: 'POST',
+    path: '/organizations',
+    body: z.object({
+      name: z.string()
+    }),
+    responses: {
+      201: c.type<Organization>(),
+      403: z.object({ message: z.string() })
+    },
+    summary: 'Create a new organization'
+  }
+})
 
 export const contract = c.router({
   health,
-  environments
+  environments,
+  organizations
 });

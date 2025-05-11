@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, uuid   } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { timestamps } from './utils';
 import { organizations } from './organizations';
 
@@ -7,6 +7,6 @@ import { organizations } from './organizations';
 export const projects = pgTable('projects', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  organizationId: integer('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   ...timestamps
 });

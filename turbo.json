@@ -8,7 +8,8 @@
     "GITHUB_CLIENT_SECRET",
     "GITHUB_CALLBACK_URL",
 	"API_URL",
-	"NEXT_PUBLIC_API_URL"
+	"NEXT_PUBLIC_API_URL",
+	"FRONTEND_URL"
   ],
   "tasks": {
     "build": {

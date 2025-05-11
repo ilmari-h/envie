@@ -7,7 +7,7 @@ if (!dbUrl) {
 }
 
 export default {
-  schema: './src/schema.ts',
+  schema: './src/schema/index.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {

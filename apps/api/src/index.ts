@@ -2,10 +2,11 @@ import express from 'express';
 import { createExpressEndpoints, initServer } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { db, Schema } from '@repo/db';
-import { z } from 'zod';
 import passport from 'passport';
+import cookieParser from 'cookie-parser';
 import { Strategy as GitHubStrategy } from 'passport-github';
 import jwt from 'jsonwebtoken';
+import cors from 'cors';
 import { 
   getEnvironment, 
   getEnvironments, 
@@ -13,30 +14,40 @@ import {
   updateEnvironmentContent, 
   updateEnvironmentAccess 
 } from './routes/environments';
-
-const envSchema = z.object({
-  JWT_SECRET: z.string(),
-  DATABASE_URL: z.string(),
-  PORT: z.number().default(3001),
-  GITHUB_CLIENT_ID: z.string(),
-  GITHUB_CLIENT_SECRET: z.string(),
-  GITHUB_CALLBACK_URL: z.string(),
-});
-const env = envSchema.parse(process.env);
+import { env } from './env';
+import { getOrganizations, createOrganization } from './routes/organizations';
+const AUTH_COOKIE_NAME = 'envie_token';
 
 const app = express();
 app.use(express.json());
+
+// CORS configuration
+const corsOptions = {
+  origin: env.FRONTEND_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
+
 app.use(passport.initialize());
+app.use(cookieParser(env.JWT_SECRET, {
+  decode: decodeURIComponent
+}));
 
 const s = initServer();
 
-const validateJWT = async (req: express.Request) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('No token provided');
+const getToken = async (req: express.Request) => {
+  if (req.cookies[AUTH_COOKIE_NAME]) {
+    return req.cookies[AUTH_COOKIE_NAME];
+  } else if (req.headers.authorization?.startsWith('Bearer ')) {
+    return req.headers.authorization.split(' ')[1];
   }
+  throw new Error('No token provided');
+}
 
-  const token = authHeader.split(' ')[1];
+const validateJWT = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const token = await getToken(req);
   if (!token) {
     throw new Error('Invalid token format');
   }
@@ -49,6 +60,7 @@ const validateJWT = async (req: express.Request) => {
   } catch (err) {
     throw new Error('Invalid token');
   }
+  next();
 };
 
 const router = s.router(contract, {
@@ -81,6 +93,16 @@ const router = s.router(contract, {
       middleware: [validateJWT],
       handler: updateEnvironmentAccess
     }
+  }),
+  organizations: s.router(contract.organizations, {
+    getOrganizations: {
+      middleware: [validateJWT],
+      handler: getOrganizations
+    },
+    createOrganization: {
+      middleware: [validateJWT],
+      handler: createOrganization
+    }
   })
 });
 
@@ -112,13 +134,19 @@ passport.use(new GitHubStrategy({
 ));
 
 // GitHub Auth Routes
-app.get('/auth/github',
-  passport.authenticate('github', { session: false })
-);
+app.get('/auth/github', (req, res, next) => {
+  const cliToken = req.query.cliToken as string | undefined;
+  passport.authenticate('github', { 
+    session: false, 
+    state: cliToken
+  })(req, res, next);
+});
 
 app.get('/auth/github/callback', 
   passport.authenticate('github', { session: false }),
   (req, res) => {
+    const state = req.query.state as string | undefined;
+
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
@@ -133,8 +161,13 @@ app.get('/auth/github/callback',
       { expiresIn: '1h' }
     );
 
-    // Redirect with token or send token directly
-    res.redirect(`/login?token=${token}`);
+    // Either CLI or web UI login.
+    if (state?.startsWith('cli_')) {
+      res.redirect(`${env.FRONTEND_URL}/login?token=${token}&cliToken=${state}`);
+    } else {
+      res.cookie(AUTH_COOKIE_NAME, token);
+      res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    }
   }
 );
 

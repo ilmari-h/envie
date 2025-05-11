@@ -135,7 +135,7 @@ export const createEnvironment = async ({
   const [environment] = await db.insert(Schema.environments)
     .values({
       name,
-      projectId: parseInt(projectId),
+      projectId: projectId,
       encryptedContent: Buffer.from(content)
     })
     .returning();

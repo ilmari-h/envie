@@ -8,14 +8,13 @@ const GitHubIcon = () => (
 
 export const LoginButton = () => {
   return (
-    <button 
-      className="flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 px-3 py-2 rounded border border-neutral-800 transition-colors"
+    <Button
+      icon={<GitHubIcon />}
       onClick={() => {
         window.location.href = `${env.NEXT_PUBLIC_API_URL}/auth/github`;  
       }}
-          >
-            <GitHubIcon />
-      <span className="text-xs">Login with GitHub</span>
-    </button>
+    >
+      Login with GitHub
+    </Button>
   );
 };

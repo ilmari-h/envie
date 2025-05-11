@@ -15,8 +15,9 @@
     "build": "tsup",
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
-    "generate": "drizzle-kit generate:pg",
-    "migrate": "bun run src/migrate.ts"
+    "db:generate": "drizzle-kit generate:pg",
+    "db:migrate": "bun run src/migrate.ts",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "drizzle-orm": "^0.43.1",
