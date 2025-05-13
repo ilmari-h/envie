@@ -5,3 +5,5 @@ export * from './projects';
 export * from './environments';
 export * from './envrionment-access';
 export * from './project-access';
+export * from './project-encryption-keys';
+export * from './environment-versions';

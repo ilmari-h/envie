@@ -46,6 +46,7 @@ const getToken = async (req: express.Request) => {
   } else if (req.headers.authorization?.startsWith('Bearer ')) {
     return req.headers.authorization.split(' ')[1];
   }
+  console.log(req.cookies);
   throw new Error('No token provided');
 }
 

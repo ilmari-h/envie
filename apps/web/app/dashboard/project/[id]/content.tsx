@@ -105,7 +105,7 @@ export default function ProjectContent({ id }: { id: string }) {
                 >
                   <textarea
                     className="w-full bg-neutral-900 p-3 font-mono text-sm min-h-[600px] max-h-[900px] focus:outline-none"
-                    defaultValue={env.encryptedContent.toString()}
+                    defaultValue={""}
                   />
                 </div>
               ))}

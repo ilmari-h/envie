@@ -1,7 +1,9 @@
 import { db, Schema } from '@repo/db';
-import { eq, and, count, exists, not, desc } from 'drizzle-orm';
+import { eq, and, count, exists, not, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
+import { webcrypto } from 'node:crypto';
+import { cryptAESGCM } from '../crypto/crypto';
 
 export const getEnvironment = async ({ req, params: { id } }:
   { req: TsRestRequest<typeof contract.environments.getEnvironment>; params: { id: string } }) => {
@@ -14,6 +16,9 @@ export const getEnvironment = async ({ req, params: { id } }:
 
   const environment = await db.query.environments.findFirst({
     where: eq(Schema.environments.id, id),
+    with: {
+      versions: true
+    }
   });
 
   if (!environment || !environment.projectId) {
@@ -104,10 +109,29 @@ export const getEnvironments = async ({ req, query: { projectId } }:
         )),
         projectId ? eq(Schema.projects.id, projectId) : undefined
       )).orderBy(desc(Schema.environments.name));
+    
+    const allowedEnvironments = [...envAccess.map(e => e.environments), ...projectAccess.map(e => e.environments)];
+    const envIds = allowedEnvironments.map(e => e.id);
+    
+    // Take the first version of the environment
+    const environmentVersions = await db.query.environmentVersions.findMany({ 
+      where: inArray(Schema.environmentVersions.environmentId, envIds),
+      orderBy: desc(Schema.environmentVersions.createdAt),
+      limit: 1
+    });
 
     return {
       status: 200 as const,
-      body: [...envAccess.map(e => e.environments), ...projectAccess.map(e => e.environments)]
+      body: allowedEnvironments.map(e => ({
+        ...e,
+        versions: environmentVersions
+          .filter(v => v.environmentId === e.id)
+          .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .map(v => ({
+            ...v,
+            content: v.encryptedContent.toString()
+          }))
+      }))
     };
 }
 
@@ -141,14 +165,33 @@ export const createEnvironment = async ({
     };
   }
 
-  // Create environment
-  const [environment] = await db.insert(Schema.environments)
-    .values({
-      name,
-      projectId: projectId,
-      encryptedContent: Buffer.from(content)
-    })
-    .returning();
+  // Create environment and first version.
+  const environment = await db.transaction(async (tx) => {
+    const encryptionKey = await tx.query.projectEncryptionKeys.findFirst({
+      where: eq(Schema.projectEncryptionKeys.projectId, projectId)
+    });
+
+    if (!encryptionKey) return null;
+
+    // Encrypt content using project key
+    const encryptedContent = await cryptAESGCM(encryptionKey.key, content);
+    const [env] = await tx.insert(Schema.environments)
+      .values({
+        name,
+        projectId: projectId
+      })
+      .returning();
+
+    if (!env) return null;
+
+    await tx.insert(Schema.environmentVersions)
+      .values({
+        environmentId: env.id,
+        encryptedContent: encryptedContent
+      });
+
+    return env;
+  });
 
   if (!environment) {
     return {
@@ -180,8 +223,8 @@ export const updateEnvironmentContent = async ({
   body: { content }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentContent>;
-  params: { id: string };
-  body: { content: string }
+  params: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['params'];
+  body: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['body']
 }) => {
   if (!req.user) {
     return {
@@ -238,12 +281,25 @@ export const updateEnvironmentContent = async ({
     }
   }
 
+  const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
+    where: eq(Schema.projectEncryptionKeys.projectId, environment.projectId)
+  });
+
+  if (!encryptionKey) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to update environment' }
+    };
+  }
+
+  const encryptedContent = await cryptAESGCM(encryptionKey.key, content);
+
   // Update content
-  const [updatedEnvironment] = await db.update(Schema.environments)
-    .set({
-      encryptedContent: Buffer.from(content)
+  const [updatedEnvironment] = await db.insert(Schema.environmentVersions)
+    .values({
+      environmentId: id,
+      encryptedContent
     })
-    .where(eq(Schema.environments.id, id))
     .returning();
 
   if (!updatedEnvironment) {
@@ -255,7 +311,7 @@ export const updateEnvironmentContent = async ({
 
   return {
     status: 200 as const,
-    body: updatedEnvironment
+    body: {}
   };
 };
 

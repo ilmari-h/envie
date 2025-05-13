@@ -14,6 +14,9 @@ export default function Dashboard() {
   const { data: user } = tsr.user.getUser.useQuery({
     queryKey: ['user'],
   });
+  const { data: projects } = tsr.projects.getProjects.useQuery({
+    queryKey: ['projects'],
+  });
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -42,6 +45,22 @@ export default function Dashboard() {
               onChange={() => {console.log('change org')}}
             />
         </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+        {projects?.body.map((project) => (
+          <Link 
+            key={project.id}
+            href={`/dashboard/project/${project.id}`}
+            className="bg-neutral-900 border border-neutral-800 rounded-lg p-3 h-[80px] hover:bg-neutral-800 transition-colors"
+          >
+            <div className="flex flex-col h-full justify-between">
+              <div>
+                <h3 className="font-medium text-sm mb-1">{project.name}</h3>
+                <p className="text-xs text-neutral-400 line-clamp-2">{project.description || 'No description'}</p>
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
     </main>
   </div>;

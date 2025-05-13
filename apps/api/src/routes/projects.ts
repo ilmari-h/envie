@@ -1,7 +1,8 @@
-import { db, Schema } from '@repo/db';
+import { db, environmentVersions, Schema } from '@repo/db';
 import { eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
+import { webcrypto } from 'node:crypto';
 
 export const getProject = async ({ req, params: { id } }:
   {
@@ -15,7 +16,9 @@ export const getProject = async ({ req, params: { id } }:
     };
   }
 
-  const project = await db.select({project: Schema.projects})
+  const result = await db.select({
+    project: Schema.projects,
+  })
     .from(Schema.projects)
     .innerJoin(Schema.projectAccess, eq(Schema.projects.id, Schema.projectAccess.projectId))
     .where(and(
@@ -23,15 +26,18 @@ export const getProject = async ({ req, params: { id } }:
       eq(Schema.projectAccess.userId, req.user.id)
     ));
 
-  if (!project || project.length === 0 || !project[0]?.project) {
+  if (!result || result.length === 0 || !result[0]?.project) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
     };
   }
+
   return {
     status: 200 as const,
-    body: project[0].project
+    body: {
+      ...result[0].project,
+    }
   };
 }
 
@@ -93,13 +99,35 @@ export const createProject = async ({
   }
 
   // Create project
-  const [project] = await db.insert(Schema.projects)
+  const project = await db.transaction(async (tx) => {
+    const [project] = await tx.insert(Schema.projects)
     .values({
       name,
       description,
       organizationId: organizationId
     })
     .returning();
+    if(!project) {
+      return null
+    }
+
+    // Generate and store encryption key
+    const key = Buffer.from(webcrypto.getRandomValues(new Uint8Array(32)));
+    await tx.insert(Schema.projectEncryptionKeys)
+      .values({
+        projectId: project.id,
+        key
+      });
+
+    // Add creator to project access
+    await tx.insert(Schema.projectAccess)
+      .values({
+        projectId: project.id,
+        userId: req.user!.id
+      });
+
+    return project;
+  });
 
   if (!project) {
     return {
@@ -107,13 +135,6 @@ export const createProject = async ({
       body: { message: 'Failed to create project' }
     };
   }
-
-  // Add creator to project access
-  await db.insert(Schema.projectAccess)
-    .values({
-      projectId: project.id,
-      userId: req.user.id
-    });
 
   return {
     status: 201 as const,
