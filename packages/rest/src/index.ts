@@ -4,9 +4,9 @@ import type { Environment, EnvironmentVersion as DBEnvironmentVersion, Organizat
 
 const c = initContract();
 
-export type EnvironmentVersion = Omit<DBEnvironmentVersion, 'encryptedContent'> & { content: string };
-export type EnvironmentWithVersions = Environment & {
-  versions: EnvironmentVersion[];
+export type EnvironmentVersion = Omit<DBEnvironmentVersion, 'encryptedContent'> & { content: string, versionNumber: number };
+export type EnvironmentWithLatestVersion = Environment & {
+  latestVersion: EnvironmentVersion | null;
 };
 
 const health = c.router({
@@ -69,27 +69,27 @@ const environments = c.router({
     method: 'GET',
     path: '/environments',
     query: z.object({
-      projectId: z.string().optional()
+      projectId: z.string().optional(),
+      environmentId: z.string().optional()
     }),
     responses: {
-      200: c.type<EnvironmentWithVersions[]>()
+      200: c.type<EnvironmentWithLatestVersion[]>()
     },
-    summary: 'Get all environments for current user'
-  },
-  
-  getEnvironment: {
-    method: 'GET',
-    path: '/environments/:id',
-    pathParams: z.object({
-      id: z.string()
-    }),
-    responses: {
-      200: c.type<Environment>(),
-      404: z.object({ message: z.string() })
-    },
-    summary: 'Get environment by ID'
+    summary: 'Get environments for current user, optionally filtered by project or environment id'
   },
 
+  getEnvironmentVersion: {
+    method: 'GET',
+    path: '/environments/:id/versions/:versionNumber',
+    pathParams: z.object({
+      id: z.string(),
+      versionNumber: z.string().optional()
+    }),
+    responses: {
+      200: c.type<EnvironmentVersion>()
+    },
+    summary: 'Get a specific version of an environment'
+  },
   createEnvironment: {
     method: 'POST',
     path: '/environments',

@@ -8,11 +8,11 @@ import { Strategy as GitHubStrategy } from 'passport-github';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import { 
-  getEnvironment, 
   getEnvironments, 
+  getEnvironmentVersion,
   createEnvironment, 
   updateEnvironmentContent, 
-  updateEnvironmentAccess 
+  updateEnvironmentAccess,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization } from './routes/organizations';
@@ -80,9 +80,9 @@ const router = s.router(contract, {
       middleware: [validateJWT],
       handler: getEnvironments
     },
-    getEnvironment: {
+    getEnvironmentVersion: {
       middleware: [validateJWT],
-      handler: getEnvironment
+      handler: getEnvironmentVersion
     },
     createEnvironment: {
       middleware: [validateJWT],

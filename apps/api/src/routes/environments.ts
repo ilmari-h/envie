@@ -3,76 +3,9 @@ import { eq, and, count, exists, not, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
+import type { EnvironmentVersion } from '@repo/rest';
 
-export const getEnvironment = async ({ req, params: { id } }:
-  { req: TsRestRequest<typeof contract.environments.getEnvironment>; params: { id: string } }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
-
-  const environment = await db.query.environments.findFirst({
-    where: eq(Schema.environments.id, id),
-    with: {
-      versions: true
-    }
-  });
-
-  if (!environment || !environment.projectId) {
-    return {
-      status: 404 as const,
-      body: { message: 'Environment not found' }
-    };
-  }
-
-  // Check environment-specific access first
-  const environmentAccessCount = await db.select({ count: count() })
-    .from(Schema.environmentAccess)
-    .where(eq(Schema.environmentAccess.environmentId, id));
-
-  if (environmentAccessCount[0]?.count && environmentAccessCount[0].count > 0) {
-    // There are environment-specific access rules, check if user has access
-    const hasEnvAccess = await db.select()
-      .from(Schema.environmentAccess)
-      .where(and(
-        eq(Schema.environmentAccess.environmentId, id),
-        eq(Schema.environmentAccess.userId, req.user.id)
-      ))
-      .limit(1);
-
-    if (hasEnvAccess.length === 0) {
-      return {
-        status: 403 as const,
-        body: { message: 'Access denied' }
-      };
-    }
-  } else {
-    // Fall back to project-level access
-    const hasProjectAccess = await db.select()
-      .from(Schema.projectAccess)
-      .where(and(
-        eq(Schema.projectAccess.projectId, environment.projectId.toString()),
-        eq(Schema.projectAccess.userId, req.user.id)
-      ))
-      .limit(1);
-
-    if (hasProjectAccess.length === 0) {
-      return {
-        status: 403 as const,
-        body: { message: 'Access denied' }
-      };
-    }
-  }
-
-  return {
-    status: 200 as const,
-    body: environment
-  };
-}
-
-export const getEnvironments = async ({ req, query: { projectId } }:
+export const getEnvironments = async ({ req, query: { projectId, environmentId } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
@@ -90,7 +23,7 @@ export const getEnvironments = async ({ req, query: { projectId } }:
       .where(
         and(
           eq(Schema.environmentAccess.userId, req.user.id),
-          projectId ? eq(Schema.environments.projectId, projectId) : undefined
+          projectId ? eq(Schema.environments.projectId, projectId) : undefined,
         )
       ).orderBy(desc(Schema.environments.name));
 
@@ -109,28 +42,40 @@ export const getEnvironments = async ({ req, query: { projectId } }:
         projectId ? eq(Schema.projects.id, projectId) : undefined
       )).orderBy(desc(Schema.environments.name));
     
-    const allowedEnvironments = [...envAccess.map(e => e.environments), ...projectAccess.map(e => e.environments)];
-    const envIds = allowedEnvironments.map(e => e.id);
-    
-    // Take the first version of the environment
-    const environmentVersions = await db.query.environmentVersions.findMany({ 
-      where: inArray(Schema.environmentVersions.environmentId, envIds),
-      orderBy: desc(Schema.environmentVersions.createdAt),
-      limit: 1
-    });
+    const allowedEnvironments = [...envAccess.map(e => e.environments), ...projectAccess.map(e => e.environments)]
+      .filter(e => environmentId ? e.id === environmentId : true);
+    const environmentsWithVersionsDecrypted = await Promise.all(allowedEnvironments
+      .map(async (e) => {
+        const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
+          where: eq(Schema.projectEncryptionKeys.projectId, e.projectId)
+        });
+        if (!encryptionKey) throw new Error(`Encryption key not found for project ${e.projectId}`);
+        const latestVersion = await db.query.environmentVersions.findFirst({
+          where: eq(Schema.environmentVersions.environmentId, e.id),
+          orderBy: desc(Schema.environmentVersions.createdAt),
+        });
+        const totalVersions = await db.select({ count: count() })
+          .from(Schema.environmentVersions)
+          .where(eq(Schema.environmentVersions.environmentId, e.id));
+        if (!latestVersion) return {
+          ...e,
+          latestVersion: null
+        };
+        const content = await decryptAESGCM(encryptionKey.key, latestVersion.encryptedContent);
+        return {
+          ...e,
+          latestVersion: {
+            ...latestVersion,
+            content,
+            versionNumber: totalVersions[0]?.count ?? 1
+          } satisfies EnvironmentVersion
+        };
+      })
+    )
 
     return {
       status: 200 as const,
-      body: allowedEnvironments.map(e => ({
-        ...e,
-        versions: environmentVersions
-          .filter(v => v.environmentId === e.id)
-          .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .map(v => ({
-            ...v,
-            content:  "todo"
-          }))
-      }))
+      body: environmentsWithVersionsDecrypted
     };
 }
 
@@ -379,5 +324,117 @@ export const updateEnvironmentAccess = async ({
   return {
     status: 200 as const,
     body: { message: 'Environment access updated successfully' }
+  };
+};
+
+export const getEnvironmentVersion = async ({
+  req,
+  params: { id, versionNumber }
+}: {
+  req: TsRestRequest<typeof contract.environments.getEnvironmentVersion>;
+  params: TsRestRequest<typeof contract.environments.getEnvironmentVersion>['params'];
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  const environment = await db.query.environments.findFirst({
+    where: eq(Schema.environments.id, id),
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Check access using existing logic
+  const environmentAccessCount = await db.select({ count: count() })
+    .from(Schema.environmentAccess)
+    .where(eq(Schema.environmentAccess.environmentId, id));
+
+  if (environmentAccessCount[0]?.count && environmentAccessCount[0].count > 0) {
+    const hasEnvAccess = await db.select()
+      .from(Schema.environmentAccess)
+      .where(and(
+        eq(Schema.environmentAccess.environmentId, id),
+        eq(Schema.environmentAccess.userId, req.user.id)
+      ))
+      .limit(1);
+
+    if (hasEnvAccess.length === 0) {
+      return {
+        status: 403 as const,
+        body: { message: 'Access denied' }
+      };
+    }
+  } else {
+    const hasProjectAccess = await db.select()
+      .from(Schema.projectAccess)
+      .where(and(
+        eq(Schema.projectAccess.projectId, environment.projectId),
+        eq(Schema.projectAccess.userId, req.user.id)
+      ))
+      .limit(1);
+
+    if (hasProjectAccess.length === 0) {
+      return {
+        status: 403 as const,
+        body: { message: 'Access denied' }
+      };
+    }
+  }
+
+  // Get total version count
+  const totalVersions = await db.select({ count: count() })
+    .from(Schema.environmentVersions)
+    .where(eq(Schema.environmentVersions.environmentId, id));
+
+  const versionCount = totalVersions[0]?.count ?? 0;
+  const targetVersion = versionNumber !== undefined ? parseInt(versionNumber, 10) : versionCount;
+
+  // Get the specific version
+  const version = await db.query.environmentVersions.findFirst({
+    where: eq(Schema.environmentVersions.environmentId, id),
+    orderBy: desc(Schema.environmentVersions.createdAt),
+    offset: versionCount - targetVersion,
+  });
+
+  if (!version) {
+    return {
+      status: 404 as const,
+      body: { message: 'Version not found' }
+    };
+  }
+
+  // Get encryption key and decrypt content
+  const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
+    where: eq(Schema.projectEncryptionKeys.projectId, environment.projectId)
+  });
+
+  if (!encryptionKey) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to decrypt environment content' }
+    };
+  }
+
+  const content = await decryptAESGCM(encryptionKey.key, version.encryptedContent);
+
+  return {
+    status: 200 as const,
+    body: {
+      id: version.id,
+      environmentId: version.environmentId,
+      savedBy: version.savedBy,
+      createdAt: version.createdAt,
+      updatedAt: version.updatedAt,
+      content,
+      versionNumber: targetVersion
+    } satisfies EnvironmentVersion
   };
 };

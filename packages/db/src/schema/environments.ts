@@ -8,7 +8,7 @@ export const environments = pgTable('environments', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   freeForm: boolean('free_form').notNull().default(false),
-  projectId: uuid('project_id').references(() => projects.id),
+  projectId: uuid('project_id').references(() => projects.id).notNull(),
   ...timestamps
 });
 
