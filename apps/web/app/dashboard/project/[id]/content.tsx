@@ -4,8 +4,11 @@ import { tsr } from '../../../tsr';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import LoadingScreen from '@repo/ui/loading';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@repo/ui/button';
+import { Select } from '@repo/ui/select';
+import { EnvironmentWithVersions, EnvironmentVersion } from '@repo/rest';
+import { ConfirmDialog } from '@repo/ui/confirm-dialog';
 
 export default function ProjectContent({ id }: { id: string }) {
   const { data, isLoading } = tsr.projects.getProject.useQuery({
@@ -13,18 +16,60 @@ export default function ProjectContent({ id }: { id: string }) {
     queryData: { params: { id } }
   });
 
-  const { data: environments, isLoading: environmentsLoading } = tsr.environments.getEnvironments.useQuery({
+  const { data: environments, isLoading: environmentsLoading, refetch: refetchEnvironments } = tsr.environments.getEnvironments.useQuery({
     queryKey: ['environments', id],
-    queryData: { query: { projectId: id } }
+    queryData: { query: { projectId: id } },
   });
 
-  const [activeEnv, setActiveEnv] = useState<string | null>(null);
+  const { mutate: createEnvironment } = tsr.environments.createEnvironment.useMutation({
+    onSuccess: () => {
+      refetchEnvironments();
+    },
+  });
+
+  const { mutate: updateEnvironmentContent } = tsr.environments.updateEnvironmentContent.useMutation({
+    onSuccess: () => {
+      // invalidate other queries
+      refetchEnvironments();
+    },
+  });
+  const [activeEnv, setActiveEnv] = useState<EnvironmentWithVersions | null>(null);
+  const [activeTab, setActiveTab] = useState<"content" | "configure">("content");
+  const [activeVersion, setActiveVersion] = useState<EnvironmentVersion | null>(null);
+  const [content, setContent] = useState<string>("");
+  const contentChanged = useMemo(() => {
+    return (activeVersion && activeVersion.content !== content) || (!activeVersion && content !== "");
+  }, [activeVersion, content]);
+  
+  const onSaveClicked = () => {
+    if (activeEnv) {
+      updateEnvironmentContent({
+        params: { id: activeEnv.id },
+        body: { content }
+      });
+    }
+  }
+
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  const onCreateEnvironment = (name?: string) => {
+    if (!name) return;
+    createEnvironment({
+      body: {
+        name,
+        projectId: id,
+        content: activeVersion?.content
+      }
+    });
+    setShowCreateDialog(false);
+  };
 
   // Set first environment as active when data loads
   useEffect(() => {
     const envs = environments?.body;
     if (envs && envs.length > 0 && !activeEnv) {
-      setActiveEnv(envs[0]!.id);
+      setActiveEnv(envs[0]!);
+      setActiveVersion(envs[0]!.versions[0] ?? null);
     }
   }, [environments, activeEnv]);
 
@@ -63,7 +108,47 @@ export default function ProjectContent({ id }: { id: string }) {
         </div>
 
         <div className="space-y-2 border-t border-neutral-800 pt-4"/> {/* separator */}
-        <Button>Create Environment</Button>
+
+        <div className="flex gap-6 items-center justify-start">
+          <div>
+            <span className="text-neutral-400 pr-2 text-xs">Environment:</span>
+            <Select
+              className="min-w-[120px]"
+              options={environments?.body.map((env) => ({ value: env.id, label: env.name })) || []}
+              value={activeEnv?.id || ''}
+              onChange={(value) => setActiveEnv(environments?.body.find(env => env.id === value) || null)}
+            />
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>Create Environment</Button>
+        </div>
+
+        <ConfirmDialog
+          open={showCreateDialog}
+          onClose={() => setShowCreateDialog(false)}
+          onConfirm={onCreateEnvironment}
+          title="Create Environment"
+          description="Enter a name for the new environment"
+          confirmText="Create"
+          textInput={{
+            label: "Environment Name",
+            description: "The name of the environment, e.g. dev, prod",
+            placeholder: "e.g. dev, prod"
+          }}
+        />
+
+        {(activeEnv && activeEnv.versions?.length) ?
+        <div className="flex gap-6 items-center justify-start">
+            <div>
+              <span className="text-neutral-400 pr-2 text-xs">Version:</span>
+              <Select
+                className="min-w-[120px]"
+                options={activeEnv?.versions.map((value, index) => ({ value: value.id, label: `v${index + 1}` })) || []}
+                value={activeEnv?.versions[0]?.id || ''}
+                onChange={(value) => setActiveEnv(environments?.body.find(env => env.id === value) || null)}
+              />
+          </div>
+        </div>
+        : null}
 
         <div className="space-y-4">
           {environmentsLoading ? (
@@ -83,33 +168,44 @@ export default function ProjectContent({ id }: { id: string }) {
           ) : (
             <div className="overflow-hidden">
               <div className="flex border-b border-neutral-800">
-                {environments.body.map(env => (
                   <button
-                    key={env.id}
-                    onClick={() => setActiveEnv(env.id)}
+                    onClick={() => setActiveTab("content")}
                     className={`px-3 py-1.5 text-xs transition-colors rounded-t-lg ${
-                      activeEnv === env.id 
+                      activeTab === "content" 
                         ? 'bg-neutral-900 text-white border-x border-t border-neutral-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900' 
                         : 'bg-neutral-800 text-neutral-400 hover:text-white'
                     }`}
                   >
-                    {env.name}
+                    Content
                   </button>
-                ))}
+                  <button
+                    onClick={() => setActiveTab("configure")}
+                    className={`px-3 py-1.5 text-xs transition-colors rounded-t-lg ${
+                      activeTab === "configure" 
+                        ? 'bg-neutral-900 text-white border-x border-t border-neutral-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900' 
+                        : 'bg-neutral-800 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    Settings
+                  </button>
               </div>
 
-              {environments.body.map(env => (
+              {activeTab === "content" && activeEnv && (
                 <div
-                  key={env.id}
-                  className={activeEnv === env.id ? 'block' : 'hidden'}
+                  key={activeEnv.id}
+                  className="block"
                 >
                   <textarea
                     className="w-full bg-neutral-900 p-3 font-mono text-sm min-h-[600px] max-h-[900px] focus:outline-none"
-                    defaultValue={""}
+                    defaultValue={activeVersion?.content ?? ""}
+                    onChange={(e) => setContent(e.target.value)}
                   />
+                    <Button disabled={!contentChanged} onClick={onSaveClicked}>Save</Button>
                 </div>
-              ))}
+
+              )}
             </div>
+
           )}
         </div>
       </main>

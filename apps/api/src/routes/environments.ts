@@ -2,8 +2,7 @@ import { db, Schema } from '@repo/db';
 import { eq, and, count, exists, not, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { webcrypto } from 'node:crypto';
-import { cryptAESGCM } from '../crypto/crypto';
+import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
 
 export const getEnvironment = async ({ req, params: { id } }:
   { req: TsRestRequest<typeof contract.environments.getEnvironment>; params: { id: string } }) => {
@@ -129,7 +128,7 @@ export const getEnvironments = async ({ req, query: { projectId } }:
           .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
           .map(v => ({
             ...v,
-            content: v.encryptedContent.toString()
+            content:  "todo"
           }))
       }))
     };
@@ -140,7 +139,7 @@ export const createEnvironment = async ({
   body: { name, projectId, content, allowedUserIds }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
-  body: { name: string; projectId: string; content: string; allowedUserIds?: string[] } 
+  body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
 }) => {
   if (!req.user) {
     return {
@@ -165,7 +164,7 @@ export const createEnvironment = async ({
     };
   }
 
-  // Create environment and first version.
+  // Create environment and first version if content is provided.
   const environment = await db.transaction(async (tx) => {
     const encryptionKey = await tx.query.projectEncryptionKeys.findFirst({
       where: eq(Schema.projectEncryptionKeys.projectId, projectId)
@@ -173,22 +172,25 @@ export const createEnvironment = async ({
 
     if (!encryptionKey) return null;
 
+      const [env] = await tx.insert(Schema.environments)
+        .values({
+          name,
+          projectId: projectId
+        })
+        .returning();
+
+      if (!env) return null;
+    if (content !== undefined) {
     // Encrypt content using project key
-    const encryptedContent = await cryptAESGCM(encryptionKey.key, content);
-    const [env] = await tx.insert(Schema.environments)
-      .values({
-        name,
-        projectId: projectId
-      })
-      .returning();
+      const encryptedContent = await cryptAESGCM(encryptionKey.key, content);
 
-    if (!env) return null;
-
-    await tx.insert(Schema.environmentVersions)
-      .values({
-        environmentId: env.id,
-        encryptedContent: encryptedContent
-      });
+      await tx.insert(Schema.environmentVersions)
+        .values({
+          environmentId: env.id,
+          encryptedContent: encryptedContent,
+          savedBy: req.user!.id
+        });
+    }
 
     return env;
   });
@@ -298,7 +300,8 @@ export const updateEnvironmentContent = async ({
   const [updatedEnvironment] = await db.insert(Schema.environmentVersions)
     .values({
       environmentId: id,
-      encryptedContent
+      encryptedContent,
+      savedBy: req.user.id
     })
     .returning();
 

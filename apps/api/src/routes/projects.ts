@@ -112,7 +112,10 @@ export const createProject = async ({
     }
 
     // Generate and store encryption key
-    const key = Buffer.from(webcrypto.getRandomValues(new Uint8Array(32)));
+    const randomBytes = webcrypto.getRandomValues(new Uint8Array(32));
+    console.log("Random bytes length:", randomBytes.length);
+    const key = Buffer.from(randomBytes);
+    console.log("Key buffer length:", key.length);
     await tx.insert(Schema.projectEncryptionKeys)
       .values({
         projectId: project.id,

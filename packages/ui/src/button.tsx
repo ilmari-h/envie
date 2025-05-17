@@ -21,6 +21,7 @@ export const Button = ({ children, className, icon, onClick, disabled, ...props 
         variant === "accent" && "bg-yellow-900/[.3] hover:bg-yellow-900 border-yellow-900",
         variant === "destructive" && "bg-red-900/[.3] hover:bg-red-900 border-red-900",
         variant === "regular" && "bg-neutral-900 hover:bg-neutral-800 border-neutral-800",
+        disabled && "opacity-50 cursor-default hover:bg-neutral-900",
         className
       )}
       onClick={onClick}

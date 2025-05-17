@@ -29,7 +29,7 @@ const corsOptions = {
   origin: env.FRONTEND_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept-Encoding']
 };
 app.use(cors(corsOptions));
 
@@ -46,7 +46,6 @@ const getToken = async (req: express.Request) => {
   } else if (req.headers.authorization?.startsWith('Bearer ')) {
     return req.headers.authorization.split(' ')[1];
   }
-  console.log(req.cookies);
   throw new Error('No token provided');
 }
 

@@ -2,11 +2,13 @@ import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { bytea, timestamps } from './utils';
 import { environments } from './environments';
 import { relations } from 'drizzle-orm';
+import { users } from './users';
 
 export const environmentVersions = pgTable('environment_versions', {
   id: uuid('id').primaryKey().defaultRandom(),
   environmentId: uuid('environment_id').references(() => environments.id),
   encryptedContent: bytea('encrypted_content').notNull(),
+  savedBy: text('saved_by').references(() => users.id).notNull(),
   ...timestamps
 });
 

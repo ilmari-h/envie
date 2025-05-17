@@ -1,28 +1,47 @@
 import { webcrypto } from "node:crypto";
 
-export const cryptAESGCM = async (encryptionKey: Buffer<ArrayBufferLike>, content: string) => {
+export const cryptAESGCM = async (encryptionKey: Buffer, content: string) => {
   const iv = webcrypto.getRandomValues(new Uint8Array(12));
-  const key = await webcrypto.subtle.importKey(
-    'raw', encryptionKey, { name: 'AES-GCM' }, false, ['encrypt']
-  );
-  const encryptedContent = await webcrypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    Buffer.from(content)
-  );
-  return Buffer.concat([iv, Buffer.from(encryptedContent)]);
+  try {
+    const key = await webcrypto.subtle.importKey(
+      'raw', 
+      encryptionKey,
+      { name: 'AES-GCM', length: 256 }, 
+      false, 
+      ['encrypt']
+    );
+    const encryptedContent = await webcrypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      Buffer.from(content)
+    );
+    return Buffer.concat([iv, Buffer.from(encryptedContent)]);
+  } catch (error) {
+    console.error("Error encrypting content", error);
+    throw error;
+  }
 }
 
-export const decryptAESGCM = async (encryptionKey: Buffer<ArrayBufferLike>, content: Buffer<ArrayBufferLike>) => { 
+export const decryptAESGCM = async (encryptionKey: Buffer, content: Buffer) => { 
   const iv = content.subarray(0, 12);
   const encryptedContent = content.subarray(12);
-  const key = await webcrypto.subtle.importKey(
-    'raw', encryptionKey, { name: 'AES-GCM' }, false, ['decrypt']
-  );
-  const decryptedContent = await webcrypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encryptedContent
-  );
-  return Buffer.from(decryptedContent).toString();
+  
+  try {
+    const key = await webcrypto.subtle.importKey(
+      'raw', 
+      encryptionKey,
+      { name: 'AES-GCM', length: 256 }, 
+      false, 
+      ['decrypt']
+    );
+    const decryptedContent = await webcrypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedContent
+    );
+    return Buffer.from(decryptedContent).toString();
+  } catch (error) {
+    console.error("Error decrypting content", error);
+    throw error;
+  }
 }

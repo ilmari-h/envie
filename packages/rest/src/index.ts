@@ -1,8 +1,13 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
-import type { Environment, EnvironmentVersion, Organization, Project } from '@repo/db';
+import type { Environment, EnvironmentVersion as DBEnvironmentVersion, Organization, Project } from '@repo/db';
 
 const c = initContract();
+
+export type EnvironmentVersion = Omit<DBEnvironmentVersion, 'encryptedContent'> & { content: string };
+export type EnvironmentWithVersions = Environment & {
+  versions: EnvironmentVersion[];
+};
 
 const health = c.router({
   getHealth: {
@@ -67,9 +72,7 @@ const environments = c.router({
       projectId: z.string().optional()
     }),
     responses: {
-      200: c.type<(Environment & {
-        versions: (Omit<EnvironmentVersion, 'encryptedContent'> & { content: string })[]
-      })[]>()
+      200: c.type<EnvironmentWithVersions[]>()
     },
     summary: 'Get all environments for current user'
   },
@@ -93,7 +96,7 @@ const environments = c.router({
     body: z.object({
       name: z.string(),
       projectId: z.string(),
-      content: z.string(),
+      content: z.string().optional(),
       allowedUserIds: z.array(z.string()).optional()
     }),
     responses: {
