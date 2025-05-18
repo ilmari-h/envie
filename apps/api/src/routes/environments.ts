@@ -353,6 +353,7 @@ export const updateEnvironmentSettings = async ({
   }
 
   // Delete existing access entries and add new ones
+  // TODO: check that user IDs belong to the project 
   if (allowedUserIds) {
     await db.transaction(async (tx) => {
       await tx.delete(Schema.environmentAccess)

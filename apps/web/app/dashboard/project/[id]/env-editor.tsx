@@ -16,7 +16,9 @@ export function EnvEditor({ content, onChange, className }: EnvEditorProps) {
   const [vars, setVars] = useState<EnvVar[]>(parseEnvContent(content));
 
   useEffect(() => {
-    const newContent = vars.map(v => `${v.name}=${v.value}`).join("\n");
+    const newContent = vars
+      .filter(v => v.name !== "")
+      .map(v => `${v.name}=${v.value}`).join("\n");
     onChange(newContent);
   }, [vars, onChange]);
 
