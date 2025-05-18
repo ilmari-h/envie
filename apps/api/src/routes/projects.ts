@@ -18,9 +18,11 @@ export const getProject = async ({ req, params: { id } }:
 
   const result = await db.select({
     project: Schema.projects,
+    users: Schema.users
   })
     .from(Schema.projects)
     .innerJoin(Schema.projectAccess, eq(Schema.projects.id, Schema.projectAccess.projectId))
+    .innerJoin(Schema.users, eq(Schema.projectAccess.userId, Schema.users.id))
     .where(and(
       eq(Schema.projects.id, id),
       eq(Schema.projectAccess.userId, req.user.id)
@@ -37,6 +39,7 @@ export const getProject = async ({ req, params: { id } }:
     status: 200 as const,
     body: {
       ...result[0].project,
+      users: result.map(r => r.users)
     }
   };
 }

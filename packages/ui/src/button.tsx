@@ -10,9 +10,10 @@ interface ButtonProps {
   icon?: ReactNode;
   variant?: "regular" | "accent" | "destructive";
   disabled?: boolean;
+  type?: "button" | "submit" | "reset";
 }
 
-export const Button = ({ children, className, icon, onClick, disabled, ...props }: ButtonProps) => {
+export const Button = ({ children, className, icon, onClick, disabled, type, ...props }: ButtonProps) => {
   const variant = props.variant || "regular";
   return (
     <button 
@@ -26,6 +27,7 @@ export const Button = ({ children, className, icon, onClick, disabled, ...props 
       )}
       onClick={onClick}
       disabled={disabled}
+      type={type}
     >
       {icon}
       {children}

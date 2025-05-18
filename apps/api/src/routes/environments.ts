@@ -3,7 +3,7 @@ import { eq, and, count, exists, not, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
-import type { EnvironmentVersion } from '@repo/rest';
+import type { EnvironmentVersion, EnvironmentWithLatestVersion } from '@repo/rest';
 
 export const getEnvironments = async ({ req, query: { projectId, environmentId } }:
   {
@@ -57,10 +57,19 @@ export const getEnvironments = async ({ req, query: { projectId, environmentId }
         const totalVersions = await db.select({ count: count() })
           .from(Schema.environmentVersions)
           .where(eq(Schema.environmentVersions.environmentId, e.id));
+
+        const accessControl = await db.select()
+          .from(Schema.environmentAccess)
+          .innerJoin(Schema.users, eq(Schema.environmentAccess.userId, Schema.users.id))
+          .where(eq(Schema.environmentAccess.environmentId, e.id));
         if (!latestVersion) return {
           ...e,
-          latestVersion: null
-        };
+          latestVersion: null,
+          accessControl: {
+            projectWide: accessControl.length === 0,
+            users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
+          }
+        } satisfies EnvironmentWithLatestVersion;
         const content = await decryptAESGCM(encryptionKey.key, latestVersion.encryptedContent);
         return {
           ...e,
@@ -68,8 +77,12 @@ export const getEnvironments = async ({ req, query: { projectId, environmentId }
             ...latestVersion,
             content,
             versionNumber: totalVersions[0]?.count ?? 1
-          } satisfies EnvironmentVersion
-        };
+          } satisfies EnvironmentVersion,
+          accessControl: {
+            projectWide: accessControl.length === 0,
+            users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
+          }
+        } satisfies EnvironmentWithLatestVersion;
       })
     )
 
@@ -125,19 +138,52 @@ export const createEnvironment = async ({
         .returning();
 
       if (!env) return null;
-    if (content !== undefined) {
-    // Encrypt content using project key
-      const encryptedContent = await cryptAESGCM(encryptionKey.key, content);
 
-      await tx.insert(Schema.environmentVersions)
+      // Create an environment access with just the creator or if user id's provided, use those.
+      // Also check that all user ids belong to the project.
+      const userIds = allowedUserIds ?? [req.user!.id];
+      const projectUsers = await tx.select()
+        .from(Schema.projectAccess)
+        .where(and(
+          eq(Schema.projectAccess.projectId, projectId),
+          inArray(Schema.projectAccess.userId, userIds)
+        ));
+      if (projectUsers.length !== userIds.length) {
+        return null;
+      }
+      await tx.insert(Schema.environmentAccess)
+        .values(userIds.map(userId => ({
+          environmentId: env.id,
+          userId
+        })));
+
+      // Encrypt content using project key
+      const encryptedContent = await cryptAESGCM(encryptionKey.key, content ?? "");
+
+      const [latestVersion] = await tx.insert(Schema.environmentVersions)
         .values({
           environmentId: env.id,
           encryptedContent: encryptedContent,
           savedBy: req.user!.id
-        });
-    }
+        }).returning();
 
-    return env;
+      if (!latestVersion) return null;
+      const allowedUsers = await tx.select()
+        .from(Schema.users)
+        .where(inArray(Schema.users.id, userIds));
+
+      return {
+        ...env,
+        latestVersion: {
+          ...latestVersion,
+          content: content ?? "",
+          versionNumber: 1,
+        } satisfies EnvironmentVersion,
+        accessControl: {
+          projectWide: allowedUserIds ? false : true,
+          users: allowedUsers
+        }
+      } satisfies EnvironmentWithLatestVersion;
   });
 
   if (!environment) {
@@ -263,14 +309,14 @@ export const updateEnvironmentContent = async ({
   };
 };
 
-export const updateEnvironmentAccess = async ({
+export const updateEnvironmentSettings = async ({
   req,
   params: { id },
-  body: { userIds }
+  body: { allowedUserIds, preserveVersions }
 }: {
-  req: TsRestRequest<typeof contract.environments.updateEnvironmentAccess>;
-  params: { id: string };
-  body: { userIds: string[] }
+  req: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>;
+  params: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['params'];
+  body: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['body']
 }) => {
   if (!req.user) {
     return {
@@ -306,19 +352,30 @@ export const updateEnvironmentAccess = async ({
     };
   }
 
-  // Delete existing access entries
-  await db.delete(Schema.environmentAccess)
-    .where(eq(Schema.environmentAccess.environmentId, id));
+  // Delete existing access entries and add new ones
+  if (allowedUserIds) {
+    await db.transaction(async (tx) => {
+      await tx.delete(Schema.environmentAccess)
+        .where(eq(Schema.environmentAccess.environmentId, id));
+      if (allowedUserIds.length > 0) {
+        await tx.insert(Schema.environmentAccess)
+          .values(
+            allowedUserIds.map(userId => ({
+              environmentId: id,
+              userId
+            }))
+          );
+      }
+    });
+  }
 
-  // Add new access entries
-  if (userIds.length > 0) {
-    await db.insert(Schema.environmentAccess)
-      .values(
-        userIds.map(userId => ({
-          environmentId: id,
-          userId
-        }))
-      );
+  // Update preserve versions
+  if (preserveVersions !== undefined) {
+    await db.update(Schema.environments)
+      .set({
+        preservedVersions: preserveVersions
+      })
+      .where(eq(Schema.environments.id, id));
   }
 
   return {

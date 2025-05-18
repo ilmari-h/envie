@@ -1,12 +1,20 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
-import type { Environment, EnvironmentVersion as DBEnvironmentVersion, Organization, Project } from '@repo/db';
+import type { Environment, EnvironmentVersion as DBEnvironmentVersion, Organization, Project, User } from '@repo/db';
 
 const c = initContract();
 
 export type EnvironmentVersion = Omit<DBEnvironmentVersion, 'encryptedContent'> & { content: string, versionNumber: number };
 export type EnvironmentWithLatestVersion = Environment & {
   latestVersion: EnvironmentVersion | null;
+  accessControl: {
+    projectWide: boolean;
+    users?: User[];
+  };
+};
+
+export type ProjectWithUsers = Project & {
+  users: User[];
 };
 
 const health = c.router({
@@ -37,7 +45,7 @@ const projects = c.router({
       id: z.string()
     }),
     responses: {
-      200: c.type<Project>(),
+      200: c.type<ProjectWithUsers>(),
       401: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     }
@@ -100,7 +108,7 @@ const environments = c.router({
       allowedUserIds: z.array(z.string()).optional()
     }),
     responses: {
-      201: c.type<Environment>(),
+      201: c.type<EnvironmentWithLatestVersion>(),
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
@@ -124,21 +132,22 @@ const environments = c.router({
     summary: 'Update environment content'
   },
 
-  updateEnvironmentAccess: {
+  updateEnvironmentSettings: {
     method: 'PUT',
-    path: '/environments/:id/access',
+    path: '/environments/:id/settings',
     pathParams: z.object({
       id: z.string()
     }),
     body: z.object({
-      userIds: z.array(z.string())
+      allowedUserIds: z.array(z.string()).describe("If empty array, allow access to all users in the project").optional(),
+      preserveVersions: z.number().min(5).max(100).optional()
     }),
     responses: {
       200: z.object({ message: z.string() }),
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
-    summary: 'Update environment access control'
+    summary: 'Update environment settings'
   }
 })
 

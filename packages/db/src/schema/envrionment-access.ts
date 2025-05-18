@@ -5,7 +5,7 @@ import { timestamps } from './utils';
 
 export const environmentAccess = pgTable('environment_access', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').references(() => users.id),
-  environmentId: uuid('environment_id').references(() => environments.id),
+  userId: text('user_id').references(() => users.id).notNull(),
+  environmentId: uuid('environment_id').references(() => environments.id).notNull(),
   ...timestamps
 });

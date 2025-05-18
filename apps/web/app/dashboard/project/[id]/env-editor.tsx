@@ -45,14 +45,14 @@ export function EnvEditor({ content, onChange, className }: EnvEditorProps) {
             value={envVar.name}
             onChange={(e) => updateVar(index, "name", e.target.value)}
             placeholder="Variable name"
-            className="flex-1 text-xs px-3 py-2 rounded border transition-colors appearance-none bg-neutral-900 hover:bg-neutral-800 border-neutral-800"
+            className="min-w-[100px] flex-1 text-xs px-3 py-2 rounded border transition-colors appearance-none bg-neutral-900 hover:bg-neutral-800 border-neutral-800"
           />
           <input
             type="text"
             value={envVar.value}
             onChange={(e) => updateVar(index, "value", e.target.value)}
             placeholder="Value"
-            className="flex-1 text-xs px-3 py-2 rounded border transition-colors appearance-none bg-neutral-900 hover:bg-neutral-800 border-neutral-800"
+            className="min-w-[100px] flex-1 text-xs px-3 py-2 rounded border transition-colors appearance-none bg-neutral-900 hover:bg-neutral-800 border-neutral-800"
           />
           <button
             type="button"

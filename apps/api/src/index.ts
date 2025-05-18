@@ -12,7 +12,7 @@ import {
   getEnvironmentVersion,
   createEnvironment, 
   updateEnvironmentContent, 
-  updateEnvironmentAccess,
+  updateEnvironmentSettings,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization } from './routes/organizations';
@@ -92,9 +92,9 @@ const router = s.router(contract, {
       middleware: [validateJWT],
       handler: updateEnvironmentContent
     },
-    updateEnvironmentAccess: {
+    updateEnvironmentSettings: {
       middleware: [validateJWT],
-      handler: updateEnvironmentAccess
+      handler: updateEnvironmentSettings
     }
   }),
   organizations: s.router(contract.organizations, {
@@ -139,12 +139,12 @@ passport.use(new GitHubStrategy({
     const githubUserId = `github:${profile.id}`;
     await db.insert(Schema.users).values({
       id: githubUserId,
-      name: profile.displayName,
+      name: profile.username || profile.displayName,
       email: profile.emails?.[0]?.value
     }).onConflictDoUpdate({
       target: Schema.users.id,
       set: {
-        name: profile.displayName,
+        name: profile.username || profile.displayName,
         email: profile.emails?.[0]?.value
       }
     });

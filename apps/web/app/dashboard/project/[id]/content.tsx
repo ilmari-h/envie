@@ -14,7 +14,7 @@ import { cn } from "@sglara/cn";
 import { EnvEditor } from './env-editor';
 import { Toggle } from '@repo/ui/toggle';
 import { parseEnvContent } from './utils';
-import { text } from 'stream/consumers';
+import { Settings } from './settings';
 
 export default function ProjectContent({ id }: { id: string }) {
   const { data, isLoading } = tsr.projects.getProject.useQuery({
@@ -28,8 +28,9 @@ export default function ProjectContent({ id }: { id: string }) {
   });
 
   const { mutate: createEnvironment } = tsr.environments.createEnvironment.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
       refetchEnvironments();
+      setActiveEnv(data.body)
     },
   });
 
@@ -60,8 +61,8 @@ export default function ProjectContent({ id }: { id: string }) {
 
   const duplicateKeys = useMemo(() => {
     const vars = parseEnvContent(content);
-    const duplicates = vars.filter((v, i, arr) => arr.findIndex(t => t.name === v.name) !== i);
-    return duplicates;
+    const duplicates = vars.filter((v, i, arr) => arr.findIndex(t => t.name === v.name) !== i).map(v => v.name);
+    return Array.from(new Set(duplicates));
   }, [content]);
   
   const onSaveClicked = () => {
@@ -90,9 +91,10 @@ export default function ProjectContent({ id }: { id: string }) {
   // Set first environment as active when data loads
   useEffect(() => {
     const envs = environments?.body;
-    if (envs && envs.length > 0 && envs[0] ) {
-      setActiveEnv(envs[0]);
-      setActiveVersion(envs[0].latestVersion?.versionNumber ?? null);
+    const selectedEnv = activeEnv ? envs?.find(e => e.id === activeEnv?.id) : envs?.[0];
+    if (selectedEnv) {
+        setActiveEnv(selectedEnv);
+      setActiveVersion(selectedEnv.latestVersion?.versionNumber ?? null);
     }
   }, [environments, activeEnv]);
 
@@ -154,8 +156,8 @@ export default function ProjectContent({ id }: { id: string }) {
           confirmText="Create"
           textInput={{
             label: "Environment Name",
-            description: "The name of the environment, e.g. dev, prod",
-            placeholder: "e.g. dev, prod"
+            description: "A unique name for the environment, e.g. dev, prod",
+            placeholder: "e.g. dev, prod, dev:john etc."
           }}
         />
 
@@ -192,7 +194,7 @@ export default function ProjectContent({ id }: { id: string }) {
               <p className="text-xs">Create an environment to store configuration values for this project</p>
             </div>
           ) : (
-            <div className="overflow-hidden">
+            <div>
               <div className="flex border-b border-accent-800">
                   <button
                     onClick={() => setActiveTab("content")}
@@ -247,7 +249,7 @@ export default function ProjectContent({ id }: { id: string }) {
                         {contentChanged ? "Unsaved changes" : "No unsaved changes"}
                         {duplicateKeys.length > 0 && (
                           <div className="text-xs text-red-400">
-                            {duplicateKeys.length} duplicate key(s): {duplicateKeys.map(k => k.name).join(", ")}
+                            {duplicateKeys.length} duplicate key(s): {duplicateKeys.join(", ")}
                           </div>
                         )}
                       </div>
@@ -261,6 +263,21 @@ export default function ProjectContent({ id }: { id: string }) {
                       />
                     </div>
                   </div>
+                </div>
+              )}
+              {(activeTab === "configure" && activeEnv )
+                && (
+                  <div className="overflow-visible">
+                    <Settings
+                      environmentId={activeEnv.id}
+                      name={activeEnv?.name ?? ""}
+                      projectUsers={project.users}
+                      accessControl={{
+                      projectWide: activeEnv.accessControl.projectWide,
+                      users: activeEnv.accessControl.users ?? []
+                    }}
+                    preserveVersions={activeEnv.preservedVersions}
+                  />
                 </div>
               )}
             </div>
