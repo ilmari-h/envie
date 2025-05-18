@@ -7,9 +7,14 @@ import LoadingScreen from '@repo/ui/loading';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@repo/ui/button';
 import { Select } from '@repo/ui/select';
-import { EnvironmentWithLatestVersion, EnvironmentVersion } from '@repo/rest';
+import { EnvironmentWithLatestVersion } from '@repo/rest';
 import { ConfirmDialog } from '@repo/ui/confirm-dialog';
 import { useEnvVersion } from '../../../../hooks/use-env-version';
+import { cn } from "@sglara/cn";
+import { EnvEditor } from './env-editor';
+import { Toggle } from '@repo/ui/toggle';
+import { parseEnvContent } from './utils';
+import { text } from 'stream/consumers';
 
 export default function ProjectContent({ id }: { id: string }) {
   const { data, isLoading } = tsr.projects.getProject.useQuery({
@@ -36,16 +41,28 @@ export default function ProjectContent({ id }: { id: string }) {
   });
   const [activeEnv, setActiveEnv] = useState<EnvironmentWithLatestVersion | null>(null);
   const [activeTab, setActiveTab] = useState<"content" | "configure">("content");
+  const [textMode, setTextMode] = useState<boolean>(true);
   const [activeVersion, setActiveVersion] = useState<number | null>(null);
   const [content, setContent] = useState<string>("");
   const { data: activeVersionData, isLoading: activeVersionLoading } = useEnvVersion(
     activeEnv?.id, activeVersion !== null ? activeVersion : undefined
   );
 
+  useEffect(() => {
+    if (activeVersionData) {
+      setContent(activeVersionData.content);
+    }
+  }, [activeVersionData, setContent]);
+
   const contentChanged = useMemo(() => {
     return (activeVersionData && activeVersionData.content !== content) || (!activeVersionData && content !== "");
-  }, [activeVersion, content]);
+  }, [activeVersionData, content]);
 
+  const duplicateKeys = useMemo(() => {
+    const vars = parseEnvContent(content);
+    const duplicates = vars.filter((v, i, arr) => arr.findIndex(t => t.name === v.name) !== i);
+    return duplicates;
+  }, [content]);
   
   const onSaveClicked = () => {
     if (activeEnv) {
@@ -176,45 +193,77 @@ export default function ProjectContent({ id }: { id: string }) {
             </div>
           ) : (
             <div className="overflow-hidden">
-              <div className="flex border-b border-neutral-800">
+              <div className="flex border-b border-accent-800">
                   <button
                     onClick={() => setActiveTab("content")}
-                    className={`px-3 py-1.5 text-xs transition-colors rounded-t-lg ${
+                    className={cn(`px-3 py-1.5 text-xs transition-colors rounded-t-lg`,
                       activeTab === "content" 
-                        ? 'bg-neutral-900 text-white border-x border-t border-neutral-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900' 
+                        ? cn( textMode ? 'bg-neutral-900 text-white' : 'bg-transparent text-white', 'border-x border-t border-accent-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900') 
                         : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                    }`}
+                    )}
                   >
                     Content
                   </button>
                   <button
                     onClick={() => setActiveTab("configure")}
-                    className={`px-3 py-1.5 text-xs transition-colors rounded-t-lg ${
+                    className={cn(`px-3 py-1.5 text-xs transition-colors rounded-t-lg`,
                       activeTab === "configure" 
-                        ? 'bg-neutral-900 text-white border-x border-t border-neutral-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900' 
+                        ? 'bg-transparent text-white border-x border-t border-accent-800 relative after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[1px] after:bg-neutral-900' 
                         : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                    }`}
+                    )}
                   >
                     Settings
                   </button>
+
               </div>
+
 
               {activeTab === "content" && activeEnv && activeVersionData && (
                 <div
                   key={activeVersionData.versionNumber}
                   className="block"
                 >
-                  <textarea
-                    className="w-full bg-neutral-900 p-3 font-mono text-sm min-h-[600px] max-h-[900px] focus:outline-none"
-                    defaultValue={activeVersionData.content}
-                    onChange={(e) => setContent(e.target.value)}
-                  />
-                    <Button disabled={!contentChanged} onClick={onSaveClicked}>Save</Button>
-                </div>
 
+                  {textMode ? (
+                    <textarea
+                      className="w-full bg-neutral-900 p-3 font-mono text-sm min-h-[600px] max-h-[900px] focus:outline-none"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      spellCheck={false}
+                    />
+                  ) : (
+                    <EnvEditor className='mt-2' content={content} onChange={setContent} />
+                  )}
+
+                  <div className="flex justify-between gap-2 mt-2">
+                    <div className="flex gap-2">
+                      <Button
+                        disabled={!contentChanged || duplicateKeys.length > 0}
+                        onClick={onSaveClicked}
+                      >
+                        Save
+                      </Button>
+                      <div className={cn("mt-1 text-xs text-neutral-400", contentChanged ? "text-red-400" : "")}>
+                        {contentChanged ? "Unsaved changes" : "No unsaved changes"}
+                        {duplicateKeys.length > 0 && (
+                          <div className="text-xs text-red-400">
+                            {duplicateKeys.length} duplicate key(s): {duplicateKeys.map(k => k.name).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end mb-2">
+                      <Toggle
+                        checked={!textMode}
+                        onChange={(checked) => setTextMode(!checked)}
+                        label="Visual Editor"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-
           )}
         </div>
       </main>

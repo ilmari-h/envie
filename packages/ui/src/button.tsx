@@ -18,7 +18,7 @@ export const Button = ({ children, className, icon, onClick, disabled, ...props 
     <button 
       className={cn(
         "flex text-xs items-center justify-center gap-2 px-3 py-2 rounded border transition-colors",
-        variant === "accent" && "bg-yellow-900/[.3] hover:bg-yellow-900 border-yellow-900",
+        variant === "accent" && "bg-accent-900/[.3] hover:bg-accent-900 border-accent-900",
         variant === "destructive" && "bg-red-900/[.3] hover:bg-red-900 border-red-900",
         variant === "regular" && "bg-neutral-900 hover:bg-neutral-800 border-neutral-800",
         disabled && "opacity-50 cursor-default hover:bg-neutral-900",
