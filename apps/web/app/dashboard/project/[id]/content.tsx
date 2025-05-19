@@ -1,7 +1,7 @@
 "use client";
 
 import { tsr } from '../../../tsr';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import LoadingScreen from '@repo/ui/loading';
 import { useState, useEffect, useMemo } from 'react';
@@ -113,11 +113,17 @@ export default function ProjectContent({ id }: { id: string }) {
   return (
     <div>
       <main className="flex flex-col mt-8 gap-6 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="hover:text-neutral-400 transition-colors">
-            <ArrowLeft size={16} />
+        <div className="flex items-center justify-between">
+          <div className='flex items-center gap-3'>
+            <Link href="/dashboard" className="hover:text-neutral-400 transition-colors">
+              <ArrowLeft size={16} />
+            </Link>
+            <h3 className="font-mono">{project.name}</h3>
+          </div>
+          <Link href={`/dashboard/project/${id}/edit`} className='flex items-center gap-2 text-sm text-neutral-400'>
+            <Pencil className='w-3 h-3'/> 
+              Project Settings
           </Link>
-          <h3 className="font-mono">{project.name}</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

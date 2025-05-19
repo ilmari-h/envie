@@ -16,7 +16,7 @@ import {
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization } from './routes/organizations';
-import { getProjects, createProject, getProject } from './routes/projects';
+import { getProjects, createProject, getProject, updateProject, generateInviteLink, removeUser } from './routes/projects';
 import { and, eq } from 'drizzle-orm';
 import { getMe } from './routes/users';
 const AUTH_COOKIE_NAME = 'envie_token';
@@ -125,6 +125,18 @@ const router = s.router(contract, {
     getProject: {
       middleware: [validateJWT],
       handler: getProject
+    },
+    updateProject: {
+      middleware: [validateJWT],
+      handler: updateProject
+    },
+    generateInviteLink: {
+      middleware: [validateJWT],
+      handler: generateInviteLink
+    },
+    removeUser: {
+      middleware: [validateJWT],
+      handler: removeUser
     }
   })
 });

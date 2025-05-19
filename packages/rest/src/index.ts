@@ -69,6 +69,51 @@ const projects = c.router({
       201: c.type<Project>(),
       403: z.object({ message: z.string() })
     }
+  },
+  updateProject: {
+    method: 'PUT',
+    path: '/projects/:id',
+    pathParams: z.object({
+      id: z.string()
+    }),
+    body: z.object({
+      name: z.string(),
+      description: z.string(),
+    }),
+    responses: {
+      200: c.type<Project>(),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
+  },
+  generateInviteLink: {
+    method: 'POST',
+    path: '/projects/:id/invite',
+    pathParams: z.object({
+      id: z.string()
+    }),
+    body: z.object({
+      oneTimeUse: z.boolean(),
+      expiresAt: z.date(),
+    }),
+    responses: {
+      200: z.object({ link: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
+  },
+  removeUser: {
+    method: 'DELETE',
+    path: '/projects/:id/users/:userId',
+    pathParams: z.object({
+      id: z.string(),
+      userId: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
   }
 })
 

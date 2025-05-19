@@ -147,3 +147,169 @@ export const createProject = async ({
     body: project
   };
 };
+
+export const updateProject = async ({
+  req,
+  params: { id },
+  body: { name, description }
+}: {
+  req: TsRestRequest<typeof contract.projects.updateProject>;
+  params: TsRestRequest<typeof contract.projects.updateProject>['params'];
+  body: TsRestRequest<typeof contract.projects.updateProject>['body'];
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  // Check if user has access to project
+  const hasAccess = await db.select()
+    .from(Schema.projectAccess)
+    .where(and(
+      eq(Schema.projectAccess.projectId, id),
+      eq(Schema.projectAccess.userId, req.user.id)
+    ))
+    .limit(1);
+
+  if (hasAccess.length === 0) {
+    return {
+      status: 403 as const,
+      body: { message: 'Access denied' }
+    };
+  }
+
+  const [project] = await db.update(Schema.projects)
+    .set({
+      name,
+      description,
+      updatedAt: new Date()
+    })
+    .where(eq(Schema.projects.id, id))
+    .returning();
+
+  if (!project) {
+    return {
+      status: 404 as const,
+      body: { message: 'Project not found' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: project
+  };
+};
+
+export const generateInviteLink = async ({
+  req,
+  params: { id },
+  body: { oneTimeUse, expiresAt }
+}: {
+  req: TsRestRequest<typeof contract.projects.generateInviteLink>;
+  params: TsRestRequest<typeof contract.projects.generateInviteLink>['params'];
+  body: TsRestRequest<typeof contract.projects.generateInviteLink>['body'];
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  // Check if user has access to project
+  const hasAccess = await db.select()
+    .from(Schema.projectAccess)
+    .where(and(
+      eq(Schema.projectAccess.projectId, id),
+      eq(Schema.projectAccess.userId, req.user.id)
+    ))
+    .limit(1);
+
+  if (hasAccess.length === 0) {
+    return {
+      status: 403 as const,
+      body: { message: 'Access denied' }
+    };
+  }
+
+  // Generate a unique token
+  const token = webcrypto.randomUUID();
+
+  // Store the invite link in the database
+  await db.insert(Schema.projectInvites)
+    .values({
+      projectId: id,
+      token,
+      oneTimeUse,
+      expiresAt,
+      createdBy: req.user.id
+    });
+
+  return {
+    status: 200 as const,
+    body: {
+      link: `${process.env.FRONTEND_URL}/invite?inviteId=${token}`
+    }
+  };
+};
+
+export const removeUser = async ({
+  req,
+  params: { id, userId }
+}: {
+  req: TsRestRequest<typeof contract.projects.removeUser>;
+  params: TsRestRequest<typeof contract.projects.removeUser>['params'];
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  // Check if user has access to project
+  const hasAccess = await db.select()
+    .from(Schema.projectAccess)
+    .where(and(
+      eq(Schema.projectAccess.projectId, id),
+      eq(Schema.projectAccess.userId, req.user.id)
+    ))
+    .limit(1);
+
+  if (hasAccess.length === 0) {
+    return {
+      status: 403 as const,
+      body: { message: 'Access denied' }
+    };
+  }
+
+  // Cannot remove yourself
+  if (userId === req.user.id) {
+    return {
+      status: 403 as const,
+      body: { message: 'Cannot remove yourself from the project' }
+    };
+  }
+
+  // Remove user from project access
+  const result = await db.delete(Schema.projectAccess)
+    .where(and(
+      eq(Schema.projectAccess.projectId, id),
+      eq(Schema.projectAccess.userId, userId)
+    ))
+    .returning();
+
+  if (result.length === 0) {
+    return {
+      status: 404 as const,
+      body: { message: 'User not found in project' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: { message: 'User removed from project' }
+  };
+};
