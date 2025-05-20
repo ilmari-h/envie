@@ -10,6 +10,7 @@ import Link from "next/link";
 import { tsr } from "../../../../tsr";
 import { ConfirmDialog } from "@repo/ui/confirm-dialog";
 import type { User } from "@repo/db";
+import { useRouter } from "next/navigation";
 
 const editFormSchema = z.object({
   name: z.string().min(1, "Project name is required"),
@@ -32,9 +33,12 @@ function FieldInfo({ field }: { field: any }) {
 
 export default function EditProject({ params }: { params: { id: string } }) {
   const [showDeleteUserDialog, setShowDeleteUserDialog] = useState(false);
+  const [showRemoveLinksDialog, setShowRemoveLinksDialog] = useState(false);
+  const [showDeleteProjectDialog, setShowDeleteProjectDialog] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
   const { data: projectData } = tsr.projects.getProject.useQuery({
     queryKey: ['project', params.id],
     queryData: { params: { id: params.id } }
@@ -46,7 +50,17 @@ export default function EditProject({ params }: { params: { id: string } }) {
       setInviteLink(data.body.link);
     }
   });
+  const { mutate: removeInviteLinks } = tsr.projects.removeInviteLinks.useMutation({
+    onSuccess: () => {
+      setInviteLink(null);
+    }
+  });
   const { mutate: removeUser } = tsr.projects.removeUser.useMutation();
+  const { mutate: deleteProject } = tsr.projects.deleteProject.useMutation({
+    onSuccess: () => {
+      router.push('/dashboard');
+    }
+  });
 
   const form = useForm({
     defaultValues: {
@@ -233,6 +247,14 @@ export default function EditProject({ params }: { params: { id: string } }) {
                 </button>
               </div>
             )}
+
+            <Button
+              onClick={() => setShowRemoveLinksDialog(true)}
+              variant="destructive"
+              className="w-full"
+            >
+              Remove All Invite Links
+            </Button>
           </div>
         </div>
 
@@ -273,6 +295,23 @@ export default function EditProject({ params }: { params: { id: string } }) {
           </div>
         </div>
 
+        <div className="border-t border-neutral-800 pt-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-red-500">Danger Zone</label>
+              <div className="text-xs text-neutral-400">Proceed only if you know what you are doing</div>
+            </div>
+
+            <Button
+              onClick={() => setShowDeleteProjectDialog(true)}
+              variant="destructive"
+              className="w-full"
+            >
+              Delete Project
+            </Button>
+          </div>
+        </div>
+
         <ConfirmDialog
           open={showDeleteUserDialog}
           onClose={() => {
@@ -283,6 +322,32 @@ export default function EditProject({ params }: { params: { id: string } }) {
           title="Remove User"
           description={`Are you sure you want to remove ${userToDelete?.name} from this project?`}
           confirmText="Remove"
+          cancelText="Cancel"
+        />
+
+        <ConfirmDialog
+          open={showRemoveLinksDialog}
+          onClose={() => setShowRemoveLinksDialog(false)}
+          onConfirm={() => {
+            removeInviteLinks({ params: { id: params.id } });
+            setShowRemoveLinksDialog(false);
+          }}
+          title="Remove All Invite Links"
+          description="Are you sure you want to remove all invite links for this project? This action cannot be undone."
+          confirmText="Remove All"
+          cancelText="Cancel"
+        />
+
+        <ConfirmDialog
+          open={showDeleteProjectDialog}
+          onClose={() => setShowDeleteProjectDialog(false)}
+          onConfirm={() => {
+            deleteProject({ params: { id: params.id } });
+            setShowDeleteProjectDialog(false);
+          }}
+          title="Delete Project"
+          description="Are you sure you want to delete this project? This action cannot be undone and will delete all environments, secrets, and access records."
+          confirmText="Delete Project"
           cancelText="Cancel"
         />
       </main>

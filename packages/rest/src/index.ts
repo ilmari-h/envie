@@ -94,10 +94,22 @@ const projects = c.router({
     }),
     body: z.object({
       oneTimeUse: z.boolean(),
-      expiresAt: z.date(),
+      expiresAt: z.coerce.date(),
     }),
     responses: {
       200: z.object({ link: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
+  },
+  removeInviteLinks: {
+    method: 'DELETE',
+    path: '/projects/:id/invite',
+    pathParams: z.object({
+      id: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     }
@@ -108,6 +120,18 @@ const projects = c.router({
     pathParams: z.object({
       id: z.string(),
       userId: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
+  },
+  deleteProject: {
+    method: 'DELETE',
+    path: '/projects/:id',
+    pathParams: z.object({
+      id: z.string()
     }),
     responses: {
       200: z.object({ message: z.string() }),

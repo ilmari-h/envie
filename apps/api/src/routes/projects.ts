@@ -129,7 +129,8 @@ export const createProject = async ({
     await tx.insert(Schema.projectAccess)
       .values({
         projectId: project.id,
-        userId: req.user!.id
+        userId: req.user!.id,
+        role: 'admin'
       });
 
     return project;
@@ -255,6 +256,46 @@ export const generateInviteLink = async ({
   };
 };
 
+export const removeInviteLinks = async ({
+  req,
+  params: { id }
+}: {
+  req: TsRestRequest<typeof contract.projects.removeInviteLinks>;
+  params: TsRestRequest<typeof contract.projects.removeInviteLinks>['params'];
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  // Check if user has access to project
+  const hasAccess = await db.select()
+    .from(Schema.projectAccess)
+    .where(and(
+      eq(Schema.projectAccess.projectId, id),
+      eq(Schema.projectAccess.userId, req.user.id)
+    ))
+    .limit(1);
+
+  if (hasAccess.length === 0) {
+    return {
+      status: 403 as const,
+      body: { message: 'Access denied' }
+    };
+  }
+
+  // Delete all invite links for this project
+  await db.delete(Schema.projectInvites)
+    .where(eq(Schema.projectInvites.projectId, id));
+
+  return {
+    status: 200 as const,
+    body: { message: 'All invite links removed' }
+  };
+};
+
 export const removeUser = async ({
   req,
   params: { id, userId }
@@ -311,5 +352,54 @@ export const removeUser = async ({
   return {
     status: 200 as const,
     body: { message: 'User removed from project' }
+  };
+};
+
+export const deleteProject = async ({
+  req,
+  params: { id }
+}: {
+  req: TsRestRequest<typeof contract.projects.deleteProject>;
+  params: TsRestRequest<typeof contract.projects.deleteProject>['params'];
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  // Check if user has admin access to project
+  const access = await db.select()
+    .from(Schema.projectAccess)
+    .where(and(
+      eq(Schema.projectAccess.projectId, id),
+      eq(Schema.projectAccess.userId, req.user.id),
+      eq(Schema.projectAccess.role, 'admin')
+    ))
+    .limit(1);
+
+  if (access.length === 0) {
+    return {
+      status: 403 as const,
+      body: { message: 'Only project admins can delete projects' }
+    };
+  }
+
+  // Delete project (cascade will handle related records)
+  const result = await db.delete(Schema.projects)
+    .where(eq(Schema.projects.id, id))
+    .returning();
+
+  if (result.length === 0) {
+    return {
+      status: 404 as const,
+      body: { message: 'Project not found' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: { message: 'Project deleted successfully' }
   };
 };

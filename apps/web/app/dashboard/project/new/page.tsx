@@ -8,6 +8,7 @@ import { tsr } from "../../../tsr";
 import { Select } from "@repo/ui/select";
 import { z } from "zod";
 import { useForm } from "@tanstack/react-form";
+import { useRouter } from "next/navigation";
 
 interface InputProps extends Omit<ComponentProps<'input'>, 'className'> {
   className?: string;
@@ -56,7 +57,7 @@ export default function NewProject() {
   });
   
   const { mutateAsync: createProject } = tsr.projects.createProject.useMutation();
-
+  const router = useRouter();
   const form = useForm({
     defaultValues: {
       name: "",
@@ -68,14 +69,14 @@ export default function NewProject() {
       onChange: projectFormSchema,
     },
     onSubmit: async ({ value }) => {
-      await createProject({
+      const project = await createProject({
         body: {
           name: value.name,
           description: value.description,
           organizationId: value.organizationId,
         }
       });
-      console.log("Project created");
+      router.push(`/dashboard/project/${project.body.id}`);
     },
   });
 

@@ -9,5 +9,6 @@ export const projectAccess = pgTable('project_access', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  role: text('role'),
   ...timestamps
 });

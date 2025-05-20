@@ -6,7 +6,7 @@ import { users } from './users';
 
 export const environmentVersions = pgTable('environment_versions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  environmentId: uuid('environment_id').references(() => environments.id),
+  environmentId: uuid('environment_id').references(() => environments.id, { onDelete: 'cascade' }),
   encryptedContent: bytea('encrypted_content').notNull(),
   savedBy: text('saved_by').references(() => users.id).notNull(),
   ...timestamps
@@ -16,7 +16,7 @@ export const environmentVersions = pgTable('environment_versions', {
 // Allows text search on keys
 export const environmentVersionKeys = pgTable('environment_version_keys', {
   id: uuid('id').primaryKey().defaultRandom(),
-  environmentVersionId: uuid('environment_version_id').references(() => environmentVersions.id),
+  environmentVersionId: uuid('environment_version_id').references(() => environmentVersions.id, { onDelete: 'cascade' }),
   key: text('key').notNull(),
   ...timestamps
 });
