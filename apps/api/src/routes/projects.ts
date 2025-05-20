@@ -403,3 +403,43 @@ export const deleteProject = async ({
     body: { message: 'Project deleted successfully' }
   };
 };
+
+export const getProjectByInvite = async ({
+  params: { inviteId }
+}: {
+  params: TsRestRequest<typeof contract.projects.getProjectByInvite>['params']
+}) => {
+  console.log("Invite ID", inviteId);
+  const invite = await db.query.projectInvites.findFirst({
+    where: eq(Schema.projectInvites.token, inviteId),
+    with: {
+      project: true
+    }
+  });
+
+  if (!invite || !invite.project) {
+    return {
+      status: 404 as const,
+      body: { message: 'Invite not found or expired' }
+    };
+  }
+
+  // Check if invite is expired
+  if (invite.expiresAt && invite.expiresAt < new Date()) {
+    return {
+      status: 404 as const,
+      body: { message: 'Invite link has expired' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: {
+      project: invite.project,
+      invite: {
+        oneTimeUse: invite.oneTimeUse,
+        expiresAt: invite.expiresAt
+      }
+    }
+  };
+};

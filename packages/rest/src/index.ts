@@ -38,6 +38,30 @@ const user = c.router({
 });
 
 const projects = c.router({
+  getProjectByInvite: {
+    method: 'GET',
+    path: '/projects/invite/:inviteId',
+    pathParams: z.object({
+      inviteId: z.string()
+    }),
+    responses: {
+      200: z.object({
+        project: z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string().nullable(),
+          organizationId: z.string(),
+          createdAt: z.date(),
+          updatedAt: z.date()
+        }),
+        invite: z.object({
+          oneTimeUse: z.boolean(),
+          expiresAt: z.date()
+        })
+      }),
+      404: z.object({ message: z.string() })
+    }
+  },
   getProject: {
     method: 'GET',
     path: '/projects/:id',
