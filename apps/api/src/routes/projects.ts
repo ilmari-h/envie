@@ -451,6 +451,7 @@ export const acceptInvite = async ({
   req: TsRestRequest<typeof contract.projects.acceptInviteLink>,
   params: TsRestRequest<typeof contract.projects.acceptInviteLink>['params']
 }) => {
+
   if (req.user && req.user.id) {
     // User already logged in, so just add to project
     return db.transaction(async (tx) => {
@@ -481,8 +482,11 @@ export const acceptInvite = async ({
       }
 
       return {
-        status: 200 as const,
-        body: { message: 'Invite accepted' }
+        status: 302 as const,
+        headers: {
+          Location: `${process.env.FRONTEND_URL}/projects/${inviteInDb.projectId}`
+        },
+        body: { message: 'Redirecting to project' }
       };
     })
   }

@@ -1,6 +1,7 @@
 import { Button } from "@repo/ui/button";
 import { tsr } from "../tsr";
 import Link from "next/link";
+import { env } from "../env";
 
 function InvalidInvite() {
   return (
@@ -47,7 +48,7 @@ export default async function InvitePage({
               )}
             </div>
 
-            <Link href={`/invite/accept/${inviteId}`}>
+            <Link href={`${env.NEXT_PUBLIC_API_URL}/invite/accept/${inviteId}`}>
               <Button variant="accent" className="w-full text-xs">Join Project</Button>
             </Link>
         </div>

@@ -66,6 +66,23 @@ const validateJWT = async (req: express.Request, res: express.Response, next: ex
   next();
 };
 
+const validateJWTOptional = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const token = await getToken(req);
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(
+      token,
+      env.JWT_SECRET as string) as unknown as { id: string; username: string };
+    req.user = decoded;
+  } catch (err) {
+    return next();
+  }
+  next();
+};
+
 const router = s.router(contract, {
   health: s.router(contract.health, {
     getHealth: {
@@ -150,6 +167,7 @@ const router = s.router(contract, {
       handler: getProjectByInvite
     },
     acceptInviteLink: {
+      middleware: [validateJWTOptional],
       handler: acceptInvite
     }
   })
