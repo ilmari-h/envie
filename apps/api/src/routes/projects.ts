@@ -443,3 +443,54 @@ export const getProjectByInvite = async ({
     }
   };
 };
+
+export const acceptInvite = async ({
+  req,
+  params: { inviteId }
+}: {
+  req: TsRestRequest<typeof contract.projects.acceptInviteLink>,
+  params: TsRestRequest<typeof contract.projects.acceptInviteLink>['params']
+}) => {
+  if (req.user && req.user.id) {
+    // User already logged in, so just add to project
+    return db.transaction(async (tx) => {
+      const inviteInDb = await tx.query.projectInvites.findFirst({
+        where: and(
+          eq(Schema.projectInvites.token, inviteId),
+        )
+      });
+
+      if (!inviteInDb || inviteInDb.expiresAt < new Date()) {  
+        return {
+          status: 404 as const,
+          body: { message: 'Invite not found or expired' }
+        };
+      }
+
+      await tx.insert(Schema.projectAccess)
+        .values({
+          projectId: inviteInDb.projectId,
+          userId: req.user!.id,
+        }).onConflictDoNothing({
+          target: [Schema.projectAccess.userId, Schema.projectAccess.projectId]
+        });
+      
+      if (inviteInDb.oneTimeUse) {
+        await tx.delete(Schema.projectInvites)
+          .where(eq(Schema.projectInvites.token, inviteId));
+      }
+
+      return {
+        status: 200 as const,
+        body: { message: 'Invite accepted' }
+      };
+    })
+  }
+  return {
+    status: 302 as const,
+    headers: {
+      Location: `${process.env.FRONTEND_URL}?inviteId=${inviteId}`
+    },
+    body: { message: 'Redirecting to login' }
+  };
+}

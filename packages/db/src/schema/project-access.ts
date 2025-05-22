@@ -1,4 +1,4 @@
-import { pgTable, uuid, text } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { projects } from './projects';
 import { timestamps } from './utils';
@@ -11,4 +11,6 @@ export const projectAccess = pgTable('project_access', {
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
   role: text('role'),
   ...timestamps
-});
+}, (t) => ([{
+  pk: uniqueIndex('user_per_project_access_unique').on(t.userId, t.projectId)
+}]));

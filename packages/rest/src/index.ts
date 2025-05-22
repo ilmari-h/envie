@@ -126,6 +126,19 @@ const projects = c.router({
       404: z.object({ message: z.string() })
     }
   },
+  acceptInviteLink: {
+    method: 'GET',
+    path: '/invite/accept/:inviteId',
+    pathParams: z.object({
+      inviteId: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      302: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    }
+  },
   removeInviteLinks: {
     method: 'DELETE',
     path: '/projects/:id/invite',
