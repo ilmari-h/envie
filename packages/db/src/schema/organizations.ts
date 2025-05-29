@@ -5,6 +5,7 @@ import { users } from './users';
 export const organizations = pgTable('organizations', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  description: text('description'),
   createdById: text('created_by_id').references(() => users.id),
   hobby: boolean('hobby').notNull().default(false),
   ...timestamps

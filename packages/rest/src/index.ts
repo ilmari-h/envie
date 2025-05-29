@@ -17,6 +17,10 @@ export type ProjectWithUsers = Project & {
   users: User[];
 };
 
+export type OrganizationWithProjectsCount = Organization & {
+  projects: number;
+};
+
 const health = c.router({
   getHealth: {
     method: 'GET',
@@ -77,6 +81,9 @@ const projects = c.router({
   getProjects: {
     method: 'GET',
     path: '/projects',
+    query: z.object({
+      organizationId: z.string().optional(),
+    }),
     responses: {
       200: c.type<Project[]>()
     }
@@ -262,15 +269,47 @@ export const organizations = c.router({
     method: 'GET',
     path: '/organizations',
     responses: {
-      200: c.type<Organization[]>()
+      200: c.type<OrganizationWithProjectsCount[]>()
     },
     summary: 'Get all organizations the current user is a member of'
+  },
+  updateOrganization: {
+    method: 'PUT',
+    path: '/organizations/:id',
+    pathParams: z.object({
+      id: z.string()
+    }),
+    body: z.object({
+      name: z.string(),
+      description: z.string().optional()
+    }),
+    responses: {
+      200: c.type<Organization>(),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Update an organization'
+  },
+
+  getOrganization: {
+    method: 'GET',
+    path: '/organizations/:id',
+    pathParams: z.object({
+      id: z.string()
+    }),
+    responses: {
+      200: c.type<Organization>(),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Get an organization'
   },
   createOrganization: {
     method: 'POST',
     path: '/organizations',
     body: z.object({
-      name: z.string()
+      name: z.string(),
+      description: z.string().optional()
     }),
     responses: {
       201: c.type<Organization>(),

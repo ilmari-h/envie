@@ -1,5 +1,5 @@
 import { db, Schema } from '@repo/db';
-import { eq, exists, or } from 'drizzle-orm';
+import { eq, exists, or, sql } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract, organizations } from '@repo/rest';
 
@@ -12,34 +12,39 @@ export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof cont
   }
 
   // Get organizations where user has access to at least one project
-  const orgs = await db.select({ organizations: Schema.organizations })
+  const orgs = await db.select({ 
+    organizations: Schema.organizations,
+    projects: sql<number>`count(${Schema.projects.id})::int`
+  })
     .from(Schema.organizations)
+    .leftJoin(Schema.projects, eq(Schema.organizations.id, Schema.projects.organizationId))
     .where(
       or(
         eq(Schema.organizations.createdById, req.user.id),
         exists(
           db.select()
             .from(Schema.projectAccess)
-          .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
-          .where(
-            eq(Schema.projectAccess.userId, req.user.id),
-          )
+            .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
+            .where(
+              eq(Schema.projectAccess.userId, req.user.id),
+            )
         )
       )
-    );
+    )
+    .groupBy(Schema.organizations.id);
 
   return {
     status: 200 as const,
-    body: orgs.map(o => o.organizations)
+    body: orgs.map(o => ({ ...o.organizations, projects: o.projects }))
   };
 };
 
 export const createOrganization = async ({
   req,
-  body: { name }
+  body: { name, description }
 }: {
   req: TsRestRequest<typeof contract.organizations.createOrganization>;
-  body: { name: string }
+  body: TsRestRequest<typeof contract.organizations.createOrganization>['body']
 }) => {
   if (!req.user) {
     return {
@@ -50,7 +55,9 @@ export const createOrganization = async ({
 
   const [organization] = await db.insert(Schema.organizations)
     .values({
-      name
+      name,
+      description,
+      createdById: req.user.id
     })
     .returning();
 
@@ -64,5 +71,105 @@ export const createOrganization = async ({
   return {
     status: 201 as const,
     body: organization
+  };
+};
+
+export const getOrganization = async ({
+  req,
+  params: { id },
+  query: { organizationId }
+}: {
+  req: TsRestRequest<typeof contract.organizations.getOrganization>;
+  params: TsRestRequest<typeof contract.organizations.getOrganization>['params'],
+  query: TsRestRequest<typeof contract.organizations.getOrganization>['query']
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  const organization = await db.query.organizations.findFirst({
+    where: (orgs, { eq, or, exists }) => or(
+      eq(orgs.id, id),
+      eq(orgs.createdById, req.user!.id),
+      exists(
+        db.select()
+          .from(Schema.projectAccess)
+          .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
+          .where(
+            eq(Schema.projectAccess.userId, req.user!.id),
+          )
+      ),
+      organizationId ? eq(Schema.projects.organizationId, organizationId.toString()) : undefined
+    )
+  });
+
+  if (!organization) {
+    return {
+      status: 404 as const,
+      body: { message: 'Organization not found' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: organization
+  };
+};
+
+export const updateOrganization = async ({
+  req,
+  params: { id },
+  body: { name, description }
+}: {
+  req: TsRestRequest<typeof contract.organizations.updateOrganization>;
+  params: { id: string };
+  body: { name: string; description?: string };
+}) => {
+  if (!req.user) {
+    return {
+      status: 401 as const,
+      body: { message: 'Unauthorized' }
+    };
+  }
+
+  const organization = await db.query.organizations.findFirst({
+    where: (orgs, { eq }) => eq(orgs.id, id)
+  });
+
+  if (!organization) {
+    return {
+      status: 404 as const,
+      body: { message: 'Organization not found' }
+    };
+  }
+
+  if (organization.createdById !== req.user.id) {
+    return {
+      status: 403 as const,
+      body: { message: 'Only organization owners can update organization details' }
+    };
+  }
+
+  const [updatedOrganization] = await db.update(Schema.organizations)
+    .set({
+      name,
+      description,
+      updatedAt: new Date()
+    })
+    .where(eq(Schema.organizations.id, id))
+    .returning();
+  if (!updatedOrganization) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to update organization' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: updatedOrganization
   };
 };

@@ -15,7 +15,7 @@ import {
   updateEnvironmentSettings,
 } from './routes/environments';
 import { env } from './env';
-import { getOrganizations, createOrganization } from './routes/organizations';
+import { getOrganizations, createOrganization, updateOrganization, getOrganization } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, generateInviteLink, removeUser, removeInviteLinks, deleteProject, getProjectByInvite, acceptInvite } from './routes/projects';
 import { and, eq } from 'drizzle-orm';
 import { getMe } from './routes/users';
@@ -118,6 +118,14 @@ const router = s.router(contract, {
     getOrganizations: {
       middleware: [validateJWT],
       handler: getOrganizations
+    },
+    updateOrganization: {
+      middleware: [validateJWT],
+      handler: updateOrganization
+    },
+    getOrganization: {
+      middleware: [validateJWT],
+      handler: getOrganization
     },
     createOrganization: {
       middleware: [validateJWT],

@@ -7,9 +7,12 @@ import { Button } from "@repo/ui/button";
 import Link from "next/link";
 import LoadingScreen from "@repo/ui/loading";
 import { Plus, Pencil } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { use } from "react";
 
-export default function Dashboard() {
-  const { data, isLoading } = tsr.organizations.getOrganizations.useQuery({
+export default function Dashboard({ searchParams }: { searchParams: { organizationId?: string } }) {
+  const router = useRouter();
+  const { data: organizations, isLoading } = tsr.organizations.getOrganizations.useQuery({
     queryKey: ['organizations'],
   });
   const { data: user } = tsr.user.getUser.useQuery({
@@ -17,6 +20,11 @@ export default function Dashboard() {
   });
   const { data: projects } = tsr.projects.getProjects.useQuery({
     queryKey: ['projects'],
+    queryData: {
+      query: {
+        organizationId: searchParams.organizationId
+      }
+    }
   });
 
   if (isLoading) {
@@ -43,9 +51,11 @@ export default function Dashboard() {
           <span className="text-neutral-400 pr-2">Filter by organization:</span>
           <Select
             className="min-w-[120px]"
-            options={data?.body.map((organization) => ({ value: organization.id, label: organization.name })) || []}
+            options={organizations?.body.map((organization) => ({ value: organization.id, label: organization.name })) || []}
             value="all"
-            onChange={() => {console.log('change org')}}
+            onChange={(orgId) => {
+              router.push(`/dashboard?organizationId=${orgId}`)
+            }}
           />
         </div>
       </div>
@@ -76,11 +86,17 @@ export default function Dashboard() {
         <div className="space-y-4">
           <div>
             <h3 className="text-xs text-neutral-400 mb-3">My Organizations</h3>
-            <div className="space-y-1">
-              {data?.body.filter(org => org.createdById === user?.body.id).map((org) => (
+            <div className="space-y-2">
+              {organizations?.body.filter(org => org.createdById === user?.body.id).map((org) => (
                 <Link href={`/dashboard/organization/${org.id}`} key={org.id} className="flex items-center justify-between py-2 px-3 bg-neutral-900 hover:bg-neutral-800 hover:border-accent-500 border-[1px] border-neutral-800 rounded-md transition-colors">
-                  <span className="text-sm">{org.name}</span>
-                  {org.hobby && <span className="text-xs text-neutral-400">Personal</span>}
+                  <div className="flex flex-col">
+                    <span className="text-sm">{org.name}</span>
+                    <p className="text-xs text-neutral-400 line-clamp-1">{org.description || 'No description'}</p>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    {<span className="text-xs text-accent-400">{org.hobby ? "Personal" : <br/>}</span>}
+                    <span className="text-xs text-neutral-400">{org.projects} projects</span>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -88,9 +104,12 @@ export default function Dashboard() {
           <div>
             <h3 className="text-xs text-neutral-400 mb-3">Member Of</h3>
             <div className="space-y-1">
-              {data?.body.filter(org => org.createdById !== user?.body.id).map((org) => (
+              {organizations?.body.filter(org => org.createdById !== user?.body.id).map((org) => (
                 <div key={org.id} className="flex items-center justify-between py-2 px-3 bg-neutral-900 rounded-md transition-colors">
-                  <span className="text-sm">{org.name}</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm">{org.name}</span>
+                    <p className="text-xs text-neutral-400 line-clamp-1">{org.description || 'No description'}</p>
+                  </div>
                 </div>
               ))}
             </div>
