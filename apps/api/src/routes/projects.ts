@@ -44,8 +44,11 @@ export const getProject = async ({ req, params: { id } }:
   };
 }
 
-export const getProjects = async ({ req }:
-  { req: TsRestRequest<typeof contract.projects.getProjects> }) => {
+export const getProjects = async ({ req, query }:
+  {
+    req: TsRestRequest<typeof contract.projects.getProjects>,
+    query: TsRestRequest<typeof contract.projects.getProjects>['query']
+  }) => {
   if (!req.user) {
     return {
       status: 401 as const,
@@ -56,7 +59,10 @@ export const getProjects = async ({ req }:
   const projects = await db.select({projects: Schema.projects})
     .from(Schema.projectAccess)
     .innerJoin(Schema.projects, eq(Schema.projectAccess.projectId, Schema.projects.id))
-    .where(eq(Schema.projectAccess.userId, req.user.id));
+    .where(and(
+      eq(Schema.projectAccess.userId, req.user.id),
+      query.organizationId ? eq(Schema.projects.organizationId, query.organizationId) : undefined
+    ));
 
   return {
     status: 200 as const,

@@ -195,7 +195,7 @@ export default function NewProject() {
                 className="w-full"
                 options={organizations?.body.map((org) => ({ value: org.id, label: org.name })) || []}
                 value={field.state.value}
-                onChange={(value) => field.handleChange(value)}
+                onChange={(value) => field.handleChange(value ?? "")}
               />
               {field.state.meta.errors && (
                 <span className="text-xs text-red-500">{field.state.meta.errors.map((error) => error?.message).join(", ")}</span>

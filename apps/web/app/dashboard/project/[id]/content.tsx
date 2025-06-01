@@ -178,7 +178,7 @@ export default function ProjectContent({ id }: { id: string }) {
                   label: `v${i + 1}`
                 })).reverse()}
                 value={activeVersion?.toString() || '1'}
-                onChange={(value) => setActiveVersion(parseInt(value, 10))}
+                onChange={(value) => setActiveVersion(parseInt(value ?? "0", 10))}
               />
           </div>
         </div>
