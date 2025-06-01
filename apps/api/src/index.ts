@@ -241,12 +241,15 @@ app.get('/auth/cli/nonce', async (req, res, next) => {
 
 // Finish CLI login by getting the token from Redis
 app.get('/auth/cli/login', async (req, res, next) => {
+  console.log('CLI login', req.query);
   const nonce = req.query.nonce as string | undefined;
   if (!nonce) {
+    console.error('No nonce provided', req.query);
     return res.status(400).json({ message: 'No nonce provided' });
   }
   const token = await redis.get(`cli_login:${nonce}`);
-  if (!token || !token.startsWith('cli_')) {
+  if (!token || token === 'requested') {
+    console.error('Invalid nonce', nonce, token);
     return res.status(400).json({ message: 'Invalid nonce' });
   }
   res.json({ token });

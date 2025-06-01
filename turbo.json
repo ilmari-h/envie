@@ -9,7 +9,8 @@
     "GITHUB_CALLBACK_URL",
 	"API_URL",
 	"NEXT_PUBLIC_API_URL",
-	"FRONTEND_URL"
+	"FRONTEND_URL",
+	"REDIS_CONNECTION_STRING"
   ],
   "tasks": {
     "build": {

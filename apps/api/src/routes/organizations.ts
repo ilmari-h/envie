@@ -77,11 +77,9 @@ export const createOrganization = async ({
 export const getOrganization = async ({
   req,
   params: { id },
-  query: { organizationId }
 }: {
   req: TsRestRequest<typeof contract.organizations.getOrganization>;
   params: TsRestRequest<typeof contract.organizations.getOrganization>['params'],
-  query: TsRestRequest<typeof contract.organizations.getOrganization>['query']
 }) => {
   if (!req.user) {
     return {
@@ -91,18 +89,25 @@ export const getOrganization = async ({
   }
 
   const organization = await db.query.organizations.findFirst({
-    where: (orgs, { eq, or, exists }) => or(
+    where: (orgs, { eq, or, exists, and }) => and(
       eq(orgs.id, id),
-      eq(orgs.createdById, req.user!.id),
-      exists(
-        db.select()
-          .from(Schema.projectAccess)
-          .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
-          .where(
-            eq(Schema.projectAccess.userId, req.user!.id),
-          )
-      ),
-      organizationId ? eq(Schema.projects.organizationId, organizationId.toString()) : undefined
+      or(
+        // Organization visible if
+        // 1. it was created by the user
+        // 2. the user has access to a project in the organization
+        eq(orgs.createdById, req.user!.id),
+        exists(
+          db.select()
+            .from(Schema.projectAccess)
+            .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
+            .where(
+              and(
+                eq(Schema.projectAccess.userId, req.user!.id),
+                eq(Schema.projects.organizationId, orgs.id)
+              )
+            )
+        ),
+      )
     )
   });
 
