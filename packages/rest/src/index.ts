@@ -95,6 +95,7 @@ const projects = c.router({
       name: z.string(),
       description: z.string(),
       organizationId: z.string(),
+      defaultEnvironments: z.array(z.string()).optional()
     }),
     responses: {
       201: c.type<Project>(),

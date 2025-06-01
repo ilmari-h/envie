@@ -74,6 +74,7 @@ export default function NewProject() {
           name: value.name,
           description: value.description,
           organizationId: value.organizationId,
+          defaultEnvironments: value.environments.length === 0 ? undefined : value.environments
         }
       });
       router.push(`/dashboard/project/${project.body.id}`);

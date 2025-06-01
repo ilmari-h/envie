@@ -52,8 +52,10 @@ export default function ProjectContent({ id }: { id: string }) {
   useEffect(() => {
     if (activeVersionData) {
       setContent(activeVersionData.content);
+    } else if (activeEnv && !activeVersionData) {
+      setContent("");
     }
-  }, [activeVersionData, setContent]);
+  }, [activeVersionData, activeEnv, setContent]);
 
   const contentChanged = useMemo(() => {
     return (activeVersionData && activeVersionData.content !== content) || (!activeVersionData && content !== "");
@@ -226,9 +228,9 @@ export default function ProjectContent({ id }: { id: string }) {
               </div>
 
 
-              {activeTab === "content" && activeEnv && activeVersionData && (
+              {activeTab === "content" && activeEnv && (
                 <div
-                  key={activeVersionData.versionNumber}
+                  key={activeVersionData?.versionNumber ?? 'new'}
                   className="block"
                 >
 

@@ -72,7 +72,7 @@ export const getProjects = async ({ req, query }:
 
 export const createProject = async ({ 
   req, 
-  body: { name, description, organizationId } 
+  body: { name, description, organizationId, defaultEnvironments } 
 }: { 
   req: TsRestRequest<typeof contract.projects.createProject>; 
   body: TsRestRequest<typeof contract.projects.createProject>['body']
@@ -122,9 +122,7 @@ export const createProject = async ({
 
     // Generate and store encryption key
     const randomBytes = webcrypto.getRandomValues(new Uint8Array(32));
-    console.log("Random bytes length:", randomBytes.length);
     const key = Buffer.from(randomBytes);
-    console.log("Key buffer length:", key.length);
     await tx.insert(Schema.projectEncryptionKeys)
       .values({
         projectId: project.id,
@@ -138,6 +136,14 @@ export const createProject = async ({
         userId: req.user!.id,
         role: 'admin'
       });
+
+    // Add default environments
+    if (defaultEnvironments && defaultEnvironments.length > 0) {
+      await tx.insert(Schema.environments).values(defaultEnvironments.map(env => ({
+        projectId: project.id,
+        name: env
+      }))).returning();
+    }
 
     return project;
   });
