@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import { Strategy as GitHubStrategy } from 'passport-github';
 import jwt from 'jsonwebtoken';
 import cors from 'cors';
+import { randomBytes } from 'node:crypto';
 import { 
   getEnvironments, 
   getEnvironmentVersion,
@@ -19,6 +20,8 @@ import { getOrganizations, createOrganization, updateOrganization, getOrganizati
 import { getProjects, createProject, getProject, updateProject, generateInviteLink, removeUser, removeInviteLinks, deleteProject, getProjectByInvite, acceptInvite } from './routes/projects';
 import { and, eq } from 'drizzle-orm';
 import { getMe } from './routes/users';
+import { createClient } from "redis";
+
 const AUTH_COOKIE_NAME = 'envie_token';
 
 const app = express();
@@ -39,6 +42,8 @@ app.use(cookieParser(env.JWT_SECRET, {
 }));
 
 const s = initServer();
+const redis = createClient({ url: env.REDIS_CONNECTION_STRING });
+await redis.connect();
 
 const getToken = async (req: express.Request) => {
   if (req.cookies[AUTH_COOKIE_NAME]) {
@@ -223,6 +228,30 @@ passport.use(new GitHubStrategy({
   }
 ));
 
+// Start CLI login
+app.get('/auth/cli/nonce', async (req, res, next) => {
+  const nonce = `cli_${randomBytes(32).toString('hex')}`;
+  await redis.set(
+    `cli_login:${nonce}`,
+    "requested",
+    {expiration: {type: 'EX', value: 60 * 10}}
+  );
+  res.json({ nonce });
+});
+
+// Finish CLI login by getting the token from Redis
+app.get('/auth/cli/login', async (req, res, next) => {
+  const nonce = req.query.nonce as string | undefined;
+  if (!nonce) {
+    return res.status(400).json({ message: 'No nonce provided' });
+  }
+  const token = await redis.get(`cli_login:${nonce}`);
+  if (!token || !token.startsWith('cli_')) {
+    return res.status(400).json({ message: 'Invalid nonce' });
+  }
+  res.json({ token });
+});
+
 // GitHub Auth Routes
 app.get('/auth/github', (req, res, next) => {
   const cliToken = req.query.cliToken as string | undefined;
@@ -234,7 +263,7 @@ app.get('/auth/github', (req, res, next) => {
 
 app.get('/auth/github/callback', 
   passport.authenticate('github', { session: false }),
-  (req, res) => {
+  async (req, res) => {
     const state = req.query.state as string | undefined;
 
     if (!req.user) {
@@ -253,8 +282,11 @@ app.get('/auth/github/callback',
 
     // Either CLI or web UI login.
     if (state?.startsWith('cli_')) {
-      res.redirect(`${env.FRONTEND_URL}/login?token=${token}&cliToken=${state}`);
+      // Set the token in Redis allowing CLI to get it with another request to /auth/cli/login
+      await redis.set(`cli_login:${state}`, token, {expiration: {type: 'EX', value: 60 * 10}});
+      res.redirect(`${env.FRONTEND_URL}/login/success`);
     } else {
+      // Set cookie and redirect to the dashboard
       res.cookie(AUTH_COOKIE_NAME, token);
       res.redirect(`${env.FRONTEND_URL}/dashboard`);
     }

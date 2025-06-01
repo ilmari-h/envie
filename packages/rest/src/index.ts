@@ -298,9 +298,12 @@ export const organizations = c.router({
     pathParams: z.object({
       id: z.string()
     }),
+    query: z.object({
+      organizationId: z.string().optional()
+    }),
     responses: {
       200: c.type<Organization>(),
-      403: z.object({ message: z.string() }),
+      401: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
     summary: 'Get an organization'
