@@ -1,0 +1,13 @@
+{
+  "name": "codegen",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "generate": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@repo/rest": "*",
+    "@ts-rest/open-api": "^3.52.1"
+  }
+}
