@@ -2,24 +2,79 @@ import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 import type { Environment, EnvironmentVersion as DBEnvironmentVersion, Organization, Project, User } from '@repo/db';
 
+// Zod schemas for DB types
+export const userSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  email: z.string().nullable(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+export const organizationSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  createdById: z.string().uuid().nullable(),
+  hobby: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+export const projectSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  organizationId: z.string().uuid(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+export const environmentSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  freeForm: z.boolean(),
+  projectId: z.string().uuid(),
+  preservedVersions: z.number().int(),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+export const environmentVersionSchema = z.object({
+  id: z.string().uuid(),
+  environmentId: z.string().uuid().nullable(),
+  savedBy: z.string().uuid(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  content: z.string(),
+  versionNumber: z.number().int()
+});
+
+export const environmentWithLatestVersionSchema = environmentSchema.extend({
+  latestVersion: environmentVersionSchema.nullable(),
+  accessControl: z.object({
+    projectWide: z.boolean(),
+    users: z.array(userSchema).optional()
+  })
+});
+
+export const projectWithUsersSchema = projectSchema.extend({
+  users: z.array(userSchema)
+});
+
+export const organizationWithProjectsCountSchema = organizationSchema.extend({
+  projects: z.number().int()
+});
+
 const c = initContract();
 
-export type EnvironmentVersion = Omit<DBEnvironmentVersion, 'encryptedContent'> & { content: string, versionNumber: number };
-export type EnvironmentWithLatestVersion = Environment & {
-  latestVersion: EnvironmentVersion | null;
-  accessControl: {
-    projectWide: boolean;
-    users?: User[];
-  };
-};
 
-export type ProjectWithUsers = Project & {
-  users: User[];
-};
+export type EnvironmentVersion = z.infer<typeof environmentVersionSchema>;
+export type EnvironmentWithLatestVersion = z.infer<typeof environmentWithLatestVersionSchema>;
 
-export type OrganizationWithProjectsCount = Organization & {
-  projects: number;
-};
+export type ProjectWithUsers = z.infer<typeof projectWithUsersSchema>;
+
+export type OrganizationWithProjectsCount = z.infer<typeof organizationWithProjectsCountSchema>;
 
 const health = c.router({
   getHealth: {
@@ -73,7 +128,7 @@ const projects = c.router({
       id: z.string()
     }),
     responses: {
-      200: c.type<ProjectWithUsers>(),
+      200: projectWithUsersSchema,
       401: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     }
@@ -85,7 +140,7 @@ const projects = c.router({
       organizationId: z.string().optional(),
     }),
     responses: {
-      200: c.type<Project[]>()
+      200: projectSchema.array()
     }
   },
   createProject: {
@@ -98,7 +153,7 @@ const projects = c.router({
       defaultEnvironments: z.array(z.string()).optional()
     }),
     responses: {
-      201: c.type<Project>(),
+      201: projectSchema,
       403: z.object({ message: z.string() })
     }
   },
@@ -113,7 +168,7 @@ const projects = c.router({
       description: z.string(),
     }),
     responses: {
-      200: c.type<Project>(),
+      200: projectSchema,
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     }
@@ -195,7 +250,7 @@ const environments = c.router({
       environmentId: z.string().optional()
     }),
     responses: {
-      200: c.type<EnvironmentWithLatestVersion[]>()
+      200: environmentWithLatestVersionSchema.array()
     },
     summary: 'Get environments for current user, optionally filtered by project or environment id'
   },
@@ -208,7 +263,7 @@ const environments = c.router({
       versionNumber: z.string().optional()
     }),
     responses: {
-      200: c.type<EnvironmentVersion>()
+      200: environmentVersionSchema
     },
     summary: 'Get a specific version of an environment'
   },
@@ -222,7 +277,7 @@ const environments = c.router({
       allowedUserIds: z.array(z.string()).optional()
     }),
     responses: {
-      201: c.type<EnvironmentWithLatestVersion>(),
+      201: environmentWithLatestVersionSchema,
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
@@ -270,7 +325,7 @@ export const organizations = c.router({
     method: 'GET',
     path: '/organizations',
     responses: {
-      200: c.type<OrganizationWithProjectsCount[]>()
+      200: organizationWithProjectsCountSchema.array()
     },
     summary: 'Get all organizations the current user is a member of'
   },
@@ -285,7 +340,7 @@ export const organizations = c.router({
       description: z.string().optional()
     }),
     responses: {
-      200: c.type<Organization>(),
+      200: organizationSchema,
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
@@ -299,7 +354,7 @@ export const organizations = c.router({
       id: z.string()
     }),
     responses: {
-      200: c.type<Organization>(),
+      200: organizationSchema,
       401: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
@@ -313,7 +368,7 @@ export const organizations = c.router({
       description: z.string().optional()
     }),
     responses: {
-      201: c.type<Organization>(),
+      201: organizationSchema,
       403: z.object({ message: z.string() })
     },
     summary: 'Create a new organization'
