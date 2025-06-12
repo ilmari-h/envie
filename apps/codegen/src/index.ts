@@ -17,13 +17,8 @@ function generateOpenApiDocument() {
 
 async function main() {
   const openApiDocument = generateOpenApiDocument();
-  
-  // Create out directory if it doesn't exist
-  await mkdir('out', { recursive: true });
-  
-  // Write OpenAPI document to file
-  await writeFile('out/openapi.json', JSON.stringify(openApiDocument, null, 2));
-  console.log('OpenAPI document written to out/openapi.json');
+  await writeFile('openapi.json', JSON.stringify(openApiDocument, null, 2));
+  console.log('OpenAPI document written to openapi.json');
 }
 
 main();

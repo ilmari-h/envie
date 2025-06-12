@@ -4,7 +4,7 @@ import type { Environment, EnvironmentVersion as DBEnvironmentVersion, Organizat
 
 // Zod schemas for DB types
 export const userSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   name: z.string(),
   email: z.string().nullable(),
   createdAt: z.date(),
