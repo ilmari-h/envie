@@ -43,7 +43,7 @@ export const environmentSchema = z.object({
 export const environmentVersionSchema = z.object({
   id: z.string().uuid(),
   environmentId: z.string().uuid().nullable(),
-  savedBy: z.string().uuid(),
+  savedBy: z.string(),
   createdAt: z.date(),
   updatedAt: z.date(),
   content: z.string(),
