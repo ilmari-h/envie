@@ -22,14 +22,14 @@
         ],
         "parameters": [
           {
-            "name": "projectId",
+            "name": "projectIdOrPath",
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "environmentId",
+            "name": "environmentIdOrPath",
             "in": "query",
             "schema": {
               "type": "string"
@@ -189,7 +189,8 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
                   },
                   "projectId": {
                     "type": "string"
@@ -673,7 +674,6 @@
                       },
                       "createdById": {
                         "type": "string",
-                        "format": "uuid",
                         "nullable": true
                       },
                       "hobby": {
@@ -722,7 +722,8 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
                   },
                   "description": {
                     "type": "string"
@@ -756,7 +757,6 @@
                     },
                     "createdById": {
                       "type": "string",
-                      "format": "uuid",
                       "nullable": true
                     },
                     "hobby": {
@@ -829,7 +829,8 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
                   },
                   "description": {
                     "type": "string"
@@ -863,7 +864,6 @@
                     },
                     "createdById": {
                       "type": "string",
-                      "format": "uuid",
                       "nullable": true
                     },
                     "hobby": {
@@ -965,7 +965,6 @@
                     },
                     "createdById": {
                       "type": "string",
-                      "format": "uuid",
                       "nullable": true
                     },
                     "hobby": {
@@ -1148,14 +1147,14 @@
         }
       }
     },
-    "/projects/{id}": {
+    "/projects/{idOrPath}": {
       "get": {
         "tags": [
           "projects"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "idOrPath",
             "in": "path",
             "required": true,
             "schema": {
@@ -1193,6 +1192,46 @@
                     "updatedAt": {
                       "type": "string",
                       "format": "date-time"
+                    },
+                    "organization": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdById": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "hobby": {
+                          "type": "boolean"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "updatedAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "description",
+                        "createdById",
+                        "hobby",
+                        "createdAt",
+                        "updatedAt"
+                      ]
                     },
                     "users": {
                       "type": "array",
@@ -1235,6 +1274,7 @@
                     "organizationId",
                     "createdAt",
                     "updatedAt",
+                    "organization",
                     "users"
                   ]
                 }
@@ -1278,7 +1318,216 @@
             }
           }
         }
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "organizationId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "organization": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "createdById": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "hobby": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "description",
+                          "createdById",
+                          "hobby",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "description",
+                      "organizationId",
+                      "createdAt",
+                      "updatedAt",
+                      "organization"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "description": "Body",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "organizationId": {
+                    "type": "string"
+                  },
+                  "defaultEnvironments": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "description",
+                  "organizationId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "201",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "organizationId",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "403",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{id}": {
       "put": {
         "tags": [
           "projects"
@@ -1301,7 +1550,8 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
                   },
                   "description": {
                     "type": "string"
@@ -1450,171 +1700,6 @@
           },
           "404": {
             "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects": {
-      "get": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "organizationId",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "description": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "organizationId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "createdAt": {
-                        "type": "string",
-                        "format": "date-time"
-                      },
-                      "updatedAt": {
-                        "type": "string",
-                        "format": "date-time"
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "name",
-                      "description",
-                      "organizationId",
-                      "createdAt",
-                      "updatedAt"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [],
-        "requestBody": {
-          "description": "Body",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "description": {
-                    "type": "string"
-                  },
-                  "organizationId": {
-                    "type": "string"
-                  },
-                  "defaultEnvironments": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  }
-                },
-                "required": [
-                  "name",
-                  "description",
-                  "organizationId"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "201",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "organizationId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "createdAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "updatedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "name",
-                    "description",
-                    "organizationId",
-                    "createdAt",
-                    "updatedAt"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
             "content": {
               "application/json": {
                 "schema": {

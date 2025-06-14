@@ -5,7 +5,7 @@ import { contract } from '@repo/rest';
 import { webcrypto } from 'node:crypto';
 import { isValidUUID } from '../crypto/crypto';
 
-const getProjectIdByPath = async (path: [string, string]) => {
+export const getProjectIdByPath = async (path: [string, string]) => {
   const [organizationName, projectName] = path;
   const result = await db.select({id: Schema.projects.id})
     .from(Schema.projects)
@@ -50,11 +50,13 @@ export const getProject = async ({ req, params: { idOrPath } }:
 
   const result = await db.select({
     project: Schema.projects,
-    users: Schema.users
+    users: Schema.users,
+    organization: Schema.organizations
   })
     .from(Schema.projects)
     .innerJoin(Schema.projectAccess, eq(Schema.projects.id, Schema.projectAccess.projectId))
     .innerJoin(Schema.users, eq(Schema.projectAccess.userId, Schema.users.id))
+    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
     .where(and(
       eq(Schema.projects.id, projectId),
       eq(Schema.projectAccess.userId, req.user.id)
@@ -71,7 +73,8 @@ export const getProject = async ({ req, params: { idOrPath } }:
     status: 200 as const,
     body: {
       ...result[0].project,
-      users: result.map(r => r.users)
+      users: result.map(r => r.users),
+      organization: result[0].organization
     }
   };
 }
@@ -88,9 +91,10 @@ export const getProjects = async ({ req, query }:
     };
   }
 
-  const projects = await db.select({projects: Schema.projects})
+  const projects = await db.select({project: Schema.projects, organization: Schema.organizations})
     .from(Schema.projectAccess)
     .innerJoin(Schema.projects, eq(Schema.projectAccess.projectId, Schema.projects.id))
+    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
     .where(and(
       eq(Schema.projectAccess.userId, req.user.id),
       query.organizationId ? eq(Schema.projects.organizationId, query.organizationId) : undefined
@@ -98,7 +102,10 @@ export const getProjects = async ({ req, query }:
 
   return {
     status: 200 as const,
-    body: projects.map(p => p.projects)
+    body: projects.map(p => ({
+      ...p.project,
+      organization: p.organization
+    }))
   };
 }
 

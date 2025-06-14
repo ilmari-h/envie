@@ -5,6 +5,7 @@ import { contract } from '@repo/rest';
 import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
 import type { EnvironmentVersion, EnvironmentWithLatestVersion } from '@repo/rest';
 import { isValidUUID } from '../crypto/crypto';
+import { getProjectIdByPath } from './projects';
 
 const getEnvironmentIdByPath = async (path: [string, string, string]) => {
   const [organizationName, projectName, environmentName] = path;
@@ -21,7 +22,7 @@ const getEnvironmentIdByPath = async (path: [string, string, string]) => {
   return result[0]?.id;
 }
 
-export const getEnvironments = async ({ req, query: { projectId, environmentIdOrPath } }:
+export const getEnvironments = async ({ req, query: { projectIdOrPath, environmentIdOrPath } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
@@ -32,6 +33,17 @@ export const getEnvironments = async ({ req, query: { projectId, environmentIdOr
         body: { message: 'Unauthorized' }
       };
     }
+
+    const projectPathParts = projectIdOrPath && !isValidUUID(projectIdOrPath) ? projectIdOrPath.split(':') : null;
+    if(projectPathParts && projectPathParts.length !== 2) {
+      return {
+        status: 400 as const,
+        body: { message: 'Invalid project path' }
+      };
+    }
+    const projectId = projectPathParts && projectPathParts.length === 2
+      ? await getProjectIdByPath(projectPathParts as [string, string])
+      : projectIdOrPath;
 
     // Resolve environment ID from path if not provided
     const pathParts = environmentIdOrPath && !isValidUUID(environmentIdOrPath) ? environmentIdOrPath.split(':') : null;

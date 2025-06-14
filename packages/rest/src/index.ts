@@ -16,7 +16,7 @@ export const organizationSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   description: z.string().nullable(),
-  createdById: z.string().uuid().nullable(),
+  createdById: z.string().nullable(),
   hobby: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date()
@@ -28,7 +28,8 @@ export const projectSchema = z.object({
   description: z.string().nullable(),
   organizationId: z.string().uuid(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
+  organization: organizationSchema
 });
 
 export const environmentSchema = z.object({
@@ -154,7 +155,7 @@ const projects = c.router({
       defaultEnvironments: z.array(z.string()).optional()
     }),
     responses: {
-      201: projectSchema,
+      201: projectSchema.omit({ organization: true }),
       403: z.object({ message: z.string() })
     }
   },
@@ -169,7 +170,7 @@ const projects = c.router({
       description: z.string(),
     }),
     responses: {
-      200: projectSchema,
+      200: projectSchema.omit({ organization: true }),
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     }
@@ -247,7 +248,7 @@ const environments = c.router({
     method: 'GET',
     path: '/environments',
     query: z.object({
-      projectId: z.string().optional(),
+      projectIdOrPath: z.string().optional(),
       environmentIdOrPath: z.string().optional(),
     }),
     responses: {
