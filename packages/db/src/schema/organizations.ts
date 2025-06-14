@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, boolean, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { timestamps } from './utils';
 import { users } from './users';
 
@@ -11,6 +11,7 @@ export const organizations = pgTable('organizations', {
   ...timestamps
 }, (t) => ([{
   createdByIdIdx: index('created_by_id_idx').on(t.createdById),
+  uniqueName: uniqueIndex('unique_name').on(t.name),
 }]));
 
 export type Organization = typeof organizations.$inferSelect;

@@ -3,8 +3,22 @@ import { eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { webcrypto } from 'node:crypto';
+import { isValidUUID } from '../crypto/crypto';
 
-export const getProject = async ({ req, params: { id } }:
+const getProjectIdByPath = async (path: [string, string]) => {
+  const [organizationName, projectName] = path;
+  const result = await db.select({id: Schema.projects.id})
+    .from(Schema.projects)
+    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
+    .where(and(
+      eq(Schema.projects.name, projectName),
+      eq(Schema.organizations.name, organizationName)
+    ))
+    .limit(1);
+  return result[0]?.id;
+}
+
+export const getProject = async ({ req, params: { idOrPath } }:
   {
     req: TsRestRequest<typeof contract.projects.getProject>,
     params: TsRestRequest<typeof contract.projects.getProject>['params']
@@ -13,6 +27,24 @@ export const getProject = async ({ req, params: { id } }:
     return {
       status: 401 as const,
       body: { message: 'Unauthorized' }
+    };
+  }
+  
+  // Resolve project ID from path if not provided
+  const pathParts = isValidUUID(idOrPath) ? null : idOrPath.split(':');
+  if(pathParts && pathParts.length !== 2) {
+    return {
+      status: 400 as const,
+      body: { message: 'Invalid project path' }
+    };
+  }
+  const projectId = pathParts && pathParts.length === 2
+    ? await getProjectIdByPath(pathParts as [string, string])
+    : idOrPath;
+  if(!projectId) {
+    return {
+      status: 404 as const,
+      body: { message: 'Project not found' }
     };
   }
 
@@ -24,7 +56,7 @@ export const getProject = async ({ req, params: { id } }:
     .innerJoin(Schema.projectAccess, eq(Schema.projects.id, Schema.projectAccess.projectId))
     .innerJoin(Schema.users, eq(Schema.projectAccess.userId, Schema.users.id))
     .where(and(
-      eq(Schema.projects.id, id),
+      eq(Schema.projects.id, projectId),
       eq(Schema.projectAccess.userId, req.user.id)
     ));
 

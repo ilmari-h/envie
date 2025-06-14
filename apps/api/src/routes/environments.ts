@@ -4,8 +4,24 @@ import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
 import type { EnvironmentVersion, EnvironmentWithLatestVersion } from '@repo/rest';
+import { isValidUUID } from '../crypto/crypto';
 
-export const getEnvironments = async ({ req, query: { projectId, environmentId } }:
+const getEnvironmentIdByPath = async (path: [string, string, string]) => {
+  const [organizationName, projectName, environmentName] = path;
+  const result = await db.select({id: Schema.environments.id})
+    .from(Schema.environments)
+    .innerJoin(Schema.projects, eq(Schema.environments.projectId, Schema.projects.id))
+    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
+    .where(and(
+      eq(Schema.environments.name, environmentName),
+      eq(Schema.projects.name, projectName),
+      eq(Schema.organizations.name, organizationName)
+    ))
+    .limit(1);
+  return result[0]?.id;
+}
+
+export const getEnvironments = async ({ req, query: { projectId, environmentIdOrPath } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
@@ -16,6 +32,19 @@ export const getEnvironments = async ({ req, query: { projectId, environmentId }
         body: { message: 'Unauthorized' }
       };
     }
+
+    // Resolve environment ID from path if not provided
+    const pathParts = environmentIdOrPath && !isValidUUID(environmentIdOrPath) ? environmentIdOrPath.split(':') : null;
+    if(pathParts && pathParts.length !== 3) {
+      return {
+        status: 400 as const,
+        body: { message: 'Invalid environment path' }
+      };
+    }
+    const environmentId = pathParts && pathParts.length === 3
+      ? await getEnvironmentIdByPath(pathParts as [string, string, string])
+      : environmentIdOrPath;
+
     // Get all environment-specific access entries for this user
     const envAccess = await db.select({environments: Schema.environments})
       .from(Schema.environmentAccess)

@@ -45,3 +45,8 @@ export const decryptAESGCM = async (encryptionKey: Buffer, content: Buffer) => {
     throw error;
   }
 }
+
+export const isValidUUID = (uuid: string) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}

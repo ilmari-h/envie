@@ -1,4 +1,4 @@
-import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, uniqueIndex } from 'drizzle-orm/pg-core';
 import { timestamps } from './utils';
 import { organizations } from './organizations';
 import { projectAccess } from './project-access';
@@ -13,7 +13,9 @@ export const projects = pgTable('projects', {
   description: text('description'),
   organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   ...timestamps
-});
+}, (t) => ([{
+  uniqueName: uniqueIndex('unique_name').on(t.organizationId, t.name)
+}]));
 
 export type Project = typeof projects.$inferSelect;
 
