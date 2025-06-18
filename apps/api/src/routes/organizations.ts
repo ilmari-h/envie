@@ -3,6 +3,7 @@ import { eq, exists, or, sql } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract, organizations } from '@repo/rest';
 
+// How to handle multiple hobby orgs with same name?
 export const getOrganizationIdByName = async (name: string) => {
   const [organization] = await db.select({ id: Schema.organizations.id })
     .from(Schema.organizations)
