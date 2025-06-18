@@ -3,6 +3,14 @@ import { eq, exists, or, sql } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract, organizations } from '@repo/rest';
 
+export const getOrganizationIdByName = async (name: string) => {
+  const [organization] = await db.select({ id: Schema.organizations.id })
+    .from(Schema.organizations)
+    .where( eq(Schema.organizations.name, name))
+    .limit(1);
+  return organization?.id;
+}
+
 export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof contract.organizations.getOrganizations> }) => {
   if (!req.user) {
     return {

@@ -274,7 +274,7 @@ const environments = c.router({
     path: '/environments',
     body: z.object({
       name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
-      projectId: z.string(),
+      project: z.string(),
       content: z.string().optional(),
       allowedUserIds: z.array(z.string()).optional()
     }),

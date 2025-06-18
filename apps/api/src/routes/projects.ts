@@ -4,6 +4,7 @@ import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { webcrypto } from 'node:crypto';
 import { isValidUUID } from '../crypto/crypto';
+import { getOrganizationIdByName } from './organizations';
 
 export const getProjectIdByPath = async (path: [string, string]) => {
   const [organizationName, projectName] = path;
@@ -111,7 +112,7 @@ export const getProjects = async ({ req, query }:
 
 export const createProject = async ({ 
   req, 
-  body: { name, description, organizationId, defaultEnvironments } 
+  body: { name, description, organizationIdOrName, defaultEnvironments } 
 }: { 
   req: TsRestRequest<typeof contract.projects.createProject>; 
   body: TsRestRequest<typeof contract.projects.createProject>['body']
@@ -122,7 +123,18 @@ export const createProject = async ({
       body: { message: 'Unauthorized' }
     };
   }
-  
+
+  const organizationId = isValidUUID(organizationIdOrName)
+    ? organizationIdOrName
+    : await getOrganizationIdByName(organizationIdOrName);
+
+  if (!organizationId) {
+    return {
+      status: 400 as const,
+      body: { message: 'Invalid organization' }
+    };
+  }
+
   // User must be creator of organization or owner of organization to create projects
   const organization = await db.query.organizations.findFirst({
     where: and(

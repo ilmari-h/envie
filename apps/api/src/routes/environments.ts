@@ -135,7 +135,7 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
 
 export const createEnvironment = async ({ 
   req, 
-  body: { name, projectId, content, allowedUserIds }
+  body: { name, project, content, allowedUserIds }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
@@ -144,6 +144,24 @@ export const createEnvironment = async ({
     return {
       status: 401 as const,
       body: { message: 'Unauthorized' }
+    };
+  }
+
+  const projectPathParts = project && !isValidUUID(project) ? project.split(':') : null;
+  if(projectPathParts && projectPathParts.length !== 2) {
+    return {
+      status: 400 as const,
+      body: { message: 'Invalid project path' }
+    };
+  }
+  const projectId = projectPathParts && projectPathParts.length === 2
+    ? await getProjectIdByPath(projectPathParts as [string, string])
+    : project;
+
+  if (!projectId) {
+    return {
+      status: 400 as const,
+      body: { message: 'Invalid project' }
     };
   }
 
