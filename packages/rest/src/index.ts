@@ -151,7 +151,7 @@ const projects = c.router({
     body: z.object({
       name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
       description: z.string(),
-      organizationId: z.string(),
+      organizationIdOrName: z.string(),
       defaultEnvironments: z.array(z.string()).optional()
     }),
     responses: {
@@ -280,6 +280,7 @@ const environments = c.router({
     }),
     responses: {
       201: environmentWithLatestVersionSchema,
+      400: z.object({ message: z.string() }),
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     },
