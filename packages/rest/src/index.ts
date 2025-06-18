@@ -289,9 +289,9 @@ const environments = c.router({
 
   updateEnvironmentContent: {
     method: 'PUT',
-    path: '/environments/:id/content',
+    path: '/environments/:idOrPath/content',
     pathParams: z.object({
-      id: z.string()
+      idOrPath: z.string()
     }),
     body: z.object({
       content: z.string()
@@ -306,9 +306,9 @@ const environments = c.router({
 
   updateEnvironmentSettings: {
     method: 'PUT',
-    path: '/environments/:id/settings',
+    path: '/environments/:idOrPath/settings',
     pathParams: z.object({
-      id: z.string()
+      idOrPath: z.string()
     }),
     body: z.object({
       allowedUserIds: z.array(z.string()).describe("If empty array, allow access to all users in the project").optional(),

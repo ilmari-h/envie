@@ -4,23 +4,7 @@ import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
 import type { EnvironmentVersion, EnvironmentWithLatestVersion } from '@repo/rest';
-import { isValidUUID } from '../crypto/crypto';
-import { getProjectIdByPath } from './projects';
-
-const getEnvironmentIdByPath = async (path: [string, string, string]) => {
-  const [organizationName, projectName, environmentName] = path;
-  const result = await db.select({id: Schema.environments.id})
-    .from(Schema.environments)
-    .innerJoin(Schema.projects, eq(Schema.environments.projectId, Schema.projects.id))
-    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
-    .where(and(
-      eq(Schema.environments.name, environmentName),
-      eq(Schema.projects.name, projectName),
-      eq(Schema.organizations.name, organizationName)
-    ))
-    .limit(1);
-  return result[0]?.id;
-}
+import { getEnvironmentByPath, getProjectByPath } from '../queries/by-path';
 
 export const getEnvironments = async ({ req, query: { projectIdOrPath, environmentIdOrPath } }:
   {
@@ -34,28 +18,23 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
       };
     }
 
-    const projectPathParts = projectIdOrPath && !isValidUUID(projectIdOrPath) ? projectIdOrPath.split(':') : null;
-    if(projectPathParts && projectPathParts.length !== 2) {
+    if(projectIdOrPath && environmentIdOrPath) {
       return {
         status: 400 as const,
-        body: { message: 'Invalid project path' }
+        body: { message: 'Cannot specify both project and environment' }
       };
     }
-    const projectId = projectPathParts && projectPathParts.length === 2
-      ? await getProjectIdByPath(projectPathParts as [string, string])
-      : projectIdOrPath;
 
-    // Resolve environment ID from path if not provided
-    const pathParts = environmentIdOrPath && !isValidUUID(environmentIdOrPath) ? environmentIdOrPath.split(':') : null;
-    if(pathParts && pathParts.length !== 3) {
-      return {
-        status: 400 as const,
-        body: { message: 'Invalid environment path' }
-      };
+    let environmentId: string | undefined;
+    let projectId: string | undefined;
+    if (environmentIdOrPath) {
+      const [org, project, environment] = await getEnvironmentByPath(environmentIdOrPath, req.user.id);
+      environmentId = environment!.id;
+      projectId = project!.id;
+    } else if (projectIdOrPath) {
+      const [org, project] = await getProjectByPath(projectIdOrPath, req.user.id);
+      projectId = project!.id;
     }
-    const environmentId = pathParts && pathParts.length === 3
-      ? await getEnvironmentIdByPath(pathParts as [string, string, string])
-      : environmentIdOrPath;
 
     // Get all environment-specific access entries for this user
     const envAccess = await db.select({environments: Schema.environments})
@@ -147,21 +126,11 @@ export const createEnvironment = async ({
     };
   }
 
-  const projectPathParts = project && !isValidUUID(project) ? project.split(':') : null;
-  if(projectPathParts && projectPathParts.length !== 2) {
+  const [organization, projectDb] = await getProjectByPath(project, req.user.id);
+  if(!organization || !projectDb) {
     return {
-      status: 400 as const,
-      body: { message: 'Invalid project path' }
-    };
-  }
-  const projectId = projectPathParts && projectPathParts.length === 2
-    ? await getProjectIdByPath(projectPathParts as [string, string])
-    : project;
-
-  if (!projectId) {
-    return {
-      status: 400 as const,
-      body: { message: 'Invalid project' }
+      status: 404 as const,
+      body: { message: 'Project not found' }
     };
   }
 
@@ -169,7 +138,7 @@ export const createEnvironment = async ({
   const hasProjectAccess = await db.select()
     .from(Schema.projectAccess)
     .where(and(
-      eq(Schema.projectAccess.projectId, projectId),
+      eq(Schema.projectAccess.projectId, projectDb.id),
       eq(Schema.projectAccess.userId, req.user.id)
     ))
     .limit(1);
@@ -184,7 +153,7 @@ export const createEnvironment = async ({
   // Create environment and first version if content is provided.
   const environment = await db.transaction(async (tx) => {
     const encryptionKey = await tx.query.projectEncryptionKeys.findFirst({
-      where: eq(Schema.projectEncryptionKeys.projectId, projectId)
+      where: eq(Schema.projectEncryptionKeys.projectId, projectDb.id)
     });
 
     if (!encryptionKey) return null;
@@ -192,7 +161,7 @@ export const createEnvironment = async ({
       const [env] = await tx.insert(Schema.environments)
         .values({
           name,
-          projectId: projectId
+          projectId: projectDb.id
         })
         .returning();
 
@@ -204,7 +173,7 @@ export const createEnvironment = async ({
       const projectUsers = await tx.select()
         .from(Schema.projectAccess)
         .where(and(
-          eq(Schema.projectAccess.projectId, projectId),
+          eq(Schema.projectAccess.projectId, projectDb.id),
           inArray(Schema.projectAccess.userId, userIds)
         ));
       if (projectUsers.length !== userIds.length) {
@@ -271,7 +240,7 @@ export const createEnvironment = async ({
 
 export const updateEnvironmentContent = async ({
   req,
-  params: { id },
+  params: { idOrPath },
   body: { content }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentContent>;
@@ -285,11 +254,8 @@ export const updateEnvironmentContent = async ({
     };
   }
 
-  const environment = await db.query.environments.findFirst({
-    where: eq(Schema.environments.id, id),
-  });
-
-  if (!environment || !environment.projectId) {
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, req.user.id);
+  if(!organization || !project || !environment) {
     return {
       status: 404 as const,
       body: { message: 'Environment not found' }
@@ -299,13 +265,13 @@ export const updateEnvironmentContent = async ({
   // Check access using existing logic from getEnvironment
   const environmentAccessCount = await db.select({ count: count() })
     .from(Schema.environmentAccess)
-    .where(eq(Schema.environmentAccess.environmentId, id));
+    .where(eq(Schema.environmentAccess.environmentId, environment.id));
 
   if (environmentAccessCount[0]?.count && environmentAccessCount[0].count > 0) {
     const hasEnvAccess = await db.select()
       .from(Schema.environmentAccess)
       .where(and(
-        eq(Schema.environmentAccess.environmentId, id),
+        eq(Schema.environmentAccess.environmentId, environment.id),
         eq(Schema.environmentAccess.userId, req.user.id)
       ))
       .limit(1);
@@ -320,7 +286,7 @@ export const updateEnvironmentContent = async ({
     const hasProjectAccess = await db.select()
       .from(Schema.projectAccess)
       .where(and(
-        eq(Schema.projectAccess.projectId, environment.projectId.toString()),
+        eq(Schema.projectAccess.projectId, project.id),
         eq(Schema.projectAccess.userId, req.user.id)
       ))
       .limit(1);
@@ -334,7 +300,7 @@ export const updateEnvironmentContent = async ({
   }
 
   const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
-    where: eq(Schema.projectEncryptionKeys.projectId, environment.projectId)
+    where: eq(Schema.projectEncryptionKeys.projectId, project.id)
   });
 
   if (!encryptionKey) {
@@ -349,7 +315,7 @@ export const updateEnvironmentContent = async ({
   // Update content
   const [updatedEnvironment] = await db.insert(Schema.environmentVersions)
     .values({
-      environmentId: id,
+      environmentId: environment.id,
       encryptedContent,
       savedBy: req.user.id
     })
@@ -370,7 +336,7 @@ export const updateEnvironmentContent = async ({
 
 export const updateEnvironmentSettings = async ({
   req,
-  params: { id },
+  params: { idOrPath },
   body: { allowedUserIds, preserveVersions }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>;
@@ -384,11 +350,8 @@ export const updateEnvironmentSettings = async ({
     };
   }
 
-  const environment = await db.query.environments.findFirst({
-    where: eq(Schema.environments.id, id),
-  });
-
-  if (!environment || !environment.projectId) {
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, req.user.id);
+  if(!organization || !project || !environment) {
     return {
       status: 404 as const,
       body: { message: 'Environment not found' }
@@ -399,7 +362,7 @@ export const updateEnvironmentSettings = async ({
   const hasProjectAccess = await db.select()
     .from(Schema.projectAccess)
     .where(and(
-      eq(Schema.projectAccess.projectId, environment.projectId.toString()),
+      eq(Schema.projectAccess.projectId, project.id),
       eq(Schema.projectAccess.userId, req.user.id)
     ))
     .limit(1);
@@ -416,12 +379,12 @@ export const updateEnvironmentSettings = async ({
   if (allowedUserIds) {
     await db.transaction(async (tx) => {
       await tx.delete(Schema.environmentAccess)
-        .where(eq(Schema.environmentAccess.environmentId, id));
+        .where(eq(Schema.environmentAccess.environmentId, environment.id));
       if (allowedUserIds.length > 0) {
         await tx.insert(Schema.environmentAccess)
           .values(
             allowedUserIds.map(userId => ({
-              environmentId: id,
+              environmentId: environment.id,
               userId
             }))
           );
@@ -435,7 +398,7 @@ export const updateEnvironmentSettings = async ({
       .set({
         preservedVersions: preserveVersions
       })
-      .where(eq(Schema.environments.id, id));
+      .where(eq(Schema.environments.id, environment.id));
   }
 
   return {

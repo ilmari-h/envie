@@ -4,20 +4,9 @@ import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { webcrypto } from 'node:crypto';
 import { isValidUUID } from '../crypto/crypto';
-import { getOrganizationIdByName } from './organizations';
+import { getProjectByPath, getOrganization } from '../queries/by-path';
 
-export const getProjectIdByPath = async (path: [string, string]) => {
-  const [organizationName, projectName] = path;
-  const result = await db.select({id: Schema.projects.id})
-    .from(Schema.projects)
-    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
-    .where(and(
-      eq(Schema.projects.name, projectName),
-      eq(Schema.organizations.name, organizationName)
-    ))
-    .limit(1);
-  return result[0]?.id;
-}
+
 
 export const getProject = async ({ req, params: { idOrPath } }:
   {
@@ -30,24 +19,15 @@ export const getProject = async ({ req, params: { idOrPath } }:
       body: { message: 'Unauthorized' }
     };
   }
-  
-  // Resolve project ID from path if not provided
-  const pathParts = isValidUUID(idOrPath) ? null : idOrPath.split(':');
-  if(pathParts && pathParts.length !== 2) {
-    return {
-      status: 400 as const,
-      body: { message: 'Invalid project path' }
-    };
-  }
-  const projectId = pathParts && pathParts.length === 2
-    ? await getProjectIdByPath(pathParts as [string, string])
-    : idOrPath;
-  if(!projectId) {
+
+  const [ organization, project ] = await getProjectByPath(idOrPath, req.user.id);
+  if(!organization || !project) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
     };
   }
+  
 
   const result = await db.select({
     project: Schema.projects,
@@ -59,7 +39,7 @@ export const getProject = async ({ req, params: { idOrPath } }:
     .innerJoin(Schema.users, eq(Schema.projectAccess.userId, Schema.users.id))
     .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
     .where(and(
-      eq(Schema.projects.id, projectId),
+      eq(Schema.projects.id, project.id),
       eq(Schema.projectAccess.userId, req.user.id)
     ));
 
@@ -124,11 +104,8 @@ export const createProject = async ({
     };
   }
 
-  const organizationId = isValidUUID(organizationIdOrName)
-    ? organizationIdOrName
-    : await getOrganizationIdByName(organizationIdOrName);
-
-  if (!organizationId) {
+  const organization = await getOrganization(organizationIdOrName, req.user.id);
+  if (!organization) {
     return {
       status: 400 as const,
       body: { message: 'Invalid organization' }
@@ -136,19 +113,13 @@ export const createProject = async ({
   }
 
   // User must be creator of organization or owner of organization to create projects
-  const organization = await db.query.organizations.findFirst({
-    where: and(
-      eq(Schema.organizations.createdById, req.user.id),
-      eq(Schema.organizations.id, organizationId)
-    )
-  });
-  if (!organization) {
+  if (organization.createdById !== req.user.id) {
     const organizationOwner = await db.select({organization: Schema.organizations})
       .from(Schema.organizationOwners)
       .innerJoin(Schema.organizations, eq(Schema.organizationOwners.organizationId, Schema.organizations.id))
       .where(and(
         eq(Schema.organizationOwners.userId, req.user.id),
-        eq(Schema.organizations.id, organizationId)
+        eq(Schema.organizations.id, organization.id)
       ));
       if (!organizationOwner || organizationOwner.length === 0) {
         return {
@@ -164,7 +135,7 @@ export const createProject = async ({
     .values({
       name,
       description,
-      organizationId: organizationId
+      organizationId: organization.id
     })
     .returning();
     if(!project) {
