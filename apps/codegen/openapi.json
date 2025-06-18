@@ -347,6 +347,24 @@
               }
             }
           },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
           "403": {
             "description": "403",
             "content": {
@@ -1443,7 +1461,7 @@
                   "description": {
                     "type": "string"
                   },
-                  "organizationId": {
+                  "organizationIdOrName": {
                     "type": "string"
                   },
                   "defaultEnvironments": {
@@ -1456,7 +1474,7 @@
                 "required": [
                   "name",
                   "description",
-                  "organizationId"
+                  "organizationIdOrName"
                 ]
               }
             }
