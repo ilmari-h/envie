@@ -164,10 +164,7 @@ export async function getEnvironmentByPath(
     }
     whereStatements.push(
       eq(Schema.environments.projectId, project.id),
-      or(
-        eq(Schema.environments.name, environmentPart),
-        eq(Schema.environments.id, environmentPart)
-      )
+      eq(Schema.environments.name, environmentPart)
     );
   }
 
