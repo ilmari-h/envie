@@ -479,7 +479,7 @@
         }
       }
     },
-    "/environments/{id}/content": {
+    "/environments/{idOrPath}/content": {
       "put": {
         "summary": "Update environment content",
         "tags": [
@@ -487,7 +487,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "idOrPath",
             "in": "path",
             "required": true,
             "schema": {
@@ -564,7 +564,7 @@
         }
       }
     },
-    "/environments/{id}/settings": {
+    "/environments/{idOrPath}/settings": {
       "put": {
         "summary": "Update environment settings",
         "tags": [
@@ -572,7 +572,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "idOrPath",
             "in": "path",
             "required": true,
             "schema": {

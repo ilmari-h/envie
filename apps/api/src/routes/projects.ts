@@ -1,12 +1,9 @@
-import { db, environmentVersions, Schema } from '@repo/db';
+import { db, Schema } from '@repo/db';
 import { eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { webcrypto } from 'node:crypto';
-import { isValidUUID } from '../crypto/crypto';
 import { getProjectByPath, getOrganization } from '../queries/by-path';
-
-
 
 export const getProject = async ({ req, params: { idOrPath } }:
   {

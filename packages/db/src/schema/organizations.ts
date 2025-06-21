@@ -1,6 +1,8 @@
 import { pgTable, text, uuid, boolean, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { timestamps } from './utils';
 import { users } from './users';
+import { organizationRoles } from './organization-roles';
+import { relations } from 'drizzle-orm';
 
 export const organizations = pgTable('organizations', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -15,3 +17,7 @@ export const organizations = pgTable('organizations', {
 }]));
 
 export type Organization = typeof organizations.$inferSelect;
+
+export const organizationRelations = relations(organizations, ({ many }) => ({
+  roles: many(organizationRoles),
+}));

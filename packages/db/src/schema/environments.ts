@@ -3,6 +3,7 @@ import { projects } from './projects';
 import { timestamps } from './utils';
 import { relations } from 'drizzle-orm';
 import { environmentVersions } from './environment-versions';
+import { environmentAccess } from './envrionment-access';
 
 export const environments = pgTable('environments', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -17,8 +18,13 @@ export const environments = pgTable('environments', {
 
 export type Environment = typeof environments.$inferSelect;
 
-export const environmentRelations = relations(environments, ({ many }) => ({
+export const environmentRelations = relations(environments, ({ many, one }) => ({
   versions: many(environmentVersions, {
     relationName: 'environment_versions'
+  }),
+  access: many(environmentAccess),
+  project: one(projects, {
+    fields: [environments.projectId],
+    references: [projects.id]
   })
 }));
