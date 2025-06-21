@@ -115,9 +115,6 @@
                       "accessControl": {
                         "type": "object",
                         "properties": {
-                          "projectWide": {
-                            "type": "boolean"
-                          },
                           "users": {
                             "type": "array",
                             "items": {
@@ -151,10 +148,7 @@
                               ]
                             }
                           }
-                        },
-                        "required": [
-                          "projectWide"
-                        ]
+                        }
                       }
                     },
                     "required": [
@@ -290,9 +284,6 @@
                     "accessControl": {
                       "type": "object",
                       "properties": {
-                        "projectWide": {
-                          "type": "boolean"
-                        },
                         "users": {
                           "type": "array",
                           "items": {
@@ -326,10 +317,7 @@
                             ]
                           }
                         }
-                      },
-                      "required": [
-                        "projectWide"
-                      ]
+                      }
                     }
                   },
                   "required": [
@@ -404,7 +392,7 @@
         }
       }
     },
-    "/environments/{id}/versions/{versionNumber}": {
+    "/environments/{idOrPath}/versions/{versionNumber}": {
       "get": {
         "summary": "Get a specific version of an environment",
         "tags": [
@@ -412,7 +400,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "idOrPath",
             "in": "path",
             "required": true,
             "schema": {
@@ -823,7 +811,7 @@
         }
       }
     },
-    "/organizations/{id}": {
+    "/organizations/{idOrPath}": {
       "put": {
         "summary": "Update an organization",
         "tags": [
@@ -831,7 +819,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "idOrPath",
             "in": "path",
             "required": true,
             "schema": {
@@ -954,7 +942,7 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "idOrPath",
             "in": "path",
             "required": true,
             "schema": {
@@ -1062,109 +1050,6 @@
         }
       }
     },
-    "/projects/invite/{inviteId}": {
-      "get": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "inviteId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "project": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "organizationId": {
-                          "type": "string"
-                        },
-                        "createdAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "updatedAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "name",
-                        "description",
-                        "organizationId",
-                        "createdAt",
-                        "updatedAt"
-                      ]
-                    },
-                    "invite": {
-                      "type": "object",
-                      "properties": {
-                        "oneTimeUse": {
-                          "type": "boolean"
-                        },
-                        "expiresAt": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      },
-                      "required": [
-                        "oneTimeUse",
-                        "expiresAt"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "project",
-                    "invite"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/projects/{idOrPath}": {
       "get": {
         "tags": [
@@ -1250,39 +1135,6 @@
                         "createdAt",
                         "updatedAt"
                       ]
-                    },
-                    "users": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "email": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "createdAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "updatedAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          }
-                        },
-                        "required": [
-                          "id",
-                          "name",
-                          "email",
-                          "createdAt",
-                          "updatedAt"
-                        ]
-                      }
                     }
                   },
                   "required": [
@@ -1292,8 +1144,7 @@
                     "organizationId",
                     "createdAt",
                     "updatedAt",
-                    "organization",
-                    "users"
+                    "organization"
                   ]
                 }
               }
@@ -1301,6 +1152,196 @@
           },
           "401": {
             "description": "401",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "idOrPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Body",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9_]+$"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "description"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "organizationId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "organizationId",
+                    "createdAt",
+                    "updatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "403",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "idOrPath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "403",
             "content": {
               "application/json": {
                 "schema": {
@@ -1345,7 +1386,7 @@
         ],
         "parameters": [
           {
-            "name": "organizationId",
+            "name": "organization",
             "in": "query",
             "schema": {
               "type": "string"
@@ -1526,538 +1567,6 @@
           },
           "403": {
             "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{id}": {
-      "put": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Body",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string",
-                    "pattern": "^[a-zA-Z0-9_]+$"
-                  },
-                  "description": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "name",
-                  "description"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "organizationId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "createdAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "updatedAt": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "name",
-                    "description",
-                    "organizationId",
-                    "createdAt",
-                    "updatedAt"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{id}/invite": {
-      "post": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "Body",
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "oneTimeUse": {
-                    "type": "boolean"
-                  },
-                  "expiresAt": {
-                    "type": "string",
-                    "format": "date-time",
-                    "nullable": true
-                  }
-                },
-                "required": [
-                  "oneTimeUse",
-                  "expiresAt"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "link": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "link"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/invite/accept/{inviteId}": {
-      "get": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "inviteId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "302": {
-            "description": "302",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/projects/{id}/users/{userId}": {
-      "delete": {
-        "tags": [
-          "projects"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "200",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "403",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "message"
-                  ]
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "404",
             "content": {
               "application/json": {
                 "schema": {
