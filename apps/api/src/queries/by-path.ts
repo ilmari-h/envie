@@ -24,7 +24,6 @@ export interface OrganizationWithRole extends Organization {
 }
 
 export async function getOrganization(pathOrId: string, scope: Omit<OperationScope, 'editEnvironment'>): Promise<OrganizationWithRole> {
-
   if(!isValidPath(pathOrId, 1) && !isValidUUID(pathOrId)) {
     throw new Error('Invalid organization path');
   }
@@ -51,7 +50,7 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
         eq(Schema.organizations.hobby, true)
       );
     } else {
-      whereStatements.push(eq(Schema.organizations.id, pathOrId));
+      whereStatements.push(eq(Schema.organizations.name, pathOrId));
     }
   }
 
@@ -120,10 +119,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
     }
     whereStatements.push(
       eq(Schema.projects.organizationId, organization.id),
-      or(
-        eq(Schema.projects.name, projectPart),
-        eq(Schema.projects.id, projectPart)
-      )
+      eq(Schema.projects.name, projectPart)
     );
   }
 

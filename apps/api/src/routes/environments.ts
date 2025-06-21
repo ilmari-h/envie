@@ -42,6 +42,17 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
         };
       }
       environments = [environment];
+    } else {
+
+      // get all environments that user can view
+      const environmentAccess = await db.query.environmentAccess.findMany({
+        where: eq(Schema.environmentAccess.userId, req.user.id),
+        with: {
+          environment: true
+        }
+      });
+      environments = environmentAccess.map(e => e.environment);
+
     }
 
     if(!environments) {
