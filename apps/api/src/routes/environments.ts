@@ -1,10 +1,10 @@
-import { db, Schema } from '@repo/db';
+import { db, Environment, Schema } from '@repo/db';
 import { eq, and, count, exists, not, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
 import type { EnvironmentVersion, EnvironmentWithLatestVersion } from '@repo/rest';
-import { getEnvironmentByPath, getProjectByPath } from '../queries/by-path';
+import { getEnvironmentByPath, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 
 export const getEnvironments = async ({ req, query: { projectIdOrPath, environmentIdOrPath } }:
   {
@@ -25,46 +25,32 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
       };
     }
 
-    let environmentId: string | undefined;
-    let projectId: string | undefined;
-    if (environmentIdOrPath) {
-      const [org, project, environment] = await getEnvironmentByPath(environmentIdOrPath, req.user.id);
-      environmentId = environment!.id;
-      projectId = project!.id;
-    } else if (projectIdOrPath) {
-      const [org, project] = await getProjectByPath(projectIdOrPath, req.user.id);
-      projectId = project!.id;
+    let environments: Environment[] = [];
+    if(projectIdOrPath) {
+      environments = await getProjectEnvironments(projectIdOrPath, {
+        userId: req.user.id
+      });
+    } else if(environmentIdOrPath) {
+      const [_o, _p, environment] = await getEnvironmentByPath(environmentIdOrPath, {
+        userId: req.user.id
+      });
+      if(!environment) {
+        return {
+          status: 404 as const,
+          body: { message: 'Environment not found' }
+        };
+      }
+      environments = [environment];
     }
 
-    // Get all environment-specific access entries for this user
-    const envAccess = await db.select({environments: Schema.environments})
-      .from(Schema.environmentAccess)
-      .innerJoin(Schema.environments, eq(Schema.environmentAccess.environmentId, Schema.environments.id))
-      .where(
-        and(
-          eq(Schema.environmentAccess.userId, req.user.id),
-          projectId ? eq(Schema.environments.projectId, projectId) : undefined,
-        )
-      ).orderBy(desc(Schema.environments.name));
+    if(!environments) {
+      return {
+        status: 404 as const,
+        body: { message: 'Environments not found' }
+      };
+    }
 
-    // Get all project access entries for this user, excluding environments with direct access
-    const projectAccess = await db.select({environments: Schema.environments})
-      .from(Schema.projectAccess)
-      .innerJoin(Schema.projects, eq(Schema.projectAccess.projectId, Schema.projects.id))
-      .innerJoin(Schema.environments, eq(Schema.projects.id, Schema.environments.projectId))
-      .where(and(
-        eq(Schema.projectAccess.userId, req.user.id),
-        not(exists(
-          db.select()
-            .from(Schema.environmentAccess)
-            .where(eq(Schema.environmentAccess.environmentId, Schema.environments.id))
-        )),
-        projectId ? eq(Schema.projects.id, projectId) : undefined
-      )).orderBy(desc(Schema.environments.name));
-    
-    const allowedEnvironments = [...envAccess.map(e => e.environments), ...projectAccess.map(e => e.environments)]
-      .filter(e => environmentId ? e.id === environmentId : true);
-    const environmentsWithVersionsDecrypted = await Promise.all(allowedEnvironments
+    const environmentsWithVersionsDecrypted = await Promise.all(environments
       .map(async (e) => {
         const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
           where: eq(Schema.projectEncryptionKeys.projectId, e.projectId)
@@ -86,7 +72,6 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
           ...e,
           latestVersion: null,
           accessControl: {
-            projectWide: accessControl.length === 0,
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
         } satisfies EnvironmentWithLatestVersion;
@@ -99,7 +84,6 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
             versionNumber: totalVersions[0]?.count ?? 1
           } satisfies EnvironmentVersion,
           accessControl: {
-            projectWide: accessControl.length === 0,
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
         } satisfies EnvironmentWithLatestVersion;
@@ -126,27 +110,14 @@ export const createEnvironment = async ({
     };
   }
 
-  const [organization, projectDb] = await getProjectByPath(project, req.user.id);
+  const [organization, projectDb] = await getProjectByPath(project, {
+    userId: req.user.id,
+    createEnvironments: true
+  });
   if(!organization || !projectDb) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
-    };
-  }
-
-  // Check if user has access to project
-  const hasProjectAccess = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, projectDb.id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ))
-    .limit(1);
-
-  if (hasProjectAccess.length === 0) {
-    return {
-      status: 403 as const,
-      body: { message: 'Access denied to project' }
     };
   }
 
@@ -167,23 +138,38 @@ export const createEnvironment = async ({
 
       if (!env) return null;
 
-      // Create an environment access with just the creator or if user id's provided, use those.
-      // Also check that all user ids belong to the project.
-      const userIds = allowedUserIds ?? [req.user!.id];
-      const projectUsers = await tx.select()
-        .from(Schema.projectAccess)
-        .where(and(
-          eq(Schema.projectAccess.projectId, projectDb.id),
-          inArray(Schema.projectAccess.userId, userIds)
-        ));
-      if (projectUsers.length !== userIds.length) {
-        return null;
+      // Check that provided user ids belong to the organization
+      if (allowedUserIds) {
+        const organizationUsers = await tx.select()
+          .from(Schema.organizationRoles)
+          .where(and(
+            eq(Schema.organizationRoles.organizationId, organization.id),
+            inArray(Schema.organizationRoles.userId, allowedUserIds )
+          )
+        );
+        if (organizationUsers.length !== allowedUserIds.length) {
+          throw new Error('One or more user ids do not belong to the organization');
+        }
+
+        // Create environment access for each user
+        await tx.insert(Schema.environmentAccess)
+          .values(organizationUsers.map(r => ({
+            environmentId: env.id,
+            userId: r.userId!,
+            organizationRoleId: r.id,
+            expiresAt: null
+          })));
       }
+
+      // Create environment access for the creator
       await tx.insert(Schema.environmentAccess)
-        .values(userIds.map(userId => ({
+        .values({
           environmentId: env.id,
-          userId
-        })));
+          userId: req.user!.id,
+          organizationRoleId: organization.role.id,
+          expiresAt: null
+        });
+
 
       // Encrypt content using project key
       const encryptedContent = await cryptAESGCM(encryptionKey.key, content ?? "");
@@ -198,7 +184,7 @@ export const createEnvironment = async ({
       if (!latestVersion) return null;
       const allowedUsers = await tx.select()
         .from(Schema.users)
-        .where(inArray(Schema.users.id, userIds));
+        .where(inArray(Schema.users.id, allowedUserIds ?? []));
 
       return {
         ...env,
@@ -208,7 +194,6 @@ export const createEnvironment = async ({
           versionNumber: 1,
         } satisfies EnvironmentVersion,
         accessControl: {
-          projectWide: allowedUserIds ? false : true,
           users: allowedUsers
         }
       } satisfies EnvironmentWithLatestVersion;
@@ -219,17 +204,6 @@ export const createEnvironment = async ({
       status: 500 as const,
       body: { message: 'Failed to create environment' }
     };
-  }
-
-  // If allowedUserIds provided, create environment-specific access
-  if (allowedUserIds?.length) {
-    await db.insert(Schema.environmentAccess)
-      .values(
-        allowedUserIds.map(userId => ({
-          environmentId: environment.id,
-          userId
-        }))
-      );
   }
 
   return {
@@ -254,49 +228,15 @@ export const updateEnvironmentContent = async ({
     };
   }
 
-  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, req.user.id);
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
+    userId: req.user.id,
+    editEnvironment: true
+  });
   if(!organization || !project || !environment) {
     return {
       status: 404 as const,
       body: { message: 'Environment not found' }
     };
-  }
-
-  // Check access using existing logic from getEnvironment
-  const environmentAccessCount = await db.select({ count: count() })
-    .from(Schema.environmentAccess)
-    .where(eq(Schema.environmentAccess.environmentId, environment.id));
-
-  if (environmentAccessCount[0]?.count && environmentAccessCount[0].count > 0) {
-    const hasEnvAccess = await db.select()
-      .from(Schema.environmentAccess)
-      .where(and(
-        eq(Schema.environmentAccess.environmentId, environment.id),
-        eq(Schema.environmentAccess.userId, req.user.id)
-      ))
-      .limit(1);
-
-    if (hasEnvAccess.length === 0) {
-      return {
-        status: 403 as const,
-        body: { message: 'Access denied' }
-      };
-    }
-  } else {
-    const hasProjectAccess = await db.select()
-      .from(Schema.projectAccess)
-      .where(and(
-        eq(Schema.projectAccess.projectId, project.id),
-        eq(Schema.projectAccess.userId, req.user.id)
-      ))
-      .limit(1);
-
-    if (hasProjectAccess.length === 0) {
-      return {
-        status: 403 as const,
-        body: { message: 'Access denied' }
-      };
-    }
   }
 
   const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
@@ -350,7 +290,10 @@ export const updateEnvironmentSettings = async ({
     };
   }
 
-  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, req.user.id);
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
+    userId: req.user.id,
+    editEnvironment: true
+  });
   if(!organization || !project || !environment) {
     return {
       status: 404 as const,
@@ -358,41 +301,38 @@ export const updateEnvironmentSettings = async ({
     };
   }
 
-  // Only allow project access holders to modify environment access
-  const hasProjectAccess = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, project.id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ))
-    .limit(1);
-
-  if (hasProjectAccess.length === 0) {
-    return {
-      status: 403 as const,
-      body: { message: 'Only project members can modify environment access' }
-    };
-  }
-
   // Delete existing access entries and add new ones
-  // TODO: check that user IDs belong to the project 
   if (allowedUserIds) {
     await db.transaction(async (tx) => {
       await tx.delete(Schema.environmentAccess)
         .where(eq(Schema.environmentAccess.environmentId, environment.id));
       if (allowedUserIds.length > 0) {
+
+        const organizationUsers = await tx.select()
+          .from(Schema.organizationRoles)
+          .where(and(
+            eq(Schema.organizationRoles.organizationId, organization.id),
+            inArray(Schema.organizationRoles.userId, allowedUserIds )
+          )
+        );
+        if (organizationUsers.length !== allowedUserIds.length) {
+          throw new Error('One or more user ids do not belong to the organization');
+        }
+
         await tx.insert(Schema.environmentAccess)
           .values(
-            allowedUserIds.map(userId => ({
+            organizationUsers.map(r => ({
               environmentId: environment.id,
-              userId
+              userId: r.userId!,
+              organizationRoleId: r.id,
+              expiresAt: null
             }))
           );
       }
     });
   }
 
-  // Update preserve versions
+  // Update environment settings
   if (preserveVersions !== undefined) {
     await db.update(Schema.environments)
       .set({
@@ -409,7 +349,7 @@ export const updateEnvironmentSettings = async ({
 
 export const getEnvironmentVersion = async ({
   req,
-  params: { id, versionNumber }
+  params: { idOrPath, versionNumber }
 }: {
   req: TsRestRequest<typeof contract.environments.getEnvironmentVersion>;
   params: TsRestRequest<typeof contract.environments.getEnvironmentVersion>['params'];
@@ -421,65 +361,27 @@ export const getEnvironmentVersion = async ({
     };
   }
 
-  const environment = await db.query.environments.findFirst({
-    where: eq(Schema.environments.id, id),
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
+    userId: req.user.id
   });
-
-  if (!environment) {
+  if(!organization || !project || !environment) {
     return {
       status: 404 as const,
       body: { message: 'Environment not found' }
     };
   }
 
-  // Check access using existing logic
-  const environmentAccessCount = await db.select({ count: count() })
-    .from(Schema.environmentAccess)
-    .where(eq(Schema.environmentAccess.environmentId, id));
-
-  if (environmentAccessCount[0]?.count && environmentAccessCount[0].count > 0) {
-    const hasEnvAccess = await db.select()
-      .from(Schema.environmentAccess)
-      .where(and(
-        eq(Schema.environmentAccess.environmentId, id),
-        eq(Schema.environmentAccess.userId, req.user.id)
-      ))
-      .limit(1);
-
-    if (hasEnvAccess.length === 0) {
-      return {
-        status: 403 as const,
-        body: { message: 'Access denied' }
-      };
-    }
-  } else {
-    const hasProjectAccess = await db.select()
-      .from(Schema.projectAccess)
-      .where(and(
-        eq(Schema.projectAccess.projectId, environment.projectId),
-        eq(Schema.projectAccess.userId, req.user.id)
-      ))
-      .limit(1);
-
-    if (hasProjectAccess.length === 0) {
-      return {
-        status: 403 as const,
-        body: { message: 'Access denied' }
-      };
-    }
-  }
-
   // Get total version count
   const totalVersions = await db.select({ count: count() })
     .from(Schema.environmentVersions)
-    .where(eq(Schema.environmentVersions.environmentId, id));
+    .where(eq(Schema.environmentVersions.environmentId, environment.id));
 
   const versionCount = totalVersions[0]?.count ?? 0;
   const targetVersion = versionNumber !== undefined ? parseInt(versionNumber, 10) : versionCount;
 
   // Get the specific version
   const version = await db.query.environmentVersions.findFirst({
-    where: eq(Schema.environmentVersions.environmentId, id),
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
     orderBy: desc(Schema.environmentVersions.createdAt),
     offset: versionCount - targetVersion,
   });

@@ -6,7 +6,7 @@ import { relations } from "drizzle-orm";
 
 export const organizationRoles = pgTable('organization_roles', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').references(() => organizations.id),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   userId: text('user_id').references(() => users.id),
 
   // Privileges
@@ -14,6 +14,7 @@ export const organizationRoles = pgTable('organization_roles', {
   canCreateEnvironments: boolean('can_create_environments').notNull().default(false),
   canCreateProjects: boolean('can_create_projects').notNull().default(false),
   canEditProject: boolean('can_edit_project').notNull().default(false),
+  canEditOrganization: boolean('can_edit_organization').notNull().default(false),
 
   ...timestamps
 });
@@ -24,3 +25,4 @@ export const organizationRolesRelations = relations(organizationRoles, ({ one })
     references: [organizations.id],
   }),
 }));
+export type OrganizationRole = typeof organizationRoles.$inferSelect;

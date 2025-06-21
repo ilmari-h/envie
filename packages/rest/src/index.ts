@@ -55,13 +55,8 @@ export const environmentVersionSchema = z.object({
 export const environmentWithLatestVersionSchema = environmentSchema.extend({
   latestVersion: environmentVersionSchema.nullable(),
   accessControl: z.object({
-    projectWide: z.boolean(),
     users: z.array(userSchema).optional()
   })
-});
-
-export const projectWithUsersSchema = projectSchema.extend({
-  users: z.array(userSchema)
 });
 
 export const organizationWithProjectsCountSchema = organizationSchema.extend({
@@ -74,7 +69,6 @@ const c = initContract();
 export type EnvironmentVersion = z.infer<typeof environmentVersionSchema>;
 export type EnvironmentWithLatestVersion = z.infer<typeof environmentWithLatestVersionSchema>;
 
-export type ProjectWithUsers = z.infer<typeof projectWithUsersSchema>;
 
 export type OrganizationWithProjectsCount = z.infer<typeof organizationWithProjectsCountSchema>;
 
@@ -99,30 +93,30 @@ const user = c.router({
 });
 
 const projects = c.router({
-  getProjectByInvite: {
-    method: 'GET',
-    path: '/projects/invite/:inviteId',
-    pathParams: z.object({
-      inviteId: z.string()
-    }),
-    responses: {
-      200: z.object({
-        project: z.object({
-          id: z.string(),
-          name: z.string(),
-          description: z.string().nullable(),
-          organizationId: z.string(),
-          createdAt: z.date(),
-          updatedAt: z.date()
-        }),
-        invite: z.object({
-          oneTimeUse: z.boolean(),
-          expiresAt: z.date()
-        })
-      }),
-      404: z.object({ message: z.string() })
-    }
-  },
+  // getProjectByInvite: {
+  //   method: 'GET',
+  //   path: '/projects/invite/:inviteId',
+  //   pathParams: z.object({
+  //     inviteId: z.string()
+  //   }),
+  //   responses: {
+  //     200: z.object({
+  //       project: z.object({
+  //         id: z.string(),
+  //         name: z.string(),
+  //         description: z.string().nullable(),
+  //         organizationId: z.string(),
+  //         createdAt: z.date(),
+  //         updatedAt: z.date()
+  //       }),
+  //       invite: z.object({
+  //         oneTimeUse: z.boolean(),
+  //         expiresAt: z.date()
+  //       })
+  //     }),
+  //     404: z.object({ message: z.string() })
+  //   }
+  // },
   getProject: {
     method: 'GET',
     path: '/projects/:idOrPath',
@@ -130,7 +124,7 @@ const projects = c.router({
       idOrPath: z.string()
     }),
     responses: {
-      200: projectWithUsersSchema,
+      200: projectSchema,
       401: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })
     }
@@ -139,7 +133,7 @@ const projects = c.router({
     method: 'GET',
     path: '/projects',
     query: z.object({
-      organizationId: z.string().optional(),
+      organization: z.string().optional(),
     }),
     responses: {
       200: projectSchema.array()
@@ -161,9 +155,9 @@ const projects = c.router({
   },
   updateProject: {
     method: 'PUT',
-    path: '/projects/:id',
+    path: '/projects/:idOrPath',
     pathParams: z.object({
-      id: z.string()
+      idOrPath: z.string()
     }),
     body: z.object({
       name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
@@ -175,65 +169,24 @@ const projects = c.router({
       404: z.object({ message: z.string() })
     }
   },
-  generateInviteLink: {
-    method: 'POST',
-    path: '/projects/:id/invite',
-    pathParams: z.object({
-      id: z.string()
-    }),
-    body: z.object({
-      oneTimeUse: z.boolean(),
-      expiresAt: z.coerce.date(),
-    }),
-    responses: {
-      200: z.object({ link: z.string() }),
-      403: z.object({ message: z.string() }),
-      404: z.object({ message: z.string() })
-    }
-  },
-  acceptInviteLink: {
-    method: 'GET',
-    path: '/invite/accept/:inviteId',
-    pathParams: z.object({
-      inviteId: z.string()
-    }),
-    responses: {
-      200: z.object({ message: z.string() }),
-      302: z.object({ message: z.string() }),
-      403: z.object({ message: z.string() }),
-      404: z.object({ message: z.string() })
-    }
-  },
-  removeInviteLinks: {
-    method: 'DELETE',
-    path: '/projects/:id/invite',
-    pathParams: z.object({
-      id: z.string()
-    }),
-    responses: {
-      200: z.object({ message: z.string() }),
-      403: z.object({ message: z.string() }),
-      404: z.object({ message: z.string() })
-    }
-  },
-  removeUser: {
-    method: 'DELETE',
-    path: '/projects/:id/users/:userId',
-    pathParams: z.object({
-      id: z.string(),
-      userId: z.string()
-    }),
-    responses: {
-      200: z.object({ message: z.string() }),
-      403: z.object({ message: z.string() }),
-      404: z.object({ message: z.string() })
-    }
-  },
+  // acceptInviteLink: {
+  //   method: 'GET',
+  //   path: '/invite/accept/:inviteId',
+  //   pathParams: z.object({
+  //     inviteId: z.string()
+  //   }),
+  //   responses: {
+  //     200: z.object({ message: z.string() }),
+  //     302: z.object({ message: z.string() }),
+  //     403: z.object({ message: z.string() }),
+  //     404: z.object({ message: z.string() })
+  //   }
+  // },
   deleteProject: {
     method: 'DELETE',
-    path: '/projects/:id',
+    path: '/projects/:idOrPath',
     pathParams: z.object({
-      id: z.string()
+      idOrPath: z.string()
     }),
     responses: {
       200: z.object({ message: z.string() }),
@@ -259,9 +212,9 @@ const environments = c.router({
 
   getEnvironmentVersion: {
     method: 'GET',
-    path: '/environments/:id/versions/:versionNumber',
+    path: '/environments/:idOrPath/versions/:versionNumber',
     pathParams: z.object({
-      id: z.string(),
+      idOrPath: z.string(),
       versionNumber: z.string().optional()
     }),
     responses: {
@@ -334,9 +287,9 @@ export const organizations = c.router({
   },
   updateOrganization: {
     method: 'PUT',
-    path: '/organizations/:id',
+    path: '/organizations/:idOrPath',
     pathParams: z.object({
-      id: z.string()
+      idOrPath: z.string()
     }),
     body: z.object({
       name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
@@ -352,9 +305,9 @@ export const organizations = c.router({
 
   getOrganization: {
     method: 'GET',
-    path: '/organizations/:id',
+    path: '/organizations/:idOrPath',
     pathParams: z.object({
-      id: z.string()
+      idOrPath: z.string()
     }),
     responses: {
       200: organizationSchema,

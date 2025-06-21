@@ -17,7 +17,7 @@ import {
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization } from './routes/organizations';
-import { getProjects, createProject, getProject, updateProject, generateInviteLink, removeUser, removeInviteLinks, deleteProject, getProjectByInvite, acceptInvite } from './routes/projects';
+import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq } from 'drizzle-orm';
 import { getMe } from './routes/users';
 import { createClient } from "redis";
@@ -160,29 +160,10 @@ const router = s.router(contract, {
       middleware: [validateJWT],
       handler: updateProject
     },
-    generateInviteLink: {
-      middleware: [validateJWT],
-      handler: generateInviteLink
-    },
-    removeInviteLinks: {
-      middleware: [validateJWT],
-      handler: removeInviteLinks
-    },
-    removeUser: {
-      middleware: [validateJWT],
-      handler: removeUser
-    },
     deleteProject: {
       middleware: [validateJWT],
       handler: deleteProject
     },
-    getProjectByInvite: {
-      handler: getProjectByInvite
-    },
-    acceptInviteLink: {
-      middleware: [validateJWTOptional],
-      handler: acceptInvite
-    }
   })
 });
 

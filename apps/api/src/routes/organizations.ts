@@ -1,7 +1,8 @@
 import { db, Schema } from '@repo/db';
-import { eq, exists, or, sql } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
+import { getOrganization as getOrganizationByPath } from '../queries/by-path';
 
 export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof contract.organizations.getOrganizations> }) => {
   if (!req.user) {
@@ -11,31 +12,27 @@ export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof cont
     };
   }
 
-  // Get organizations where user has access to at least one project
+  // Get organizations where user has access to
   const orgs = await db.select({ 
     organizations: Schema.organizations,
-    projects: sql<number>`count(${Schema.projects.id})::int`
   })
     .from(Schema.organizations)
-    .leftJoin(Schema.projects, eq(Schema.organizations.id, Schema.projects.organizationId))
-    .where(
-      or(
-        eq(Schema.organizations.createdById, req.user.id),
-        exists(
-          db.select()
-            .from(Schema.projectAccess)
-            .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
-            .where(
-              eq(Schema.projectAccess.userId, req.user.id),
-            )
-        )
-      )
-    )
-    .groupBy(Schema.organizations.id);
+    .innerJoin(Schema.organizationRoles, eq(Schema.organizations.id, Schema.organizationRoles.organizationId))
+    .where(eq(Schema.organizationRoles.userId, req.user.id));
+
+  const orgsWithProjectsCount = await Promise.all(orgs.map(async o => {
+    const projectsCount = await db.select({ count: count() })
+      .from(Schema.projects)
+      .where(eq(Schema.projects.organizationId, o.organizations.id));
+    return {
+      ...o.organizations,
+      projects: projectsCount[0]?.count ?? 0
+    }
+  }));
 
   return {
     status: 200 as const,
-    body: orgs.map(o => ({ ...o.organizations, projects: o.projects }))
+    body: orgsWithProjectsCount
   };
 };
 
@@ -57,7 +54,8 @@ export const createOrganization = async ({
     .values({
       name,
       description,
-      createdById: req.user.id
+      createdById: req.user.id,
+      hobby: false
     })
     .returning();
 
@@ -68,6 +66,17 @@ export const createOrganization = async ({
     };
   }
 
+  await db.insert(Schema.organizationRoles)
+    .values({
+      organizationId: organization.id,
+      userId: req.user.id,
+      canAddMembers: true,
+      canCreateEnvironments: true,
+      canCreateProjects: true,
+      canEditProject: true,
+      canEditOrganization: true
+    });
+
   return {
     status: 201 as const,
     body: organization
@@ -76,7 +85,7 @@ export const createOrganization = async ({
 
 export const getOrganization = async ({
   req,
-  params: { id },
+  params: { idOrPath },
 }: {
   req: TsRestRequest<typeof contract.organizations.getOrganization>;
   params: TsRestRequest<typeof contract.organizations.getOrganization>['params'],
@@ -88,27 +97,8 @@ export const getOrganization = async ({
     };
   }
 
-  const organization = await db.query.organizations.findFirst({
-    where: (orgs, { eq, or, exists, and }) => and(
-      eq(orgs.id, id),
-      or(
-        // Organization visible if
-        // 1. it was created by the user
-        // 2. the user has access to a project in the organization
-        eq(orgs.createdById, req.user!.id),
-        exists(
-          db.select()
-            .from(Schema.projectAccess)
-            .innerJoin(Schema.projects, eq(Schema.projects.id, Schema.projectAccess.projectId))
-            .where(
-              and(
-                eq(Schema.projectAccess.userId, req.user!.id),
-                eq(Schema.projects.organizationId, orgs.id)
-              )
-            )
-        ),
-      )
-    )
+  const organization = await getOrganizationByPath(idOrPath, {
+    userId: req.user.id
   });
 
   if (!organization) {
@@ -126,12 +116,12 @@ export const getOrganization = async ({
 
 export const updateOrganization = async ({
   req,
-  params: { id },
+  params: { idOrPath },
   body: { name, description }
 }: {
   req: TsRestRequest<typeof contract.organizations.updateOrganization>;
-  params: { id: string };
-  body: { name: string; description?: string };
+  params: TsRestRequest<typeof contract.organizations.updateOrganization>['params'];
+  body: TsRestRequest<typeof contract.organizations.updateOrganization>['body'];
 }) => {
   if (!req.user) {
     return {
@@ -140,8 +130,9 @@ export const updateOrganization = async ({
     };
   }
 
-  const organization = await db.query.organizations.findFirst({
-    where: (orgs, { eq }) => eq(orgs.id, id)
+  const organization = await getOrganizationByPath(idOrPath, {
+    userId: req.user.id,
+    editOrganization: true
   });
 
   if (!organization) {
@@ -151,12 +142,6 @@ export const updateOrganization = async ({
     };
   }
 
-  if (organization.createdById !== req.user.id) {
-    return {
-      status: 403 as const,
-      body: { message: 'Only organization owners can update organization details' }
-    };
-  }
 
   const [updatedOrganization] = await db.update(Schema.organizations)
     .set({
@@ -164,7 +149,7 @@ export const updateOrganization = async ({
       description,
       updatedAt: new Date()
     })
-    .where(eq(Schema.organizations.id, id))
+    .where(eq(Schema.organizations.id, organization.id))
     .returning();
   if (!updatedOrganization) {
     return {

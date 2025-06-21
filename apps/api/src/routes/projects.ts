@@ -1,5 +1,5 @@
-import { db, Schema } from '@repo/db';
-import { eq, and } from 'drizzle-orm';
+import { db, Organization, Schema } from '@repo/db';
+import { eq, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { webcrypto } from 'node:crypto';
@@ -17,30 +17,10 @@ export const getProject = async ({ req, params: { idOrPath } }:
     };
   }
 
-  const [ organization, project ] = await getProjectByPath(idOrPath, req.user.id);
+  const [ organization, project ] = await getProjectByPath(idOrPath, {
+    userId: req.user.id
+  });
   if(!organization || !project) {
-    return {
-      status: 404 as const,
-      body: { message: 'Project not found' }
-    };
-  }
-  
-
-  const result = await db.select({
-    project: Schema.projects,
-    users: Schema.users,
-    organization: Schema.organizations
-  })
-    .from(Schema.projects)
-    .innerJoin(Schema.projectAccess, eq(Schema.projects.id, Schema.projectAccess.projectId))
-    .innerJoin(Schema.users, eq(Schema.projectAccess.userId, Schema.users.id))
-    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
-    .where(and(
-      eq(Schema.projects.id, project.id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ));
-
-  if (!result || result.length === 0 || !result[0]?.project) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
@@ -50,9 +30,8 @@ export const getProject = async ({ req, params: { idOrPath } }:
   return {
     status: 200 as const,
     body: {
-      ...result[0].project,
-      users: result.map(r => r.users),
-      organization: result[0].organization
+      ...project,
+      organization: organization
     }
   };
 }
@@ -69,19 +48,41 @@ export const getProjects = async ({ req, query }:
     };
   }
 
-  const projects = await db.select({project: Schema.projects, organization: Schema.organizations})
-    .from(Schema.projectAccess)
-    .innerJoin(Schema.projects, eq(Schema.projectAccess.projectId, Schema.projects.id))
-    .innerJoin(Schema.organizations, eq(Schema.projects.organizationId, Schema.organizations.id))
-    .where(and(
-      eq(Schema.projectAccess.userId, req.user.id),
-      query.organizationId ? eq(Schema.projects.organizationId, query.organizationId) : undefined
-    ));
+  let organizationsUserBelongsTo: Organization[] = [];
+  if(query.organization) {
+    const organization = await getOrganization(query.organization, {
+      userId: req.user.id
+    });
+    if (!organization) {
+      return {
+        status: 404 as const,
+        body: { message: 'Organization not found' }
+      };
+    }
+    organizationsUserBelongsTo.push(organization);
+  } else {
+    // Get all organizations user belongs to
+    const organizationRoles = await db.query.organizationRoles.findMany({
+      where: eq(Schema.organizationRoles.userId, req.user.id),
+      with: {
+        organization: true
+      }
+    });
+    organizationsUserBelongsTo = organizationRoles.map(r => r.organization);
+  }
+  // Return all projects regardless if user has access to them
+
+  const projects = await db.query.projects.findMany({
+    where: inArray(Schema.projects.organizationId, organizationsUserBelongsTo.map(o => o.id)),
+    with: {
+      organization: true
+    }
+  });
 
   return {
     status: 200 as const,
     body: projects.map(p => ({
-      ...p.project,
+      ...p,
       organization: p.organization
     }))
   };
@@ -101,29 +102,15 @@ export const createProject = async ({
     };
   }
 
-  const organization = await getOrganization(organizationIdOrName, req.user.id);
+  const organization = await getOrganization(organizationIdOrName, {
+    userId: req.user.id,
+    createProjects: true
+  });
   if (!organization) {
     return {
       status: 400 as const,
       body: { message: 'Invalid organization' }
     };
-  }
-
-  // User must be creator of organization or owner of organization to create projects
-  if (organization.createdById !== req.user.id) {
-    const organizationOwner = await db.select({organization: Schema.organizations})
-      .from(Schema.organizationOwners)
-      .innerJoin(Schema.organizations, eq(Schema.organizationOwners.organizationId, Schema.organizations.id))
-      .where(and(
-        eq(Schema.organizationOwners.userId, req.user.id),
-        eq(Schema.organizations.id, organization.id)
-      ));
-      if (!organizationOwner || organizationOwner.length === 0) {
-        return {
-          status: 403 as const,
-          body: { message: 'Unauthorized' }
-        };
-      }
   }
 
   // Create project
@@ -148,21 +135,22 @@ export const createProject = async ({
         key
       });
 
-    // Add creator to project access
-    await tx.insert(Schema.projectAccess)
-      .values({
-        projectId: project.id,
-        userId: req.user!.id,
-        role: 'admin'
-      });
-
     // Add default environments
     if (defaultEnvironments && defaultEnvironments.length > 0) {
-      await tx.insert(Schema.environments).values(defaultEnvironments.map(env => ({
+      const environments = await tx.insert(Schema.environments).values(defaultEnvironments.map(env => ({
         projectId: project.id,
         name: env
       }))).returning();
-    }
+
+      // Add creator to environment access
+      await tx.insert(Schema.environmentAccess)
+        .values(environments.map(e => ({
+          environmentId: e.id,
+          userId: req.user!.id,
+          organizationRoleId: organization.role.id,
+          expiresAt: null
+        })));
+      }
 
     return project;
   });
@@ -182,7 +170,7 @@ export const createProject = async ({
 
 export const updateProject = async ({
   req,
-  params: { id },
+  params: { idOrPath },
   body: { name, description }
 }: {
   req: TsRestRequest<typeof contract.projects.updateProject>;
@@ -196,32 +184,26 @@ export const updateProject = async ({
     };
   }
 
-  // Check if user has access to project
-  const hasAccess = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ))
-    .limit(1);
-
-  if (hasAccess.length === 0) {
+  const [organization, project] = await getProjectByPath(idOrPath, {
+    userId: req.user.id,
+    editProject: true
+  });
+  if (!organization || !project) {
     return {
-      status: 403 as const,
-      body: { message: 'Access denied' }
+      status: 404 as const,
+      body: { message: 'Project not found' }
     };
   }
 
-  const [project] = await db.update(Schema.projects)
+  const [updatedProject] = await db.update(Schema.projects)
     .set({
       name,
       description,
-      updatedAt: new Date()
     })
-    .where(eq(Schema.projects.id, id))
+    .where(eq(Schema.projects.id, project.id))
     .returning();
 
-  if (!project) {
+  if (!updatedProject) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
@@ -234,161 +216,9 @@ export const updateProject = async ({
   };
 };
 
-export const generateInviteLink = async ({
-  req,
-  params: { id },
-  body: { oneTimeUse, expiresAt }
-}: {
-  req: TsRestRequest<typeof contract.projects.generateInviteLink>;
-  params: TsRestRequest<typeof contract.projects.generateInviteLink>['params'];
-  body: TsRestRequest<typeof contract.projects.generateInviteLink>['body'];
-}) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
-
-  // Check if user has access to project
-  const hasAccess = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ))
-    .limit(1);
-
-  if (hasAccess.length === 0) {
-    return {
-      status: 403 as const,
-      body: { message: 'Access denied' }
-    };
-  }
-
-  // Generate a unique token
-  const token = webcrypto.randomUUID();
-
-  // Store the invite link in the database
-  await db.insert(Schema.projectInvites)
-    .values({
-      projectId: id,
-      token,
-      oneTimeUse,
-      expiresAt,
-      createdBy: req.user.id
-    });
-
-  return {
-    status: 200 as const,
-    body: {
-      link: `${process.env.FRONTEND_URL}/invite?inviteId=${token}`
-    }
-  };
-};
-
-export const removeInviteLinks = async ({
-  req,
-  params: { id }
-}: {
-  req: TsRestRequest<typeof contract.projects.removeInviteLinks>;
-  params: TsRestRequest<typeof contract.projects.removeInviteLinks>['params'];
-}) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
-
-  // Check if user has access to project
-  const hasAccess = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ))
-    .limit(1);
-
-  if (hasAccess.length === 0) {
-    return {
-      status: 403 as const,
-      body: { message: 'Access denied' }
-    };
-  }
-
-  // Delete all invite links for this project
-  await db.delete(Schema.projectInvites)
-    .where(eq(Schema.projectInvites.projectId, id));
-
-  return {
-    status: 200 as const,
-    body: { message: 'All invite links removed' }
-  };
-};
-
-export const removeUser = async ({
-  req,
-  params: { id, userId }
-}: {
-  req: TsRestRequest<typeof contract.projects.removeUser>;
-  params: TsRestRequest<typeof contract.projects.removeUser>['params'];
-}) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
-
-  // Check if user has access to project
-  const hasAccess = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, id),
-      eq(Schema.projectAccess.userId, req.user.id)
-    ))
-    .limit(1);
-
-  if (hasAccess.length === 0) {
-    return {
-      status: 403 as const,
-      body: { message: 'Access denied' }
-    };
-  }
-
-  // Cannot remove yourself
-  if (userId === req.user.id) {
-    return {
-      status: 403 as const,
-      body: { message: 'Cannot remove yourself from the project' }
-    };
-  }
-
-  // Remove user from project access
-  const result = await db.delete(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, id),
-      eq(Schema.projectAccess.userId, userId)
-    ))
-    .returning();
-
-  if (result.length === 0) {
-    return {
-      status: 404 as const,
-      body: { message: 'User not found in project' }
-    };
-  }
-
-  return {
-    status: 200 as const,
-    body: { message: 'User removed from project' }
-  };
-};
-
 export const deleteProject = async ({
   req,
-  params: { id }
+  params: { idOrPath }
 }: {
   req: TsRestRequest<typeof contract.projects.deleteProject>;
   params: TsRestRequest<typeof contract.projects.deleteProject>['params'];
@@ -400,26 +230,20 @@ export const deleteProject = async ({
     };
   }
 
-  // Check if user has admin access to project
-  const access = await db.select()
-    .from(Schema.projectAccess)
-    .where(and(
-      eq(Schema.projectAccess.projectId, id),
-      eq(Schema.projectAccess.userId, req.user.id),
-      eq(Schema.projectAccess.role, 'admin')
-    ))
-    .limit(1);
-
-  if (access.length === 0) {
+  const [organization, project] = await getProjectByPath(idOrPath, {
+    userId: req.user.id,
+    editProject: true
+  });
+  if (!organization || !project) {
     return {
-      status: 403 as const,
-      body: { message: 'Only project admins can delete projects' }
+      status: 404 as const,
+      body: { message: 'Project not found' }
     };
   }
 
   // Delete project (cascade will handle related records)
   const result = await db.delete(Schema.projects)
-    .where(eq(Schema.projects.id, id))
+    .where(eq(Schema.projects.id, project.id))
     .returning();
 
   if (result.length === 0) {
@@ -435,97 +259,97 @@ export const deleteProject = async ({
   };
 };
 
-export const getProjectByInvite = async ({
-  params: { inviteId }
-}: {
-  params: TsRestRequest<typeof contract.projects.getProjectByInvite>['params']
-}) => {
-  console.log("Invite ID", inviteId);
-  const invite = await db.query.projectInvites.findFirst({
-    where: eq(Schema.projectInvites.token, inviteId),
-    with: {
-      project: true
-    }
-  });
+// export const getProjectByInvite = async ({
+//   params: { inviteId }
+// }: {
+//   params: TsRestRequest<typeof contract.projects.getProjectByInvite>['params']
+// }) => {
+//   console.log("Invite ID", inviteId);
+//   const invite = await db.query.projectInvites.findFirst({
+//     where: eq(Schema.projectInvites.token, inviteId),
+//     with: {
+//       project: true
+//     }
+//   });
 
-  if (!invite || !invite.project) {
-    return {
-      status: 404 as const,
-      body: { message: 'Invite not found or expired' }
-    };
-  }
+//   if (!invite || !invite.project) {
+//     return {
+//       status: 404 as const,
+//       body: { message: 'Invite not found or expired' }
+//     };
+//   }
 
-  // Check if invite is expired
-  if (invite.expiresAt && invite.expiresAt < new Date()) {
-    return {
-      status: 404 as const,
-      body: { message: 'Invite link has expired' }
-    };
-  }
+//   // Check if invite is expired
+//   if (invite.expiresAt && invite.expiresAt < new Date()) {
+//     return {
+//       status: 404 as const,
+//       body: { message: 'Invite link has expired' }
+//     };
+//   }
 
-  return {
-    status: 200 as const,
-    body: {
-      project: invite.project,
-      invite: {
-        oneTimeUse: invite.oneTimeUse,
-        expiresAt: invite.expiresAt
-      }
-    }
-  };
-};
+//   return {
+//     status: 200 as const,
+//     body: {
+//       project: invite.project,
+//       invite: {
+//         oneTimeUse: invite.oneTimeUse,
+//         expiresAt: invite.expiresAt
+//       }
+//     }
+//   };
+// };
 
-export const acceptInvite = async ({
-  req,
-  params: { inviteId }
-}: {
-  req: TsRestRequest<typeof contract.projects.acceptInviteLink>,
-  params: TsRestRequest<typeof contract.projects.acceptInviteLink>['params']
-}) => {
+// export const acceptInvite = async ({
+//   req,
+//   params: { inviteId }
+// }: {
+//   req: TsRestRequest<typeof contract.projects.acceptInviteLink>,
+//   params: TsRestRequest<typeof contract.projects.acceptInviteLink>['params']
+// }) => {
 
-  if (req.user && req.user.id) {
-    // User already logged in, so just add to project
-    return db.transaction(async (tx) => {
-      const inviteInDb = await tx.query.projectInvites.findFirst({
-        where: and(
-          eq(Schema.projectInvites.token, inviteId),
-        )
-      });
+//   if (req.user && req.user.id) {
+//     // User already logged in, so just add to project
+//     return db.transaction(async (tx) => {
+//       const inviteInDb = await tx.query.projectInvites.findFirst({
+//         where: and(
+//           eq(Schema.projectInvites.token, inviteId),
+//         )
+//       });
 
-      if (!inviteInDb || inviteInDb.expiresAt < new Date()) {  
-        return {
-          status: 404 as const,
-          body: { message: 'Invite not found or expired' }
-        };
-      }
+//       if (!inviteInDb || inviteInDb.expiresAt < new Date()) {  
+//         return {
+//           status: 404 as const,
+//           body: { message: 'Invite not found or expired' }
+//         };
+//       }
 
-      await tx.insert(Schema.projectAccess)
-        .values({
-          projectId: inviteInDb.projectId,
-          userId: req.user!.id,
-        }).onConflictDoNothing({
-          target: [Schema.projectAccess.userId, Schema.projectAccess.projectId]
-        });
+//       await tx.insert(Schema.projectAccess)
+//         .values({
+//           projectId: inviteInDb.projectId,
+//           userId: req.user!.id,
+//         }).onConflictDoNothing({
+//           target: [Schema.projectAccess.userId, Schema.projectAccess.projectId]
+//         });
       
-      if (inviteInDb.oneTimeUse) {
-        await tx.delete(Schema.projectInvites)
-          .where(eq(Schema.projectInvites.token, inviteId));
-      }
+//       if (inviteInDb.oneTimeUse) {
+//         await tx.delete(Schema.projectInvites)
+//           .where(eq(Schema.projectInvites.token, inviteId));
+//       }
 
-      return {
-        status: 302 as const,
-        headers: {
-          Location: `${process.env.FRONTEND_URL}/projects/${inviteInDb.projectId}`
-        },
-        body: { message: 'Redirecting to project' }
-      };
-    })
-  }
-  return {
-    status: 302 as const,
-    headers: {
-      Location: `${process.env.FRONTEND_URL}?inviteId=${inviteId}`
-    },
-    body: { message: 'Redirecting to login' }
-  };
-}
+//       return {
+//         status: 302 as const,
+//         headers: {
+//           Location: `${process.env.FRONTEND_URL}/projects/${inviteInDb.projectId}`
+//         },
+//         body: { message: 'Redirecting to project' }
+//       };
+//     })
+//   }
+//   return {
+//     status: 302 as const,
+//     headers: {
+//       Location: `${process.env.FRONTEND_URL}?inviteId=${inviteId}`
+//     },
+//     body: { message: 'Redirecting to login' }
+//   };
+// }
