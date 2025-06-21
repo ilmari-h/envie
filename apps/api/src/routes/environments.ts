@@ -27,6 +27,7 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
 
     let environments: Environment[] = [];
     if(projectIdOrPath) {
+      console.log("Getting project environments", projectIdOrPath);
       environments = await getProjectEnvironments(projectIdOrPath, {
         userId: req.user.id
       });

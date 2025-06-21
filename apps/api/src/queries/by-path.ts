@@ -51,7 +51,7 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
         eq(Schema.organizations.hobby, true)
       );
     } else {
-      whereStatements.push(eq(Schema.organizations.name, pathOrId));
+      whereStatements.push(eq(Schema.organizations.id, pathOrId));
     }
   }
 

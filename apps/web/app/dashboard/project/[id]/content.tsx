@@ -19,12 +19,12 @@ import { Settings } from './settings';
 export default function ProjectContent({ id }: { id: string }) {
   const { data, isLoading } = tsr.projects.getProject.useQuery({
     queryKey: ['project', id],
-    queryData: { params: { id } }
+    queryData: { params: { idOrPath: id } }
   });
 
   const { data: environments, isLoading: environmentsLoading, refetch: refetchEnvironments } = tsr.environments.getEnvironments.useQuery({
     queryKey: ['environments', id],
-    queryData: { query: { projectId: id } },
+    queryData: { query: { projectIdOrPath: id } },
   });
 
   const { mutate: createEnvironment } = tsr.environments.createEnvironment.useMutation({
@@ -70,7 +70,7 @@ export default function ProjectContent({ id }: { id: string }) {
   const onSaveClicked = () => {
     if (activeEnv) {
       updateEnvironmentContent({
-        params: { id: activeEnv.id },
+        params: { idOrPath: activeEnv.id },
         body: { content }
       });
     }
@@ -83,7 +83,7 @@ export default function ProjectContent({ id }: { id: string }) {
     createEnvironment({
       body: {
         name,
-        projectId: id,
+        project: id,
         content: activeVersionData?.content
       }
     });

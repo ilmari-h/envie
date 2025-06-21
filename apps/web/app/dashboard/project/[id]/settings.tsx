@@ -70,7 +70,7 @@ export function Settings({
     onSubmit: async ({ value }) => {
       // TODO: Handle form submission
       updateEnvironmentSettings({
-        params: { id: environmentId },
+        params: { idOrPath: environmentId },
         body: {
           allowedUserIds: value.projectWide ? [] : value.userIds,
           preserveVersions: parseInt(value.preserveVersions, 10)
