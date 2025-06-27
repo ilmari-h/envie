@@ -1,15 +1,21 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 
-const nameRegex = /^[a-zA-Z0-9_]+$/;
+const nameRegex = /^[a-zA-Z0-9_-]+$/;
+const nameSchema = z.string()
+  .min(1)
+  .max(32)
+  .regex(nameRegex, 'Name can only contain latin letters, numbers, underscores and hyphens')
+
+export const invitedUserSchema = z.object({
+  userId: z.string(),
+  wrappedEd25519Key: z.string()
+});
 
 // Zod schemas for DB types
 export const userSchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string().nullable(),
-  createdAt: z.date(),
-  updatedAt: z.date()
 });
 
 export const organizationSchema = z.object({
@@ -49,7 +55,8 @@ export const environmentVersionSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   content: z.string(),
-  versionNumber: z.number().int()
+  versionNumber: z.number().int(),
+  wrappedEncryptionKey: z.string()
 });
 
 export const environmentWithLatestVersionSchema = environmentSchema.extend({
@@ -143,7 +150,7 @@ const projects = c.router({
     method: 'POST',
     path: '/projects',
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string(),
       organizationIdOrName: z.string(),
       defaultEnvironments: z.array(z.string()).optional()
@@ -160,7 +167,7 @@ const projects = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string(),
     }),
     responses: {
@@ -226,10 +233,13 @@ const environments = c.router({
     method: 'POST',
     path: '/environments',
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       project: z.string(),
-      content: z.string().optional(),
-      allowedUserIds: z.array(z.string()).optional()
+      encryptedContent: z.object({
+        keys: z.array(z.string()),
+        ciphertext: z.string()
+      }),
+      invitedUsers: z.array(invitedUserSchema).optional()
     }),
     responses: {
       201: environmentWithLatestVersionSchema,
@@ -247,7 +257,10 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      content: z.string()
+      encryptedContent: z.object({
+        keys: z.array(z.string()),
+        ciphertext: z.string()
+      }),
     }),
     responses: {
       200: z.object({}),
@@ -264,7 +277,6 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      allowedUserIds: z.array(z.string()).describe("If empty array, allow access to all users in the project").optional(),
       preserveVersions: z.number().min(5).max(100).optional()
     }),
     responses: {
@@ -292,7 +304,7 @@ export const organizations = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string().optional()
     }),
     responses: {
@@ -320,7 +332,7 @@ export const organizations = c.router({
     method: 'POST',
     path: '/organizations',
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string().optional()
     }),
     responses: {

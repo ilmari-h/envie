@@ -62,12 +62,8 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
       };
     }
 
-    const environmentsWithVersionsDecrypted = await Promise.all(environments
+    const environmentsWithVersions = await Promise.all(environments
       .map(async (e) => {
-        const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
-          where: eq(Schema.projectEncryptionKeys.projectId, e.projectId)
-        });
-        if (!encryptionKey) throw new Error(`Encryption key not found for project ${e.projectId}`);
         const latestVersion = await db.query.environmentVersions.findFirst({
           where: eq(Schema.environmentVersions.environmentId, e.id),
           orderBy: desc(Schema.environmentVersions.createdAt),
@@ -87,13 +83,24 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
         } satisfies EnvironmentWithLatestVersion;
-        const content = await decryptAESGCM(encryptionKey.key, latestVersion.encryptedContent);
+
+        const wrappedEncryptionKey = await db.query.wrappedUserKeys.findFirst({
+          where: and(
+            eq(Schema.wrappedUserKeys.environmentId, e.id),
+            eq(Schema.wrappedUserKeys.userId, req.user!.id)
+          )
+        });
+        if (!wrappedEncryptionKey) {
+          throw new Error('Wrapped encryption key not found');
+        }
+
         return {
           ...e,
           latestVersion: {
             ...latestVersion,
-            content,
-            versionNumber: totalVersions[0]?.count ?? 1
+            content: latestVersion.encryptedContent.toString('base64'),
+            versionNumber: totalVersions[0]?.count ?? 1,
+            wrappedEncryptionKey: wrappedEncryptionKey.encryptedSymmetricKey.toString('base64')
           } satisfies EnvironmentVersion,
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
@@ -104,13 +111,13 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
 
     return {
       status: 200 as const,
-      body: environmentsWithVersionsDecrypted
+      body: environmentsWithVersions
     };
 }
 
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, content, allowedUserIds }
+  body: { name, project, encryptedContent, invitedUsers }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
@@ -132,14 +139,8 @@ export const createEnvironment = async ({
       body: { message: 'Project not found' }
     };
   }
-
   // Create environment and first version if content is provided.
   const environment = await db.transaction(async (tx) => {
-    const encryptionKey = await tx.query.projectEncryptionKeys.findFirst({
-      where: eq(Schema.projectEncryptionKeys.projectId, projectDb.id)
-    });
-
-    if (!encryptionKey) return null;
 
       const [env] = await tx.insert(Schema.environments)
         .values({
@@ -150,16 +151,18 @@ export const createEnvironment = async ({
 
       if (!env) return null;
 
-      // Check that provided user ids belong to the organization
-      if (allowedUserIds) {
+      // Check that provided users belong to the organization
+      if (invitedUsers) {
+        const invitedUserIds = invitedUsers.map(u => u.userId);
+
         const organizationUsers = await tx.select()
           .from(Schema.organizationRoles)
           .where(and(
             eq(Schema.organizationRoles.organizationId, organization.id),
-            inArray(Schema.organizationRoles.userId, allowedUserIds )
+            inArray(Schema.organizationRoles.userId, invitedUserIds )
           )
         );
-        if (organizationUsers.length !== allowedUserIds.length) {
+        if (organizationUsers.length !== invitedUserIds.length) {
           throw new Error('One or more user ids do not belong to the organization');
         }
 
@@ -170,6 +173,14 @@ export const createEnvironment = async ({
             userId: r.userId!,
             organizationRoleId: r.id,
             expiresAt: null
+          })));
+
+        // Create environment encryption keys for each user
+        await tx.insert(Schema.wrappedUserKeys)
+          .values(invitedUsers.map(u => ({
+            environmentId: env.id,
+            userId: u.userId,
+            encryptedSymmetricKey: Buffer.from(u.wrappedEd25519Key, 'base64')
           })));
       }
 
@@ -183,27 +194,48 @@ export const createEnvironment = async ({
         });
 
 
-      // Encrypt content using project key
-      const encryptedContent = await cryptAESGCM(encryptionKey.key, content ?? "");
-
       const [latestVersion] = await tx.insert(Schema.environmentVersions)
         .values({
           environmentId: env.id,
-          encryptedContent: encryptedContent,
+          encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
           savedBy: req.user!.id
         }).returning();
 
       if (!latestVersion) return null;
-      const allowedUsers = await tx.select()
+
+      // Add entries to environmentVersionKeys for each key
+      if (encryptedContent.keys && encryptedContent.keys.length > 0) {
+        await tx.insert(Schema.environmentVersionKeys)
+          .values(encryptedContent.keys.map(key => ({
+            key,
+            environmentVersionId: latestVersion.id,
+          })));
+      }
+      const invitedUserIds = invitedUsers?.map(u => u.userId);
+      const allowedUsers = invitedUserIds ? await tx.select({
+        id: Schema.users.id,
+        name: Schema.users.name,
+      })
         .from(Schema.users)
-        .where(inArray(Schema.users.id, allowedUserIds ?? []));
+        .where(inArray(Schema.users.id, invitedUserIds)) : [];
+
+      const wrappedEncryptionKey = await tx.query.wrappedUserKeys.findFirst({
+        where: and(
+          eq(Schema.wrappedUserKeys.environmentId, env.id),
+          eq(Schema.wrappedUserKeys.userId, req.user!.id)
+        )
+      });
+      if (!wrappedEncryptionKey) {
+        throw new Error('Wrapped encryption key not found');
+      }
 
       return {
         ...env,
         latestVersion: {
           ...latestVersion,
-          content: content ?? "",
+          content: encryptedContent.ciphertext,
           versionNumber: 1,
+          wrappedEncryptionKey: wrappedEncryptionKey.encryptedSymmetricKey.toString('base64')
         } satisfies EnvironmentVersion,
         accessControl: {
           users: allowedUsers
@@ -227,7 +259,7 @@ export const createEnvironment = async ({
 export const updateEnvironmentContent = async ({
   req,
   params: { idOrPath },
-  body: { content }
+  body: { encryptedContent }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentContent>;
   params: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['params'];
@@ -251,27 +283,29 @@ export const updateEnvironmentContent = async ({
     };
   }
 
-  const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
-    where: eq(Schema.projectEncryptionKeys.projectId, project.id)
+  // Update content in transaction
+  const updatedEnvironment = await db.transaction(async (tx) => {
+    const [version] = await tx.insert(Schema.environmentVersions)
+      .values({
+        environmentId: environment.id,
+        encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
+        savedBy: req.user!.id
+      })
+      .returning();
+
+    if (!version) return null;
+
+    // Add entries to environmentVersionKeys for each key
+    if (encryptedContent.keys && encryptedContent.keys.length > 0) {
+      await tx.insert(Schema.environmentVersionKeys)
+        .values(encryptedContent.keys.map(key => ({
+          key,
+          environmentVersionId: version.id,
+        })));
+    }
+
+    return version;
   });
-
-  if (!encryptionKey) {
-    return {
-      status: 500 as const,
-      body: { message: 'Failed to update environment' }
-    };
-  }
-
-  const encryptedContent = await cryptAESGCM(encryptionKey.key, content);
-
-  // Update content
-  const [updatedEnvironment] = await db.insert(Schema.environmentVersions)
-    .values({
-      environmentId: environment.id,
-      encryptedContent,
-      savedBy: req.user.id
-    })
-    .returning();
 
   if (!updatedEnvironment) {
     return {
@@ -289,7 +323,7 @@ export const updateEnvironmentContent = async ({
 export const updateEnvironmentSettings = async ({
   req,
   params: { idOrPath },
-  body: { allowedUserIds, preserveVersions }
+  body: { preserveVersions }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>;
   params: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['params'];
@@ -311,37 +345,6 @@ export const updateEnvironmentSettings = async ({
       status: 404 as const,
       body: { message: 'Environment not found' }
     };
-  }
-
-  // Delete existing access entries and add new ones
-  if (allowedUserIds) {
-    await db.transaction(async (tx) => {
-      await tx.delete(Schema.environmentAccess)
-        .where(eq(Schema.environmentAccess.environmentId, environment.id));
-      if (allowedUserIds.length > 0) {
-
-        const organizationUsers = await tx.select()
-          .from(Schema.organizationRoles)
-          .where(and(
-            eq(Schema.organizationRoles.organizationId, organization.id),
-            inArray(Schema.organizationRoles.userId, allowedUserIds )
-          )
-        );
-        if (organizationUsers.length !== allowedUserIds.length) {
-          throw new Error('One or more user ids do not belong to the organization');
-        }
-
-        await tx.insert(Schema.environmentAccess)
-          .values(
-            organizationUsers.map(r => ({
-              environmentId: environment.id,
-              userId: r.userId!,
-              organizationRoleId: r.id,
-              expiresAt: null
-            }))
-          );
-      }
-    });
   }
 
   // Update environment settings
@@ -405,19 +408,19 @@ export const getEnvironmentVersion = async ({
     };
   }
 
-  // Get encryption key and decrypt content
-  const encryptionKey = await db.query.projectEncryptionKeys.findFirst({
-    where: eq(Schema.projectEncryptionKeys.projectId, environment.projectId)
+  const wrappedEncryptionKey = await db.query.wrappedUserKeys.findFirst({
+    where: and(
+      eq(Schema.wrappedUserKeys.environmentId, environment.id),
+      eq(Schema.wrappedUserKeys.userId, req.user!.id)
+    )
   });
 
-  if (!encryptionKey) {
+  if (!wrappedEncryptionKey) {
     return {
-      status: 500 as const,
-      body: { message: 'Failed to decrypt environment content' }
+      status: 404 as const,
+      body: { message: 'Wrapped encryption key not found' }
     };
   }
-
-  const content = await decryptAESGCM(encryptionKey.key, version.encryptedContent);
 
   return {
     status: 200 as const,
@@ -427,8 +430,9 @@ export const getEnvironmentVersion = async ({
       savedBy: version.savedBy,
       createdAt: version.createdAt,
       updatedAt: version.updatedAt,
-      content,
-      versionNumber: targetVersion
+      content: version.encryptedContent.toString('base64'),
+      versionNumber: targetVersion,
+      wrappedEncryptionKey: wrappedEncryptionKey?.encryptedSymmetricKey.toString('base64')
     } satisfies EnvironmentVersion
   };
 };

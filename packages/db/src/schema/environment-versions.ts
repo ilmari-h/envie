@@ -1,4 +1,4 @@
-import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, primaryKey } from 'drizzle-orm/pg-core';
 import { bytea, timestamps } from './utils';
 import { environments } from './environments';
 import { relations } from 'drizzle-orm';
@@ -12,14 +12,13 @@ export const environmentVersions = pgTable('environment_versions', {
   ...timestamps
 });
 
-// Only available for non-free-form environments
-// Allows text search on keys
 export const environmentVersionKeys = pgTable('environment_version_keys', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  environmentVersionId: uuid('environment_version_id').references(() => environmentVersions.id, { onDelete: 'cascade' }),
   key: text('key').notNull(),
+  environmentVersionId: uuid('environment_version_id').references(() => environmentVersions.id, { onDelete: 'cascade' }),
   ...timestamps
-});
+}, (t) => ([{
+  pk: primaryKey({ columns: [t.key, t.environmentVersionId] })
+}]));
 
 export type EnvironmentVersion = typeof environmentVersions.$inferSelect;
 export type EnvironmentVersionKey = typeof environmentVersionKeys.$inferSelect;
