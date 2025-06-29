@@ -3,9 +3,9 @@ import { eq, and, count, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithLatestVersion } from '@repo/rest';
-import { getEnvironmentByPath, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
+import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 
-export const getEnvironments = async ({ req, query: { projectIdOrPath, environmentIdOrPath } }:
+export const getEnvironments = async ({ req, query: { path } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
@@ -17,23 +17,21 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
       };
     }
 
-    if(projectIdOrPath && environmentIdOrPath) {
-      return {
-        status: 400 as const,
-        body: { message: 'Cannot specify both project and environment' }
-      };
-    }
-
+    const pathParts = path?.split(':') ?? [];
     let environments: (Environment & { access: EnvironmentAccess })[] = [];
-    if(projectIdOrPath) {
-      console.log("Getting project environments", projectIdOrPath);
-      environments = await getProjectEnvironments(projectIdOrPath, {
+    if(pathParts.length === 1) {
+      const orgEnvironments = await getOrganizationEnvironments(pathParts[0]!, {
         userId: req.user.id
       });
-    } else if(environmentIdOrPath) {
-      const [_o, _p, environment] = await getEnvironmentByPath(environmentIdOrPath, {
+      environments = orgEnvironments;
+    } else if(pathParts.length === 2) {
+      const [_organization, _project] = await getProjectByPath(pathParts[0]! + ':' + pathParts[1]!, {
         userId: req.user.id
       });
+    } else if(pathParts.length === 3) {
+      const [_organization, _project, environment] = await getEnvironmentByPath(
+        pathParts[0]! + ':' + pathParts[1]! + ':' + pathParts[2]!, { userId: req.user.id }
+      );
       if(!environment) {
         return {
           status: 404 as const,
@@ -42,7 +40,6 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
       }
       environments = [environment];
     } else {
-
       // get all environments that user can view
       const environmentAccess = await db.query.environmentAccess.findMany({
         where: eq(Schema.environmentAccess.userId, req.user.id),
@@ -54,8 +51,8 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
         ...e.environment,
         access: e
       }));
-
     }
+
 
     if(!environments) {
       return {
@@ -69,6 +66,9 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
         const latestVersion = await db.query.environmentVersions.findFirst({
           where: eq(Schema.environmentVersions.environmentId, e.id),
           orderBy: desc(Schema.environmentVersions.createdAt),
+          with: {
+            keys: true
+          }
         });
         const totalVersions = await db.select({ count: count() })
           .from(Schema.environmentVersions)
@@ -81,7 +81,10 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
         if (!latestVersion) return {
           ...e,
           latestVersion: null,
-          wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
+          decryptionData: {
+            wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
+            ephemeralPublicKey: e.access.ephemeralPublicKey.toString('base64')
+          },
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
@@ -91,9 +94,13 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
           latestVersion: {
             ...latestVersion,
             content: latestVersion.encryptedContent.toString('base64'),
+            keys: latestVersion.keys.map(k => k.key),
             versionNumber: totalVersions[0]?.count ?? 1,
           } satisfies EnvironmentVersion,
-          wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
+          decryptionData: {
+            wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
+            ephemeralPublicKey: e.access.ephemeralPublicKey.toString('base64')
+          },
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
@@ -217,10 +224,14 @@ export const createEnvironment = async ({
         ...env,
         latestVersion: {
           ...firstVersion,
+          keys: encryptedContent.keys,
           content: encryptedContent.ciphertext,
           versionNumber: 1,
         } satisfies EnvironmentVersion,
-        wrappedEncryptionKey: userWrappedAesKey,
+        decryptionData: {
+          wrappedEncryptionKey: userWrappedAesKey,
+          ephemeralPublicKey: userEphemeralPublicKey
+        },
         accessControl: {
           users: allowedUsers
         }
@@ -384,6 +395,9 @@ export const getEnvironmentVersion = async ({
     where: eq(Schema.environmentVersions.environmentId, environment.id),
     orderBy: desc(Schema.environmentVersions.createdAt),
     offset: versionCount - targetVersion,
+    with: {
+      keys: true
+    }
   });
 
   if (!version) {
@@ -404,7 +418,11 @@ export const getEnvironmentVersion = async ({
       updatedAt: version.updatedAt,
       content: version.encryptedContent.toString('base64'),
       versionNumber: targetVersion,
-      wrappedEncryptionKey: environment.access.encryptedSymmetricKey.toString('base64')
+      keys: version.keys.map(k => k.key),
+      decryptionData: {
+        wrappedEncryptionKey: environment.access.encryptedSymmetricKey.toString('base64'),
+        ephemeralPublicKey: environment.access.ephemeralPublicKey.toString('base64')
+      }
     } satisfies EnvironmentVersionWithWrappedEncryptionKey
   };
 };

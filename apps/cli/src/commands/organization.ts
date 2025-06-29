@@ -8,7 +8,6 @@ type OrganizationOptions = {
 };
 
 type CreateOrganizationOptions = OrganizationOptions & {
-  name: string;
   description?: string;
 };
 
@@ -61,10 +60,10 @@ organizationCommand
 organizationCommand
   .command('create')
   .description('Create a new organization')
-  .requiredOption('-n, --name <name>', 'Organization name')
+  .argument('<name>', 'Organization name')
   .option('-d, --description <description>', 'Organization description')
   .option('--instance-url', 'URL of the server to connect to')
-  .action(async function() {
+  .action(async function(organizationName: string) {
     const opts = this.opts<CreateOrganizationOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
     
@@ -77,8 +76,8 @@ organizationCommand
       const client = createTsrClient(instanceUrl);
       const response = await client.organizations.createOrganization({
         body: {
-          name: opts.name,
-          description: opts.description
+          name: organizationName,
+          description: opts.description ?? ''
         }
       });
 

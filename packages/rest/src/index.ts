@@ -56,16 +56,23 @@ export const environmentVersionSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   content: z.string(),
+  keys: z.array(z.string()),
   versionNumber: z.number().int(),
 });
 
 export const envrionmentVersionWithWrappedEncryptionKeySchema = environmentVersionSchema.extend({
-  wrappedEncryptionKey: z.string()
+  decryptionData: z.object({
+    wrappedEncryptionKey: z.string(),
+    ephemeralPublicKey: z.string()
+  })
 });
 
 export const environmentWithLatestVersionSchema = environmentSchema.extend({
   latestVersion: environmentVersionSchema.nullable(),
-  wrappedEncryptionKey: z.string(),
+  decryptionData: z.object({
+    wrappedEncryptionKey: z.string(),
+    ephemeralPublicKey: z.string()
+  }),
   accessControl: z.object({
     users: z.array(userSchema).optional()
   })
@@ -177,7 +184,6 @@ const projects = c.router({
       name: nameSchema,
       description: z.string(),
       organizationIdOrName: z.string(),
-      defaultEnvironments: z.array(z.string()).optional()
     }),
     responses: {
       201: projectSchema.omit({ organization: true }),
@@ -232,8 +238,7 @@ const environments = c.router({
     method: 'GET',
     path: '/environments',
     query: z.object({
-      projectIdOrPath: z.string().optional(),
-      environmentIdOrPath: z.string().optional(),
+      path: z.string().optional()
     }),
     responses: {
       200: environmentWithLatestVersionSchema.array()

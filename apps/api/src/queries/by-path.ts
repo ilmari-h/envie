@@ -1,7 +1,10 @@
 import { db, Environment, EnvironmentAccess, Organization, OrganizationRole, Project, Schema } from '@repo/db';
 import { eq, and, or, SQL } from 'drizzle-orm';
-import { isValidUUID } from '../crypto/crypto';
 
+export const isValidUUID = (uuid: string) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
 export interface OperationScope {
   userId: string;
 
@@ -223,4 +226,23 @@ export async function getProjectEnvironments(
     ...environment,
     access: environment.access[0]!
   }));
+}
+
+export async function getOrganizationEnvironments(
+  organizationPathOrId: string,
+  scope: OperationScope
+): Promise<(Environment & { access: EnvironmentAccess; project: Project })[]> {
+  const organization = await getOrganization(organizationPathOrId, scope);
+
+  const projects = await db.query.projects.findMany({
+    where: eq(Schema.projects.organizationId, organization.id),
+  });
+
+  const environmentsPromises = projects.map(project => 
+    getProjectEnvironments(project.id, scope)
+      .then(environments => environments.map(env => ({ ...env, project })))
+  );
+
+  const allEnvironments = await Promise.all(environmentsPromises);
+  return allEnvironments.flat();
 }

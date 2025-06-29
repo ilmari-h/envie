@@ -89,7 +89,7 @@ export const getProjects = async ({ req, query }:
 
 export const createProject = async ({ 
   req, 
-  body: { name, description, organizationIdOrName, defaultEnvironments } 
+  body: { name, description, organizationIdOrName } 
 }: { 
   req: TsRestRequest<typeof contract.projects.createProject>; 
   body: TsRestRequest<typeof contract.projects.createProject>['body']
@@ -124,23 +124,6 @@ export const createProject = async ({
     if(!project) {
       return null
     }
-
-    // Add default environments
-    if (defaultEnvironments && defaultEnvironments.length > 0) {
-      const environments = await tx.insert(Schema.environments).values(defaultEnvironments.map(env => ({
-        projectId: project.id,
-        name: env
-      }))).returning();
-
-      // Add creator to environment access
-      await tx.insert(Schema.environmentAccess)
-        .values(environments.map(e => ({
-          environmentId: e.id,
-          userId: req.user!.id,
-          organizationRoleId: organization.role.id,
-          expiresAt: null
-        })));
-      }
 
     return project;
   });

@@ -38,7 +38,6 @@ export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
 }
 
 export const getUserPublicKey = async () => {
-
   const keypairPath = getKeypairPath();
   if (!keypairPath) {
     return null;
@@ -47,5 +46,12 @@ export const getUserPublicKey = async () => {
   const keyPair = readEd25519KeyPair(keypairPath);
   const x25519PublicKey = ed25519PublicKeyToX25519(keyPair.publicKey);
   return x25519PublicKey;
+}
 
+export const getUserPrivateKey = async () => {
+  const keypairPath = getKeypairPath();
+  if (!keypairPath) {
+    return null;
+  }
+  return readEd25519KeyPair(keypairPath);
 }
