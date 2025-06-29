@@ -2,20 +2,21 @@
   "name": "@envie/cli",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
     "envie": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc -w",
+    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves",
+    "dev": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves",
     "lint": "eslint src/",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@noble/curves": "^1.9.2",
+    "@repo/rest": "*",
+    "@ts-rest/core": "^3.52.1",
     "commander": "^14.0.0",
     "conf": "^14.0.0",
     "sshpk": "^1.18.0"
@@ -25,6 +26,7 @@
     "@repo/typescript-config": "*",
     "@types/node": "^22.15.3",
     "@types/sshpk": "^1.17.4",
+    "esbuild": "^0.24.2",
     "eslint": "^9.26.0",
     "typescript": "5.8.2"
   }

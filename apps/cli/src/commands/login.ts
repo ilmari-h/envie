@@ -3,8 +3,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { getKeypairPath, getInstanceUrl } from '../utils/config.js';
 import { saveToken } from '../utils/tokens.js';
-import { readEd25519KeyPair, ed25519PublicKeyToX25519 } from '../utils/keypair.js';
-import { ApiClient } from '../utils/api-client.js';
+import { readEd25519KeyPair, ed25519PublicKeyToX25519, getUserPublicKey } from '../utils/keypair.js';
+import { createTsrClient } from '../utils/tsr-client.js';
 
 const execAsync = promisify(exec);
 
@@ -52,32 +52,43 @@ export const loginCommand = new Command('login')
       
       // Step 5: Check if user has a public key set, if not, send it to the server
       console.log('Checking user profile...');
-      const apiClient = new ApiClient(instanceUrl);
+      const client = createTsrClient(instanceUrl);
+      const userPublicKey = await getUserPublicKey();
+      if (!userPublicKey) {
+        throw new Error('Error getting user public key');
+      }
       
       try {
-        const user = await apiClient.getUser();
+        const userResult = await client.user.getUser();
+        
+        if (userResult.status !== 200) {
+          throw new Error(`Failed to get user info: ${userResult.status}`);
+        }
+        
+        const user = userResult.body;
         
         if (!user.publicKey) {
           console.log('No public key found, setting up public key...');
           
-          // Read and convert keypair
-          const keyPair = readEd25519KeyPair(keypairPath);
-          const x25519PublicKey = ed25519PublicKeyToX25519(keyPair.publicKey);
-          console.log('X25519 public key:', x25519PublicKey);
-          
+
           // Set public key on server
-          await apiClient.setPublicKey(x25519PublicKey);
+          const setKeyResult = await client.user.setPublicKey({
+            body: { publicKey: userPublicKey }
+          });
+          
+          if (setKeyResult.status !== 200) {
+            throw new Error(`Failed to set public key: ${setKeyResult.status}`);
+          }
+          
           console.log('Public key configured successfully!');
-        } else {
-          console.log('Public key already configured.');
+        } else if (user.publicKey !== userPublicKey) {
+          console.warn('Your local public key does not match the one on the server')
         }
+        console.log("User public key:", user.publicKey);
       } catch (error) {
         console.warn('Warning: Failed to check/set public key:', error instanceof Error ? error.message : error);
         console.warn('You may need to set your public key manually later.');
       }
-      
-      console.log('Setup complete!');
-      
     } catch (error) {
       console.error('Login failed:', error instanceof Error ? error.message : error);
       process.exit(1);

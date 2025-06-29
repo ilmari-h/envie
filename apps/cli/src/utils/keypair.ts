@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { ed25519, edwardsToMontgomeryPub } from '@noble/curves/ed25519';
 import sshpk from 'sshpk';
+import { getKeypairPath } from './config';
 
 export interface Ed25519KeyPair {
   publicKey: Uint8Array;
@@ -34,4 +35,17 @@ export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
   // Convert ed25519 public key to X25519 for ECDH
   const x25519PublicKey = edwardsToMontgomeryPub(ed25519PublicKey);
   return Buffer.from(x25519PublicKey).toString('base64');
+}
+
+export const getUserPublicKey = async () => {
+
+  const keypairPath = getKeypairPath();
+  if (!keypairPath) {
+    return null;
+  }
+
+  const keyPair = readEd25519KeyPair(keypairPath);
+  const x25519PublicKey = ed25519PublicKeyToX25519(keyPair.publicKey);
+  return x25519PublicKey;
+
 }
