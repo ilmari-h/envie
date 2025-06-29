@@ -1,6 +1,7 @@
 import { Command } from 'commander';
-import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '../utils/config.js';
+import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '../utils/config';
 import { existsSync } from 'fs';
+
 
 export const configCommand = new Command('config')
   .description('Manage CLI configuration');
@@ -8,7 +9,7 @@ export const configCommand = new Command('config')
 configCommand
   .command('keypair <keypair-path>')
   .description('Set your keypair path')
-  .action((keypairPath: string) => {
+  .action((keypairPath: string) => { // TODO: proper types
     // Validate that the keypair file exists
     if (!existsSync(keypairPath)) {
       console.error(`Error: Keypair file not found at: ${keypairPath}`);

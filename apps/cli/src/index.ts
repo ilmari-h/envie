@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import { loginCommand } from './commands/login.js';
-import { configCommand } from './commands/config.js';
+import { loginCommand } from './commands/login';
+import { configCommand } from './commands/config';
+import { organizationCommand } from './commands/organization';
 
 async function main() {
   program
     .name('envie')
     .description('CLI for managing .env files securely and conveniently')
     .version('0.0.1')
-    .option('--instance-url <url>', 'URL of the server to connect to');
 
   // Add commands
   program.addCommand(configCommand);
   program.addCommand(loginCommand);
+  program.addCommand(organizationCommand);
 
   // Parse command line arguments
   await program.parseAsync(process.argv);

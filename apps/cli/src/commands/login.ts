@@ -1,18 +1,23 @@
 import { Command } from 'commander';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getKeypairPath, getInstanceUrl } from '../utils/config.js';
-import { saveToken } from '../utils/tokens.js';
-import { readEd25519KeyPair, ed25519PublicKeyToX25519, getUserPublicKey } from '../utils/keypair.js';
-import { createTsrClient } from '../utils/tsr-client.js';
+import { getKeypairPath, getInstanceUrl } from '../utils/config';
+import { saveToken } from '../utils/tokens';
+import { getUserPublicKey } from '../utils/keypair';
+import { createTsrClient } from '../utils/tsr-client';
 
 const execAsync = promisify(exec);
 
+type LoginOptions = {
+  instanceUrl?: string;
+};
+
 export const loginCommand = new Command('login')
   .description('Start browser login flow')
-  .action(async (options, command) => {
-    const parentOptions = command.parent?.opts() || {};
-    const instanceUrl = parentOptions.instanceUrl || getInstanceUrl();
+  .option('--instance-url', 'URL of the server to connect to')
+  .action(async function() {
+    const opts = this.opts<LoginOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
     
     try {
       // Check if keypair is configured

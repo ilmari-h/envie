@@ -1,5 +1,5 @@
 import { readFileSync } from 'fs';
-import { ed25519, edwardsToMontgomeryPub } from '@noble/curves/ed25519';
+import { edwardsToMontgomeryPub } from '@noble/curves/ed25519';
 import sshpk from 'sshpk';
 import { getKeypairPath } from './config';
 
