@@ -1,9 +1,8 @@
-import { db, Environment, Schema } from '@repo/db';
-import { eq, and, count, exists, not, desc, inArray } from 'drizzle-orm';
+import { db, Environment, EnvironmentAccess, Schema } from '@repo/db';
+import { eq, and, count, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { cryptAESGCM, decryptAESGCM } from '../crypto/crypto';
-import type { EnvironmentVersion, EnvironmentWithLatestVersion } from '@repo/rest';
+import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithLatestVersion } from '@repo/rest';
 import { getEnvironmentByPath, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 
 export const getEnvironments = async ({ req, query: { projectIdOrPath, environmentIdOrPath } }:
@@ -25,7 +24,7 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
       };
     }
 
-    let environments: Environment[] = [];
+    let environments: (Environment & { access: EnvironmentAccess })[] = [];
     if(projectIdOrPath) {
       console.log("Getting project environments", projectIdOrPath);
       environments = await getProjectEnvironments(projectIdOrPath, {
@@ -51,7 +50,10 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
           environment: true
         }
       });
-      environments = environmentAccess.map(e => e.environment);
+      environments = environmentAccess.map(e => ({
+        ...e.environment,
+        access: e
+      }));
 
     }
 
@@ -79,29 +81,19 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
         if (!latestVersion) return {
           ...e,
           latestVersion: null,
+          wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
         } satisfies EnvironmentWithLatestVersion;
-
-        const wrappedEncryptionKey = await db.query.wrappedUserKeys.findFirst({
-          where: and(
-            eq(Schema.wrappedUserKeys.environmentId, e.id),
-            eq(Schema.wrappedUserKeys.userId, req.user!.id)
-          )
-        });
-        if (!wrappedEncryptionKey) {
-          throw new Error('Wrapped encryption key not found');
-        }
-
         return {
           ...e,
           latestVersion: {
             ...latestVersion,
             content: latestVersion.encryptedContent.toString('base64'),
             versionNumber: totalVersions[0]?.count ?? 1,
-            wrappedEncryptionKey: wrappedEncryptionKey.encryptedSymmetricKey.toString('base64')
           } satisfies EnvironmentVersion,
+          wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
@@ -115,9 +107,11 @@ export const getEnvironments = async ({ req, query: { projectIdOrPath, environme
     };
 }
 
+// Creates a new environment with the given name and project
+// Optionally adds given users to the environment with the environment AES key wrapped with each user's public key
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, encryptedContent, invitedUsers }
+  body: { name, project, encryptedContent, invitedUsers, userWrappedAesKey, userEphemeralPublicKey }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
@@ -151,10 +145,11 @@ export const createEnvironment = async ({
 
       if (!env) return null;
 
-      // Check that provided users belong to the organization
+      // If users were invited, we create an environment access entry for each of them with the AES key for the
+      // environment wrapped with their public key
       if (invitedUsers) {
-        const invitedUserIds = invitedUsers.map(u => u.userId);
 
+        const invitedUserIds = invitedUsers.map(u => u.userId);
         const organizationUsers = await tx.select()
           .from(Schema.organizationRoles)
           .where(and(
@@ -168,47 +163,46 @@ export const createEnvironment = async ({
 
         // Create environment access for each user
         await tx.insert(Schema.environmentAccess)
-          .values(organizationUsers.map(r => ({
+          .values(organizationUsers.map(r => {
+            const user = invitedUsers.find(u => u.userId === r.userId);
+            if (!user) {
+              throw new Error('User not found in invited users');
+            }
+            return {
             environmentId: env.id,
             userId: r.userId!,
             organizationRoleId: r.id,
+            encryptedSymmetricKey: Buffer.from(user.wrappedAesKey, 'base64'),
+            ephemeralPublicKey: Buffer.from(user.ephemeralPublicKey, 'base64'),
             expiresAt: null
-          })));
-
-        // Create environment encryption keys for each user
-        await tx.insert(Schema.wrappedUserKeys)
-          .values(invitedUsers.map(u => ({
-            environmentId: env.id,
-            userId: u.userId,
-            encryptedSymmetricKey: Buffer.from(u.wrappedEd25519Key, 'base64')
-          })));
+          }}));
       }
 
-      // Create environment access for the creator
+      // Create environment access for the creator with the AES key for the environment wrapped with their public key
       await tx.insert(Schema.environmentAccess)
         .values({
           environmentId: env.id,
           userId: req.user!.id,
           organizationRoleId: organization.role.id,
+          encryptedSymmetricKey: Buffer.from(userWrappedAesKey, 'base64'),
+          ephemeralPublicKey: Buffer.from(userEphemeralPublicKey, 'base64'),
           expiresAt: null
         });
 
-
-      const [latestVersion] = await tx.insert(Schema.environmentVersions)
+      // Create the first version of the environment with entries for each key
+      const [firstVersion] = await tx.insert(Schema.environmentVersions)
         .values({
           environmentId: env.id,
           encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
           savedBy: req.user!.id
         }).returning();
 
-      if (!latestVersion) return null;
-
-      // Add entries to environmentVersionKeys for each key
+      if (!firstVersion) return null;
       if (encryptedContent.keys && encryptedContent.keys.length > 0) {
         await tx.insert(Schema.environmentVersionKeys)
           .values(encryptedContent.keys.map(key => ({
             key,
-            environmentVersionId: latestVersion.id,
+            environmentVersionId: firstVersion.id,
           })));
       }
       const invitedUserIds = invitedUsers?.map(u => u.userId);
@@ -219,24 +213,14 @@ export const createEnvironment = async ({
         .from(Schema.users)
         .where(inArray(Schema.users.id, invitedUserIds)) : [];
 
-      const wrappedEncryptionKey = await tx.query.wrappedUserKeys.findFirst({
-        where: and(
-          eq(Schema.wrappedUserKeys.environmentId, env.id),
-          eq(Schema.wrappedUserKeys.userId, req.user!.id)
-        )
-      });
-      if (!wrappedEncryptionKey) {
-        throw new Error('Wrapped encryption key not found');
-      }
-
       return {
         ...env,
         latestVersion: {
-          ...latestVersion,
+          ...firstVersion,
           content: encryptedContent.ciphertext,
           versionNumber: 1,
-          wrappedEncryptionKey: wrappedEncryptionKey.encryptedSymmetricKey.toString('base64')
         } satisfies EnvironmentVersion,
+        wrappedEncryptionKey: userWrappedAesKey,
         accessControl: {
           users: allowedUsers
         }
@@ -256,6 +240,7 @@ export const createEnvironment = async ({
   };
 };
 
+// Creates a new version for the given environment
 export const updateEnvironmentContent = async ({
   req,
   params: { idOrPath },
@@ -284,8 +269,8 @@ export const updateEnvironmentContent = async ({
   }
 
   // Update content in transaction
-  const updatedEnvironment = await db.transaction(async (tx) => {
-    const [version] = await tx.insert(Schema.environmentVersions)
+  const updatedVersion = await db.transaction(async (tx) => {
+    const [updatedVersion] = await tx.insert(Schema.environmentVersions)
       .values({
         environmentId: environment.id,
         encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
@@ -293,21 +278,21 @@ export const updateEnvironmentContent = async ({
       })
       .returning();
 
-    if (!version) return null;
+    if (!updatedVersion) return null;
 
     // Add entries to environmentVersionKeys for each key
     if (encryptedContent.keys && encryptedContent.keys.length > 0) {
       await tx.insert(Schema.environmentVersionKeys)
         .values(encryptedContent.keys.map(key => ({
           key,
-          environmentVersionId: version.id,
+          environmentVersionId: updatedVersion.id,
         })));
     }
 
-    return version;
+    return updatedVersion;
   });
 
-  if (!updatedEnvironment) {
+  if (!updatedVersion) {
     return {
       status: 500 as const,
       body: { message: 'Failed to update environment' }
@@ -408,19 +393,6 @@ export const getEnvironmentVersion = async ({
     };
   }
 
-  const wrappedEncryptionKey = await db.query.wrappedUserKeys.findFirst({
-    where: and(
-      eq(Schema.wrappedUserKeys.environmentId, environment.id),
-      eq(Schema.wrappedUserKeys.userId, req.user!.id)
-    )
-  });
-
-  if (!wrappedEncryptionKey) {
-    return {
-      status: 404 as const,
-      body: { message: 'Wrapped encryption key not found' }
-    };
-  }
 
   return {
     status: 200 as const,
@@ -432,7 +404,7 @@ export const getEnvironmentVersion = async ({
       updatedAt: version.updatedAt,
       content: version.encryptedContent.toString('base64'),
       versionNumber: targetVersion,
-      wrappedEncryptionKey: wrappedEncryptionKey?.encryptedSymmetricKey.toString('base64')
-    } satisfies EnvironmentVersion
+      wrappedEncryptionKey: environment.access.encryptedSymmetricKey.toString('base64')
+    } satisfies EnvironmentVersionWithWrappedEncryptionKey
   };
 };

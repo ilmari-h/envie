@@ -9,7 +9,8 @@ const nameSchema = z.string()
 
 export const invitedUserSchema = z.object({
   userId: z.string(),
-  wrappedEd25519Key: z.string()
+  wrappedAesKey: z.string(),
+  ephemeralPublicKey: z.string()
 });
 
 // Zod schemas for DB types
@@ -56,11 +57,15 @@ export const environmentVersionSchema = z.object({
   updatedAt: z.date(),
   content: z.string(),
   versionNumber: z.number().int(),
+});
+
+export const envrionmentVersionWithWrappedEncryptionKeySchema = environmentVersionSchema.extend({
   wrappedEncryptionKey: z.string()
 });
 
 export const environmentWithLatestVersionSchema = environmentSchema.extend({
   latestVersion: environmentVersionSchema.nullable(),
+  wrappedEncryptionKey: z.string(),
   accessControl: z.object({
     users: z.array(userSchema).optional()
   })
@@ -72,10 +77,9 @@ export const organizationWithProjectsCountSchema = organizationSchema.extend({
 
 const c = initContract();
 
-
 export type EnvironmentVersion = z.infer<typeof environmentVersionSchema>;
+export type EnvironmentVersionWithWrappedEncryptionKey = z.infer<typeof envrionmentVersionWithWrappedEncryptionKeySchema>;
 export type EnvironmentWithLatestVersion = z.infer<typeof environmentWithLatestVersionSchema>;
-
 
 export type OrganizationWithProjectsCount = z.infer<typeof organizationWithProjectsCountSchema>;
 
@@ -94,7 +98,27 @@ const user = c.router({
     method: 'GET',
     path: '/users/me',
     responses: {
-      200: c.type<{ id: string, name: string }>()
+      200: z.object({
+        id: z.string(),
+        name: z.string(),
+        authMethod: z.enum(['github', 'email']),
+        publicKey: z.string().nullable(),
+        pkeAlgorithm: z.enum(['x25519', 'rsa']).nullable()
+      }),
+      401: c.type<{ message: string }>()
+    }
+  },
+  setPublicKey: {
+    method: 'POST',
+    path: '/users/me/public-key',
+    body: z.object({
+      publicKey: z.string(),
+      allowOverride: z.boolean().optional().default(false)
+    }),
+    responses: {
+      200: c.type<{ message: string }>(),
+      403: c.type<{ message: string }>(),
+      400: c.type<{ message: string }>()
     }
   }
 });
@@ -225,7 +249,7 @@ const environments = c.router({
       versionNumber: z.string().optional()
     }),
     responses: {
-      200: environmentVersionSchema
+      200: envrionmentVersionWithWrappedEncryptionKeySchema
     },
     summary: 'Get a specific version of an environment'
   },
@@ -239,7 +263,9 @@ const environments = c.router({
         keys: z.array(z.string()),
         ciphertext: z.string()
       }),
-      invitedUsers: z.array(invitedUserSchema).optional()
+      invitedUsers: z.array(invitedUserSchema).optional(),
+      userWrappedAesKey: z.string(),
+      userEphemeralPublicKey: z.string()
     }),
     responses: {
       201: environmentWithLatestVersionSchema,

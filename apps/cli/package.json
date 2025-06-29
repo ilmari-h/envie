@@ -1,0 +1,31 @@
+{
+  "name": "@envie/cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "envie": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "lint": "eslint src/",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.9.2",
+    "commander": "^14.0.0",
+    "conf": "^14.0.0",
+    "sshpk": "^1.18.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/node": "^22.15.3",
+    "@types/sshpk": "^1.17.4",
+    "eslint": "^9.26.0",
+    "typescript": "5.8.2"
+  }
+}

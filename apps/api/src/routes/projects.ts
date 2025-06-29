@@ -2,7 +2,6 @@ import { db, Organization, Schema } from '@repo/db';
 import { eq, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { webcrypto } from 'node:crypto';
 import { getProjectByPath, getOrganization } from '../queries/by-path';
 
 export const getProject = async ({ req, params: { idOrPath } }:
@@ -125,15 +124,6 @@ export const createProject = async ({
     if(!project) {
       return null
     }
-
-    // Generate and store encryption key
-    const randomBytes = webcrypto.getRandomValues(new Uint8Array(32));
-    const key = Buffer.from(randomBytes);
-    await tx.insert(Schema.projectEncryptionKeys)
-      .values({
-        projectId: project.id,
-        key
-      });
 
     // Add default environments
     if (defaultEnvironments && defaultEnvironments.length > 0) {

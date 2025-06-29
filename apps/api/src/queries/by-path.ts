@@ -1,4 +1,4 @@
-import { db, Environment, Organization, OrganizationRole, Project, Schema } from '@repo/db';
+import { db, Environment, EnvironmentAccess, Organization, OrganizationRole, Project, Schema } from '@repo/db';
 import { eq, and, or, SQL } from 'drizzle-orm';
 import { isValidUUID } from '../crypto/crypto';
 
@@ -140,7 +140,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
 export async function getEnvironmentByPath(
   pathOrId: string,
   scope: OperationScope
-): Promise<[OrganizationWithRole, Project, Environment]> {
+): Promise<[OrganizationWithRole, Project, Environment & { access: EnvironmentAccess }]> {
   if(!isValidPath(pathOrId, 3) && !isValidUUID(pathOrId)) {
     throw new Error('Invalid environment path');
   }
@@ -193,13 +193,13 @@ export async function getEnvironmentByPath(
   if(!organization || !project) {
     [organization, project] = await getProjectByPath(environment.projectId, scope);
   }
-  return [organization, project, environment];
+  return [organization, project, { ...environment, access: userAccess }];
 }
 
 export async function getProjectEnvironments(
   projectPathOrId: string,
   scope: OperationScope
-): Promise<Environment[]> {
+): Promise<(Environment & { access: EnvironmentAccess })[]> {
   const [organization, project] = await getProjectByPath(projectPathOrId, scope);
 
   const environments = await db.query.environments.findMany({
@@ -219,5 +219,8 @@ export async function getProjectEnvironments(
     return true;
   });
 
-  return filteredEnvironments;
+  return filteredEnvironments.map(environment => ({
+    ...environment,
+    access: environment.access[0]!
+  }));
 }
