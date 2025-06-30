@@ -79,7 +79,6 @@ export const loadCommand = new Command('load')
 
           // Unwrap the AES key
           const aesKey = unwrapKey(wrappedKeyData, userKeyPair.privateKey);
-          console.log('Unwrapped AES key:', aesKey);
 
           // Prepare encrypted content
           const encryptedContent: EncryptedContent = {

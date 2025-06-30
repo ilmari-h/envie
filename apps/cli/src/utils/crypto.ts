@@ -134,19 +134,13 @@ export function unwrapKey(wrappedKeyData: WrappedKey, userPrivateKey: Uint8Array
   
   // Convert ed25519 private key to X25519
   const x25519PrivateKey = edwardsToMontgomeryPriv(userPrivateKey);
-  console.log('X25519 private key:', x25519PrivateKey);
-  console.log('Ephemeral public key:', wrappedKeyData.ephemeralPublicKey);
-  
   // Perform ECDH to get shared secret
   const sharedSecret = x25519.getSharedSecret(x25519PrivateKey, ephemeralPublicKey);
-  console.log('Shared secret:', sharedSecret);
-  
   // Derive the same KEK
   const kek = deriveKey(sharedSecret);
   
   // Unwrap the AES key
   const combined = Buffer.from(wrappedKeyData.wrappedKey, 'base64');
-  
   const iv = combined.slice(0, 12);
   const authTag = combined.slice(-16);
   const wrappedKey = combined.slice(12, -16);

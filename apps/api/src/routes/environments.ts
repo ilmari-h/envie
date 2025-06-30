@@ -78,6 +78,7 @@ export const getEnvironments = async ({ req, query: { path } }:
           .from(Schema.environmentAccess)
           .innerJoin(Schema.users, eq(Schema.environmentAccess.userId, Schema.users.id))
           .where(eq(Schema.environmentAccess.environmentId, e.id));
+
         if (!latestVersion) return {
           ...e,
           latestVersion: null,
@@ -168,6 +169,7 @@ export const createEnvironment = async ({
           throw new Error('One or more user ids do not belong to the organization');
         }
 
+
         // Create environment access for each user
         await tx.insert(Schema.environmentAccess)
           .values(organizationUsers.map(r => {
@@ -184,6 +186,8 @@ export const createEnvironment = async ({
             expiresAt: null
           }}));
       }
+
+      const ephemeralPublicKeyBytes = Buffer.from(userEphemeralPublicKey, 'base64')
 
       // Create environment access for the creator with the AES key for the environment wrapped with their public key
       await tx.insert(Schema.environmentAccess)
