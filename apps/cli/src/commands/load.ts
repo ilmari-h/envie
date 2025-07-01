@@ -1,15 +1,16 @@
-import { Command } from 'commander';
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { unwrapKey, decryptContent, EncryptedContent, WrappedKey } from '../utils/crypto';
 import { getUserPrivateKey } from '../utils/keypair';
+import { RootCommand, BaseOptions } from './root';
 
-type LoadOptions = {
+type LoadOptions = BaseOptions & {
   instanceUrl?: string;
   decrypt?: boolean;
 };
 
-export const loadCommand = new Command('load')
+const rootCmd = new RootCommand();
+export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .description('Load an environment')
   .argument('<path>', 'Environment path in format "organization-name:project-name:env-name"')
   .option('--instance-url <url>', 'URL of the server to connect to')

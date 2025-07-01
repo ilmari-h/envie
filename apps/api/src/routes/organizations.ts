@@ -3,22 +3,21 @@ import { count, eq } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { getOrganization as getOrganizationByPath } from '../queries/by-path';
+import { isUserRequester } from '../types/cast';
 
 export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof contract.organizations.getOrganizations> }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
-  // Get organizations where user has access to
+  // Get organizations where user/API key has access to
+  const whereClause = isUserRequester(req.requester)
+    ? eq(Schema.organizationRoles.userId, req.requester.userId)
+    : eq(Schema.organizationRoles.accessTokenId, req.requester.apiKeyId);
+
   const orgs = await db.select({ 
     organizations: Schema.organizations,
   })
     .from(Schema.organizations)
     .innerJoin(Schema.organizationRoles, eq(Schema.organizations.id, Schema.organizationRoles.organizationId))
-    .where(eq(Schema.organizationRoles.userId, req.user.id));
+    .where(whereClause);
 
   const orgsWithProjectsCount = await Promise.all(orgs.map(async o => {
     const projectsCount = await db.select({ count: count() })
@@ -43,10 +42,12 @@ export const createOrganization = async ({
   req: TsRestRequest<typeof contract.organizations.createOrganization>;
   body: TsRestRequest<typeof contract.organizations.createOrganization>['body']
 }) => {
-  if (!req.user) {
+
+  // API keys cannot create organizations
+  if (!isUserRequester(req.requester)) {
     return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
+      status: 403 as const,
+      body: { message: 'Organization creation only via CLI' }
     };
   }
 
@@ -54,8 +55,7 @@ export const createOrganization = async ({
     .values({
       name,
       description,
-      createdById: req.user.id,
-      hobby: false
+      createdById: req.requester.userId,
     })
     .returning();
 
@@ -69,7 +69,7 @@ export const createOrganization = async ({
   await db.insert(Schema.organizationRoles)
     .values({
       organizationId: organization.id,
-      userId: req.user.id,
+      userId: req.requester.userId,
       canAddMembers: true,
       canCreateEnvironments: true,
       canCreateProjects: true,
@@ -90,15 +90,9 @@ export const getOrganization = async ({
   req: TsRestRequest<typeof contract.organizations.getOrganization>;
   params: TsRestRequest<typeof contract.organizations.getOrganization>['params'],
 }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   const organization = await getOrganizationByPath(idOrPath, {
-    userId: req.user.id
+    requester: req.requester
   });
 
   if (!organization) {
@@ -123,15 +117,9 @@ export const updateOrganization = async ({
   params: TsRestRequest<typeof contract.organizations.updateOrganization>['params'];
   body: TsRestRequest<typeof contract.organizations.updateOrganization>['body'];
 }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   const organization = await getOrganizationByPath(idOrPath, {
-    userId: req.user.id,
+    requester: req.requester,
     editOrganization: true
   });
 

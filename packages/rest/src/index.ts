@@ -24,7 +24,6 @@ export const organizationSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   createdById: z.string().nullable(),
-  hobby: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date()
 });
@@ -111,7 +110,9 @@ const user = c.router({
         authMethod: z.enum(['github', 'email']),
         publicKey: z.string().nullable(),
         pkeAlgorithm: z.enum(['x25519', 'rsa']).nullable()
-      }),
+      }).or(z.object({
+        message: z.string()
+      })),
       401: c.type<{ message: string }>()
     }
   },

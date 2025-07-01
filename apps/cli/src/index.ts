@@ -14,6 +14,7 @@ async function main() {
     .description('CLI for managing .env files securely and conveniently')
     .version('0.0.1')
 
+
   // Add commands
   program.addCommand(configCommand);
   program.addCommand(loginCommand);

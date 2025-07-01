@@ -6,3 +6,4 @@ export * from './environments';
 export * from './envrionment-access';
 export * from './environment-versions';
 export * from './project-invites';
+export * from './access-tokens'

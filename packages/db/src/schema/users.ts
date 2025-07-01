@@ -1,5 +1,5 @@
 import { pgTable, text } from 'drizzle-orm/pg-core';
-import { bytea, timestamps } from './utils';
+import {  publicKeyColumns, timestamps } from './utils';
 import { relations } from 'drizzle-orm';
 import { environmentAccess } from './envrionment-access';
 import { organizationRoles } from './organization-roles';
@@ -7,8 +7,8 @@ import { organizationRoles } from './organization-roles';
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  publicKeyEd25519: bytea('public_key_ed25519'),
   email: text('email'),
+  ...publicKeyColumns,
   ...timestamps
 });
 

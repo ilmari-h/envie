@@ -3,21 +3,16 @@ import { eq, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { getProjectByPath, getOrganization } from '../queries/by-path';
+import { isUserRequester } from '../types/cast';
 
 export const getProject = async ({ req, params: { idOrPath } }:
   {
     req: TsRestRequest<typeof contract.projects.getProject>,
     params: TsRestRequest<typeof contract.projects.getProject>['params']
   }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   const [ organization, project ] = await getProjectByPath(idOrPath, {
-    userId: req.user.id
+    requester: req.requester
   });
   if(!organization || !project) {
     return {
@@ -40,17 +35,11 @@ export const getProjects = async ({ req, query }:
     req: TsRestRequest<typeof contract.projects.getProjects>,
     query: TsRestRequest<typeof contract.projects.getProjects>['query']
   }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   let organizationsUserBelongsTo: Organization[] = [];
   if(query.organization) {
     const organization = await getOrganization(query.organization, {
-      userId: req.user.id
+      requester: req.requester
     });
     if (!organization) {
       return {
@@ -62,7 +51,9 @@ export const getProjects = async ({ req, query }:
   } else {
     // Get all organizations user belongs to
     const organizationRoles = await db.query.organizationRoles.findMany({
-      where: eq(Schema.organizationRoles.userId, req.user.id),
+      where: isUserRequester(req.requester)
+        ? eq(Schema.organizationRoles.userId, req.requester.userId)
+        : eq(Schema.organizationRoles.accessTokenId, req.requester.apiKeyId),
       with: {
         organization: true
       }
@@ -94,15 +85,16 @@ export const createProject = async ({
   req: TsRestRequest<typeof contract.projects.createProject>; 
   body: TsRestRequest<typeof contract.projects.createProject>['body']
 }) => {
-  if (!req.user) {
+
+  if (!isUserRequester(req.requester)) {
     return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
+      status: 403 as const,
+      body: { message: 'Project creation only via CLI' }
     };
   }
 
   const organization = await getOrganization(organizationIdOrName, {
-    userId: req.user.id,
+    requester: req.requester,
     createProjects: true
   });
   if (!organization) {
@@ -150,15 +142,9 @@ export const updateProject = async ({
   params: TsRestRequest<typeof contract.projects.updateProject>['params'];
   body: TsRestRequest<typeof contract.projects.updateProject>['body'];
 }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   const [organization, project] = await getProjectByPath(idOrPath, {
-    userId: req.user.id,
+    requester: req.requester,
     editProject: true
   });
   if (!organization || !project) {
@@ -196,15 +182,15 @@ export const deleteProject = async ({
   req: TsRestRequest<typeof contract.projects.deleteProject>;
   params: TsRestRequest<typeof contract.projects.deleteProject>['params'];
 }) => {
-  if (!req.user) {
+  if (!isUserRequester(req.requester)) {
     return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
+      status: 403 as const,
+      body: { message: 'Project deletion only via CLI' }
     };
   }
 
   const [organization, project] = await getProjectByPath(idOrPath, {
-    userId: req.user.id,
+    requester: req.requester,
     editProject: true
   });
   if (!organization || !project) {

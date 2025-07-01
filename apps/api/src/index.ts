@@ -18,9 +18,10 @@ import {
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { getMe, setPublicKey } from './routes/users';
 import { createClient } from "redis";
+import { isUserRequester } from './types/cast';
 
 const AUTH_COOKIE_NAME = 'envie_token';
 
@@ -32,7 +33,7 @@ const corsOptions = {
   origin: env.FRONTEND_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept-Encoding']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept-Encoding', 'x-api-key']
 };
 app.use(cors(corsOptions));
 
@@ -54,6 +55,10 @@ const getToken = async (req: express.Request) => {
   throw new Error('No token provided');
 }
 
+const getApiKey = (req: express.Request) => {
+  return req.headers['x-api-key'] as string | undefined;
+}
+
 const validateJWT = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const token = await getToken(req);
   if (!token) {
@@ -71,21 +76,50 @@ const validateJWT = async (req: express.Request, res: express.Response, next: ex
   next();
 };
 
-const validateJWTOptional = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const token = await getToken(req);
-  if (!token) {
-    return next();
+
+const validateAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Try JWT first
+  try {
+    const token = await getToken(req);
+    if (token) {
+      const decoded = jwt.verify(
+        token,
+        env.JWT_SECRET as string) as unknown as { id: string; username: string };
+      req.requester = {
+        userId: decoded.id,
+        username: decoded.username
+      };
+      return next();
+    }
+  } catch (err) {
+    // Continue to API key check
   }
 
-  try {
-    const decoded = jwt.verify(
-      token,
-      env.JWT_SECRET as string) as unknown as { id: string; username: string };
-    req.user = decoded;
-  } catch (err) {
-    return next();
+  // Try API key
+  const apiKey = getApiKey(req);
+  if (apiKey) {
+    const accessToken = await db.query.accessTokens.findFirst({
+      where: and(
+        eq(Schema.accessTokens.value, apiKey),
+        or(
+          isNull(Schema.accessTokens.expires),
+          gt(Schema.accessTokens.expires, new Date())
+        )
+      ),
+      with: {
+        createdByUser: true
+      }
+    });
+
+    if (accessToken) {
+      req.requester = {
+        apiKeyId: accessToken.id,
+      };
+      return next();
+    }
   }
-  next();
+
+  return res.status(401).json({ message: 'Unauthorized' });
 };
 
 const router = s.router(contract, {
@@ -121,19 +155,19 @@ const router = s.router(contract, {
   }),
   organizations: s.router(contract.organizations, {
     getOrganizations: {
-      middleware: [validateJWT],
+      middleware: [validateAuth],
       handler: getOrganizations
     },
     updateOrganization: {
-      middleware: [validateJWT],
+      middleware: [validateAuth],
       handler: updateOrganization
     },
     getOrganization: {
-      middleware: [validateJWT],
+      middleware: [validateAuth],
       handler: getOrganization
     },
     createOrganization: {
-      middleware: [validateJWT],
+      middleware: [validateAuth],
       handler: createOrganization
     }
   }),
@@ -191,21 +225,6 @@ passport.use(new GitHubStrategy({
       }
     });
 
-    // If no hobby organization, create one
-    const hobbyOrg = await db.query.organizations.findFirst({
-      where: and(
-        eq(Schema.organizations.hobby, true),
-        eq(Schema.organizations.createdById, githubUserId)),
-    });
-
-    if (!hobbyOrg) {
-      await db.insert(Schema.organizations).values({
-        name: 'Personal',
-        createdById: githubUserId,
-        hobby: true
-      });
-    }
-
     return done(null, {
       id: githubUserId,
       username: profile.username || profile.displayName
@@ -261,9 +280,9 @@ app.get('/auth/github/callback',
     // Generate JWT token
     const token = jwt.sign(
       { 
-        id: req.user.id, 
-        username: req.user.username 
-      } satisfies Express.User, 
+        userId: (req.user as { id: string }).id, 
+        username: (req.user as { username: string }).username 
+      } satisfies Express.Requester, 
       env.JWT_SECRET, 
       { expiresIn: '1h' }
     );

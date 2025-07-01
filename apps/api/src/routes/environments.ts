@@ -3,34 +3,29 @@ import { eq, and, count, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithLatestVersion } from '@repo/rest';
-import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
+import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath } from '../queries/by-path';
+import { isUserRequester } from '../types/cast';
 
 export const getEnvironments = async ({ req, query: { path } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
   }) => {
-    if (!req.user) {
-      return {
-        status: 401 as const,
-        body: { message: 'Unauthorized' }
-      };
-    }
 
     const pathParts = path?.split(':') ?? [];
     let environments: (Environment & { access: EnvironmentAccess })[] = [];
     if(pathParts.length === 1) {
       const orgEnvironments = await getOrganizationEnvironments(pathParts[0]!, {
-        userId: req.user.id
+        requester: req.requester
       });
       environments = orgEnvironments;
     } else if(pathParts.length === 2) {
       const [_organization, _project] = await getProjectByPath(pathParts[0]! + ':' + pathParts[1]!, {
-        userId: req.user.id
+        requester: req.requester
       });
     } else if(pathParts.length === 3) {
       const [_organization, _project, environment] = await getEnvironmentByPath(
-        pathParts[0]! + ':' + pathParts[1]! + ':' + pathParts[2]!, { userId: req.user.id }
+        pathParts[0]! + ':' + pathParts[1]! + ':' + pathParts[2]!, { requester: req.requester }
       );
       if(!environment) {
         return {
@@ -42,7 +37,9 @@ export const getEnvironments = async ({ req, query: { path } }:
     } else {
       // get all environments that user can view
       const environmentAccess = await db.query.environmentAccess.findMany({
-        where: eq(Schema.environmentAccess.userId, req.user.id),
+        where: isUserRequester(req.requester)
+          ? eq(Schema.environmentAccess.userId, req.requester.userId)
+          : eq(Schema.environmentAccess.accessTokenId, req.requester.apiKeyId),
         with: {
           environment: true
         }
@@ -124,15 +121,9 @@ export const createEnvironment = async ({
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
 }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   const [organization, projectDb] = await getProjectByPath(project, {
-    userId: req.user.id,
+    requester: req.requester,
     createEnvironments: true
   });
   if(!organization || !projectDb) {
@@ -141,6 +132,15 @@ export const createEnvironment = async ({
       body: { message: 'Project not found' }
     };
   }
+
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Environment creation only via CLI' }
+    };
+  }
+  const requester = req.requester
+
   // Create environment and first version if content is provided.
   const environment = await db.transaction(async (tx) => {
 
@@ -193,7 +193,7 @@ export const createEnvironment = async ({
       await tx.insert(Schema.environmentAccess)
         .values({
           environmentId: env.id,
-          userId: req.user!.id,
+          userId: requester.userId,
           organizationRoleId: organization.role.id,
           encryptedSymmetricKey: Buffer.from(userWrappedAesKey, 'base64'),
           ephemeralPublicKey: Buffer.from(userEphemeralPublicKey, 'base64'),
@@ -205,7 +205,7 @@ export const createEnvironment = async ({
         .values({
           environmentId: env.id,
           encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
-          savedBy: req.user!.id
+          savedBy: requester.userId
         }).returning();
 
       if (!firstVersion) return null;
@@ -265,15 +265,16 @@ export const updateEnvironmentContent = async ({
   params: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['params'];
   body: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['body']
 }) => {
-  if (!req.user) {
+  if (!isUserRequester(req.requester)) {
     return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
+      status: 403 as const,
+      body: { message: 'Environment update only via CLI' }
     };
   }
 
+  const requester = req.requester
   const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
-    userId: req.user.id,
+    requester: req.requester,
     editEnvironment: true
   });
   if(!organization || !project || !environment) {
@@ -289,7 +290,7 @@ export const updateEnvironmentContent = async ({
       .values({
         environmentId: environment.id,
         encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
-        savedBy: req.user!.id
+        savedBy: requester.userId
       })
       .returning();
 
@@ -329,15 +330,9 @@ export const updateEnvironmentSettings = async ({
   params: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['params'];
   body: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['body']
 }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
 
   const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
-    userId: req.user.id,
+    requester: req.requester,
     editEnvironment: true
   });
   if(!organization || !project || !environment) {
@@ -369,15 +364,8 @@ export const getEnvironmentVersion = async ({
   req: TsRestRequest<typeof contract.environments.getEnvironmentVersion>;
   params: TsRestRequest<typeof contract.environments.getEnvironmentVersion>['params'];
 }) => {
-  if (!req.user) {
-    return {
-      status: 401 as const,
-      body: { message: 'Unauthorized' }
-    };
-  }
-
   const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
-    userId: req.user.id
+    requester: req.requester,
   });
   if(!organization || !project || !environment) {
     return {

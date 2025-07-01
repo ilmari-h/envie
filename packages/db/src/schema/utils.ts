@@ -5,6 +5,7 @@ export const timestamps = {
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 }
 
+
 export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {
     return "bytea";
@@ -28,3 +29,8 @@ export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
     return Buffer.from(value as any);
   },
 }); 
+
+// TODO: this will have RSA in the future
+export const publicKeyColumns = {
+  publicKeyEd25519: bytea('public_key_ed25519'),
+}

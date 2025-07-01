@@ -1,4 +1,3 @@
-import { Command } from 'commander';
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
@@ -7,14 +6,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { encryptForRecipients } from '../utils/crypto';
 import { getUserPrivateKey, getUserPublicKey, ed25519PublicKeyToX25519 } from '../utils/keypair';
+import { RootCommand, BaseOptions } from './root';
 
-type EnvironmentOptions = {
+type EnvironmentOptions = BaseOptions & {
   instanceUrl?: string;
 };
 
 type CreateEnvironmentOptions = EnvironmentOptions;
 
-export const environmentCommand = new Command('environment')
+const rootCmd = new RootCommand();
+export const environmentCommand = rootCmd.createCommand<EnvironmentOptions>('environment')
   .description('Manage environments');
 
 environmentCommand
@@ -32,11 +33,20 @@ environmentCommand
         process.exit(1);
       }
 
+      if (opts.verbose) {
+        console.log(`Connecting to instance: ${instanceUrl}`);
+        console.log(`Filter path: ${filterPath || 'none'}`);
+      }
+
       const client = createTsrClient(instanceUrl);
       
       // Determine if path is organization or project path
       const pathParts = filterPath?.split(':') ?? [];
       let queryParams = pathParts.length > 0 ? {path: filterPath} : {};
+      
+      if (opts.verbose) {
+        console.log(`Query parameters:`, queryParams);
+      }
       
       const response = await client.environments.getEnvironments({
         query: queryParams
@@ -45,6 +55,10 @@ environmentCommand
       if (response.status !== 200) {
         console.error(`Failed to fetch environments: ${response.status}`);
         process.exit(1);
+      }
+
+      if (opts.verbose) {
+        console.log(`Found ${response.body.length} environments`);
       }
 
       printTable(
@@ -86,6 +100,12 @@ environmentCommand
       if (!instanceUrl) {
         console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
         process.exit(1);
+      }
+
+      if (opts.verbose) {
+        console.log(`Creating environment: ${environmentPath}`);
+        console.log(`Reading from file: ${filePath}`);
+        console.log(`Instance URL: ${instanceUrl}`);
       }
 
       // Validate environment path format
@@ -139,13 +159,13 @@ environmentCommand
         process.exit(1);
       }
 
-      console.log('Parsed .env file content:');
-      console.log(JSON.stringify(envVars, null, 2));
-      console.log(`\nEnvironment path: ${organizationName.trim()}:${projectName.trim()}:${environmentName.trim()}`);
-      console.log(`Found ${Object.keys(envVars).length} environment variables`);
+      if (opts.verbose) {
+        console.log('Parsed .env file content:');
+        console.log(JSON.stringify(envVars, null, 2));
+        console.log(`\nEnvironment path: ${organizationName.trim()}:${projectName.trim()}:${environmentName.trim()}`);
+      }
       
-      // Encrypt the content for the user (as the only recipient for now)
-      console.log('\nEncrypting environment variables...');
+      console.log(`Found ${Object.keys(envVars).length} environment variables`);
       
       try {
         const { encryptedContent, wrappedKeys } = encryptForRecipients(
@@ -153,13 +173,15 @@ environmentCommand
           [userPublicKey] // User's own public key as the only recipient
         );
 
-        console.log('\nEncryption successful!');
-        console.log('Encrypted content keys:', encryptedContent.keys);
-        console.log('Ciphertext length:', encryptedContent.ciphertext.length);
-        console.log('User wrapped key:', {
-          wrappedKey: wrappedKeys[0].wrappedKey.substring(0, 20) + '...',
-          ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey.substring(0, 20) + '...'
-        });
+        if (opts.verbose) {
+          console.log('\nEncryption successful!');
+          console.log('Encrypted content keys:', encryptedContent.keys);
+          console.log('Ciphertext length:', encryptedContent.ciphertext.length);
+          console.log('User wrapped key:', {
+            wrappedKey: wrappedKeys[0].wrappedKey,
+            ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey
+          });
+        }
         
         // TODO: Make API call to create environment
         const response = await client.environments.createEnvironment({
