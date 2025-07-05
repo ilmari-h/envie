@@ -41,7 +41,15 @@ export const getEnvironments = async ({ req, query: { path } }:
           ? eq(Schema.environmentAccess.userId, req.requester.userId)
           : eq(Schema.environmentAccess.accessTokenId, req.requester.apiKeyId),
         with: {
-          environment: true
+          environment: {
+            with: {
+              project: {
+                with: {
+                  organization: true
+                }
+              }
+            }
+          }
         }
       });
       environments = environmentAccess.map(e => ({
@@ -141,17 +149,32 @@ export const createEnvironment = async ({
   }
   const requester = req.requester
 
+  // Check if environment already exists
+  const existingEnvironment = await db.query.environments.findFirst({
+    where: and(
+      eq(Schema.environments.name, name),
+      eq(Schema.environments.projectId, projectDb.id)
+    )
+  });
+
+  if (existingEnvironment) {
+    return {
+      status: 400 as const,
+      body: { message: 'environment already exists' }
+    };
+  }
+
   // Create environment and first version if content is provided.
   const environment = await db.transaction(async (tx) => {
 
-      const [env] = await tx.insert(Schema.environments)
+      const [newEnvironment] = await tx.insert(Schema.environments)
         .values({
           name,
           projectId: projectDb.id
         })
         .returning();
 
-      if (!env) return null;
+      if (!newEnvironment) return null;
 
       // If users were invited, we create an environment access entry for each of them with the AES key for the
       // environment wrapped with their public key
@@ -178,7 +201,7 @@ export const createEnvironment = async ({
               throw new Error('User not found in invited users');
             }
             return {
-            environmentId: env.id,
+            environmentId: newEnvironment.id,
             userId: r.userId!,
             organizationRoleId: r.id,
             encryptedSymmetricKey: Buffer.from(user.wrappedAesKey, 'base64'),
@@ -187,23 +210,22 @@ export const createEnvironment = async ({
           }}));
       }
 
-      const ephemeralPublicKeyBytes = Buffer.from(userEphemeralPublicKey, 'base64')
-
       // Create environment access for the creator with the AES key for the environment wrapped with their public key
       await tx.insert(Schema.environmentAccess)
         .values({
-          environmentId: env.id,
+          environmentId: newEnvironment.id,
           userId: requester.userId,
           organizationRoleId: organization.role.id,
           encryptedSymmetricKey: Buffer.from(userWrappedAesKey, 'base64'),
           ephemeralPublicKey: Buffer.from(userEphemeralPublicKey, 'base64'),
+          write: true,
           expiresAt: null
         });
 
       // Create the first version of the environment with entries for each key
       const [firstVersion] = await tx.insert(Schema.environmentVersions)
         .values({
-          environmentId: env.id,
+          environmentId: newEnvironment.id,
           encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
           savedBy: requester.userId
         }).returning();
@@ -216,30 +238,8 @@ export const createEnvironment = async ({
             environmentVersionId: firstVersion.id,
           })));
       }
-      const invitedUserIds = invitedUsers?.map(u => u.userId);
-      const allowedUsers = invitedUserIds ? await tx.select({
-        id: Schema.users.id,
-        name: Schema.users.name,
-      })
-        .from(Schema.users)
-        .where(inArray(Schema.users.id, invitedUserIds)) : [];
 
-      return {
-        ...env,
-        latestVersion: {
-          ...firstVersion,
-          keys: encryptedContent.keys,
-          content: encryptedContent.ciphertext,
-          versionNumber: 1,
-        } satisfies EnvironmentVersion,
-        decryptionData: {
-          wrappedEncryptionKey: userWrappedAesKey,
-          ephemeralPublicKey: userEphemeralPublicKey
-        },
-        accessControl: {
-          users: allowedUsers
-        }
-      } satisfies EnvironmentWithLatestVersion;
+      return newEnvironment;
   });
 
   if (!environment) {
@@ -251,7 +251,7 @@ export const createEnvironment = async ({
 
   return {
     status: 201 as const,
-    body: environment
+    body: { message: 'Environment created successfully' }
   };
 };
 

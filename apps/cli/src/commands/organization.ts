@@ -12,6 +12,7 @@ type CreateOrganizationOptions = OrganizationOptions & {
 };
 
 export const organizationCommand = new Command('organization')
+  .alias('o')
   .description('Manage organizations');
 
 

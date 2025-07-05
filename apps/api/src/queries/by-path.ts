@@ -1,4 +1,4 @@
-import { db, Environment, EnvironmentAccess, Organization, OrganizationRole, Project, Schema } from '@repo/db';
+import { db, Environment, EnvironmentAccess, environments, Organization, OrganizationRole, Project, Schema } from '@repo/db';
 import { eq, and, or, SQL } from 'drizzle-orm';
 import { isUserRequester } from '../types/cast';
 
@@ -27,7 +27,6 @@ const isValidPath = (path: string, length: number) => {
 export interface OrganizationWithRole extends Organization {
   role: OrganizationRole;
 }
-
 
 export async function getOrganization(pathOrId: string, scope: Omit<OperationScope, 'editEnvironment'>): Promise<OrganizationWithRole> {
   if(!isValidPath(pathOrId, 1) && !isValidUUID(pathOrId)) {
@@ -130,7 +129,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
   if(!organization) {
     organization = await getOrganization(project.organizationId, scope);
   }
-  return [organization, project]
+  return [organization, { ...project, organization }]
 }
 
 export async function getEnvironmentByPath(
@@ -167,6 +166,7 @@ export async function getEnvironmentByPath(
   const environment = await db.query.environments.findFirst({
     where: and(...whereStatements),
     with: {
+      project: true,
       access: {
         where: isUserRequester(scope.requester)
           ? eq(Schema.environmentAccess.userId, scope.requester.userId)
@@ -191,7 +191,7 @@ export async function getEnvironmentByPath(
   if(!organization || !project) {
     [organization, project] = await getProjectByPath(environment.projectId, scope);
   }
-  return [organization, project, { ...environment, access: userAccess }];
+  return [organization, project, { ...environment, access: userAccess, project: project }];
 }
 
 export async function getProjectEnvironments(
@@ -203,6 +203,7 @@ export async function getProjectEnvironments(
   const environments = await db.query.environments.findMany({
     where: eq(Schema.environments.projectId, project.id),
     with: {
+      project: true,
       access: {
         where: isUserRequester(scope.requester)
           ? eq(Schema.environmentAccess.userId, scope.requester.userId)
@@ -221,6 +222,10 @@ export async function getProjectEnvironments(
 
   return filteredEnvironments.map(environment => ({
     ...environment,
+    project: {
+      ...project,
+      organization: organization
+    },
     access: environment.access[0]!
   }));
 }
@@ -228,7 +233,7 @@ export async function getProjectEnvironments(
 export async function getOrganizationEnvironments(
   organizationPathOrId: string,
   scope: OperationScope
-): Promise<(Environment & { access: EnvironmentAccess; project: Project })[]> {
+): Promise<(Environment & { access: EnvironmentAccess })[]> {
   const organization = await getOrganization(organizationPathOrId, scope);
 
   const projects = await db.query.projects.findMany({
@@ -241,5 +246,11 @@ export async function getOrganizationEnvironments(
   );
 
   const allEnvironments = await Promise.all(environmentsPromises);
-  return allEnvironments.flat();
+  return allEnvironments.flat().map(environment => ({
+    ...environment,
+    project: {
+      ...environment.project,
+      organization: organization
+    }
+  }));
 }

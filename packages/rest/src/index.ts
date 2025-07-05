@@ -41,11 +41,11 @@ export const projectSchema = z.object({
 export const environmentSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
-  freeForm: z.boolean(),
   projectId: z.string().uuid(),
   preservedVersions: z.number().int(),
   createdAt: z.date(),
-  updatedAt: z.date()
+  updatedAt: z.date(),
+  project: projectSchema
 });
 
 export const environmentVersionSchema = z.object({
@@ -274,7 +274,7 @@ const environments = c.router({
       userEphemeralPublicKey: z.string()
     }),
     responses: {
-      201: environmentWithLatestVersionSchema,
+      201: z.object({ message: z.string() }),
       400: z.object({ message: z.string() }),
       403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() })

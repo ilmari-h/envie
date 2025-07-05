@@ -1,5 +1,5 @@
 import { pgTable, text, uuid, boolean, uniqueIndex, integer } from 'drizzle-orm/pg-core';
-import { projects } from './projects';
+import { Project, projects } from './projects';
 import { timestamps } from './utils';
 import { relations } from 'drizzle-orm';
 import { environmentVersions } from './environment-versions';
@@ -16,7 +16,9 @@ export const environments = pgTable('environments', {
   nameAndProjectIdUnique: uniqueIndex('name_and_project_id_unique').on(t.projectId, t.name)
 }]));
 
-export type Environment = typeof environments.$inferSelect;
+export type Environment = typeof environments.$inferSelect & {
+  project: Project
+};
 
 export const environmentRelations = relations(environments, ({ many, one }) => ({
   versions: many(environmentVersions, {

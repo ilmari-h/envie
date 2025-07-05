@@ -13,6 +13,7 @@ type CreateProjectOptions = ProjectOptions & {
 };
 
 export const projectCommand = new Command('project')
+  .alias('p')
   .description('Manage projects');
 
 projectCommand

@@ -4,7 +4,7 @@ import { printTable } from '../ui/table';
 import { parseEnv } from 'node:util';
 import * as fs from 'fs';
 import * as path from 'path';
-import { encryptForRecipients } from '../utils/crypto';
+import { encryptForRecipients, unwrapKey, encryptContent } from '../utils/crypto';
 import { getUserPrivateKey, getUserPublicKey, ed25519PublicKeyToX25519 } from '../utils/keypair';
 import { RootCommand, BaseOptions } from './root';
 
@@ -16,6 +16,7 @@ type CreateEnvironmentOptions = EnvironmentOptions;
 
 const rootCmd = new RootCommand();
 export const environmentCommand = rootCmd.createCommand<EnvironmentOptions>('environment')
+  .alias('e')
   .description('Manage environments');
 
 environmentCommand
@@ -63,19 +64,19 @@ environmentCommand
 
       printTable(
         [
-          { header: 'Name', key: 'name' },
+          { header: 'Path', key: 'path' },
           // { header: 'Project', key: 'project' },
           //{ header: 'Organization', key: 'organization' },
           //{ header: 'Variables', key: 'variables' },
-          { header: 'Version', key: 'version' },
           { header: 'ID', key: 'id' },
+          { header: 'Versions', key: 'versions' },
         ],
         response.body.map(env => ({
-          name: env.name,
+          path: `${env.project.organization.name}:${env.project.name}:${env.name}`,
           //project: env.project.name,
           //organization: env.project.organization.name,
           // variables: env.latestVersion.
-          version: env.latestVersion?.versionNumber || 'N/A',
+          versions: env.latestVersion?.versionNumber || '0',
           id: env.id
         }))
       );
@@ -87,11 +88,11 @@ environmentCommand
 
 environmentCommand
   .command('create')
-  .description('Create a new environment from a file')
+  .description('Create a new environment')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
-  .argument('<file>', 'Path to .env file')
+  .argument('[file]', 'A file containing the initial content')
   .option('--instance-url <url>', 'URL of the server to connect to')
-  .action(async function(environmentPath: string, filePath: string) {
+  .action(async function(environmentPath: string, filePath?: string) {
     const opts = this.opts<CreateEnvironmentOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
     const client = createTsrClient(instanceUrl);
@@ -122,6 +123,141 @@ environmentCommand
       }
 
       // Validate and read the .env file
+      if (filePath && !fs.existsSync(filePath)) {
+        console.error(`Error: File "${filePath}" does not exist`);
+        process.exit(1);
+      }
+
+      let fileContent: string = "";
+      if (filePath) {
+        try {
+          const absoluteFilePath = path.resolve(filePath);
+          fileContent = fs.readFileSync(absoluteFilePath, 'utf-8');
+        } catch (error) {
+          console.error(`Error: Unable to read file "${filePath}": ${error instanceof Error ? error.message : error}`);
+          process.exit(1);
+        }
+      }
+
+      // Parse .env file content
+      const envVars = parseEnv(fileContent);
+      const parsedEnvFileContent = Object.entries(envVars).map(([key, value]) => `${key}=${value}`).join('\n');
+
+      // Get user's keypair for encryption
+      const userKeyPair = await getUserPrivateKey();
+      if (!userKeyPair) {
+        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
+        process.exit(1);
+      }
+
+      const userPublicKey = await getUserPublicKey();
+      if (!userPublicKey) {
+        console.error('Error: Unable to get user public key.');
+        process.exit(1);
+      }
+
+      if (opts.verbose) {
+        console.log('Parsed .env file content:');
+        console.log(JSON.stringify(envVars, null, 2));
+        console.log(`\nEnvironment path: ${organizationName.trim()}:${projectName.trim()}:${environmentName.trim()}`);
+      }
+      
+      if(opts.verbose) {
+        console.log(`Found ${Object.keys(envVars).length} environment variables`);
+      }
+      
+      try {
+        const { encryptedContent, wrappedKeys } = encryptForRecipients(
+          parsedEnvFileContent,
+          [userPublicKey] // User's own public key as the only recipient
+        );
+
+        if (opts.verbose) {
+          console.log('\nEncryption successful!');
+          console.log('Encrypted content keys:', encryptedContent.keys);
+          console.log('User wrapped key:', {
+            wrappedKey: wrappedKeys[0].wrappedKey,
+            ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey
+          });
+        }
+        
+        // Create environment
+        const response = await client.environments.createEnvironment({
+          body: {
+            name: environmentName,
+            project: `${organizationName}:${projectName}`,
+            encryptedContent: {
+              keys: encryptedContent.keys,
+              ciphertext: encryptedContent.ciphertext
+            },
+            userWrappedAesKey: wrappedKeys[0].wrappedKey,
+            userEphemeralPublicKey: wrappedKeys[0].ephemeralPublicKey,
+          }
+        });
+
+        if (response.status !== 201) {
+          console.error(`Failed to create environment: ${(response.body as { message: string }).message}`);
+          process.exit(1);
+        }
+      } catch (error) {
+        console.error('Error during encryption:', error instanceof Error ? error.message : error);
+        process.exit(1);
+      }
+
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .command('update')
+  .description('Update an environment\'s content from a file')
+  .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
+  .argument('<file>', 'Path to .env file')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(environmentPath: string, filePath: string) {
+    const opts = this.opts<EnvironmentOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const client = createTsrClient(instanceUrl);
+    
+    try {
+      if (!instanceUrl) {
+        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
+        process.exit(1);
+      }
+
+      if (opts.verbose) {
+        console.log(`Updating environment: ${environmentPath}`);
+        console.log(`Reading from file: ${filePath}`);
+        console.log(`Instance URL: ${instanceUrl}`);
+      }
+
+      // First get the environment to get the decryption data
+      const envResponse = await client.environments.getEnvironments({
+        query: { path: environmentPath }
+      });
+
+      if (envResponse.status !== 200 || envResponse.body.length === 0) {
+        console.error('Error: Environment not found');
+        process.exit(1);
+      }
+
+      const environment = envResponse.body[0];
+      if (!environment.decryptionData) {
+        console.error('Error: No decryption data found for environment');
+        process.exit(1);
+      }
+
+      // Get user's private key for decryption
+      const userKeyPair = await getUserPrivateKey();
+      if (!userKeyPair) {
+        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
+        process.exit(1);
+      }
+      const userPrivateKey = userKeyPair.privateKey;
+
+      // Validate and read the .env file
       if (!fs.existsSync(filePath)) {
         console.error(`Error: File "${filePath}" does not exist`);
         process.exit(1);
@@ -146,63 +282,45 @@ environmentCommand
         process.exit(1);
       }
 
-      // Get user's keypair for encryption
-      const userKeyPair = await getUserPrivateKey();
-      if (!userKeyPair) {
-        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
-        process.exit(1);
-      }
-
-      const userPublicKey = await getUserPublicKey();
-      if (!userPublicKey) {
-        console.error('Error: Unable to get user public key.');
-        process.exit(1);
-      }
-
       if (opts.verbose) {
         console.log('Parsed .env file content:');
         console.log(JSON.stringify(envVars, null, 2));
-        console.log(`\nEnvironment path: ${organizationName.trim()}:${projectName.trim()}:${environmentName.trim()}`);
+        console.log(`\nEnvironment path: ${environmentPath}`);
+        console.log(`Found ${Object.keys(envVars).length} environment variables`);
       }
       
-      console.log(`Found ${Object.keys(envVars).length} environment variables`);
-      
       try {
-        const { encryptedContent, wrappedKeys } = encryptForRecipients(
-          parsedEnvFileContent,
-          [userPublicKey] // User's own public key as the only recipient
-        );
+        // Unwrap the environment's encryption key
+        const wrappedKeyData = {
+          wrappedKey: environment.decryptionData.wrappedEncryptionKey,
+          ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
+        };
+        const aesKey = unwrapKey(wrappedKeyData, userPrivateKey);
+
+        // Encrypt the content with the environment's key
+        const encryptedContent = encryptContent(parsedEnvFileContent, aesKey);
 
         if (opts.verbose) {
           console.log('\nEncryption successful!');
-          console.log('Encrypted content keys:', encryptedContent.keys);
-          console.log('Ciphertext length:', encryptedContent.ciphertext.length);
-          console.log('User wrapped key:', {
-            wrappedKey: wrappedKeys[0].wrappedKey,
-            ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey
-          });
         }
         
-        // TODO: Make API call to create environment
-        const response = await client.environments.createEnvironment({
+        // Update environment content
+        const response = await client.environments.updateEnvironmentContent({
+          params: {
+            idOrPath: environmentPath
+          },
           body: {
-            name: environmentName,
-            project: `${organizationName}:${projectName}`,
             encryptedContent: {
               keys: encryptedContent.keys,
               ciphertext: encryptedContent.ciphertext
-            },
-            userWrappedAesKey: wrappedKeys[0].wrappedKey,
-            userEphemeralPublicKey: wrappedKeys[0].ephemeralPublicKey,
+            }
           }
         });
 
-        if (response.status !== 201) {
-          console.error(`Failed to create environment: ${response.status}`);
+        if (response.status !== 200) {
+          console.error(`Failed to update environment: ${response.status}`);
           process.exit(1);
         }
-
-        console.log(`Environment created successfully: ${response.body.id}`);
       } catch (error) {
         console.error('Error during encryption:', error instanceof Error ? error.message : error);
         process.exit(1);
