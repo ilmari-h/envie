@@ -7,6 +7,7 @@ import { organizationCommand } from './commands/organization';
 import { projectCommand } from './commands/project';
 import { environmentCommand } from './commands/environment';
 import { loadCommand } from './commands/load';
+import { setCommand, unsetCommand } from './commands/set';
 
 async function main() {
   program
@@ -22,6 +23,8 @@ async function main() {
   program.addCommand(projectCommand);
   program.addCommand(environmentCommand);
   program.addCommand(loadCommand);
+  program.addCommand(setCommand);
+  program.addCommand(unsetCommand);
 
   // Parse command line arguments
   await program.parseAsync(process.argv);
