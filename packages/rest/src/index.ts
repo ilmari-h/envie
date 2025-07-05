@@ -1,15 +1,22 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 
-const nameRegex = /^[a-zA-Z0-9_]+$/;
+const nameRegex = /^[a-zA-Z0-9_-]+$/;
+const nameSchema = z.string()
+  .min(1)
+  .max(32)
+  .regex(nameRegex, 'Name can only contain latin letters, numbers, underscores and hyphens')
+
+export const invitedUserSchema = z.object({
+  userId: z.string(),
+  wrappedAesKey: z.string(),
+  ephemeralPublicKey: z.string()
+});
 
 // Zod schemas for DB types
 export const userSchema = z.object({
   id: z.string(),
   name: z.string(),
-  email: z.string().nullable(),
-  createdAt: z.date(),
-  updatedAt: z.date()
 });
 
 export const organizationSchema = z.object({
@@ -17,7 +24,6 @@ export const organizationSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   createdById: z.string().nullable(),
-  hobby: z.boolean(),
   createdAt: z.date(),
   updatedAt: z.date()
 });
@@ -49,11 +55,23 @@ export const environmentVersionSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
   content: z.string(),
-  versionNumber: z.number().int()
+  keys: z.array(z.string()),
+  versionNumber: z.number().int(),
+});
+
+export const envrionmentVersionWithWrappedEncryptionKeySchema = environmentVersionSchema.extend({
+  decryptionData: z.object({
+    wrappedEncryptionKey: z.string(),
+    ephemeralPublicKey: z.string()
+  })
 });
 
 export const environmentWithLatestVersionSchema = environmentSchema.extend({
   latestVersion: environmentVersionSchema.nullable(),
+  decryptionData: z.object({
+    wrappedEncryptionKey: z.string(),
+    ephemeralPublicKey: z.string()
+  }),
   accessControl: z.object({
     users: z.array(userSchema).optional()
   })
@@ -65,10 +83,9 @@ export const organizationWithProjectsCountSchema = organizationSchema.extend({
 
 const c = initContract();
 
-
 export type EnvironmentVersion = z.infer<typeof environmentVersionSchema>;
+export type EnvironmentVersionWithWrappedEncryptionKey = z.infer<typeof envrionmentVersionWithWrappedEncryptionKeySchema>;
 export type EnvironmentWithLatestVersion = z.infer<typeof environmentWithLatestVersionSchema>;
-
 
 export type OrganizationWithProjectsCount = z.infer<typeof organizationWithProjectsCountSchema>;
 
@@ -87,7 +104,29 @@ const user = c.router({
     method: 'GET',
     path: '/users/me',
     responses: {
-      200: c.type<{ id: string, name: string }>()
+      200: z.object({
+        id: z.string(),
+        name: z.string(),
+        authMethod: z.enum(['github', 'email']),
+        publicKey: z.string().nullable(),
+        pkeAlgorithm: z.enum(['x25519', 'rsa']).nullable()
+      }).or(z.object({
+        message: z.string()
+      })),
+      401: c.type<{ message: string }>()
+    }
+  },
+  setPublicKey: {
+    method: 'POST',
+    path: '/users/me/public-key',
+    body: z.object({
+      publicKey: z.string(),
+      allowOverride: z.boolean().optional().default(false)
+    }),
+    responses: {
+      200: c.type<{ message: string }>(),
+      403: c.type<{ message: string }>(),
+      400: c.type<{ message: string }>()
     }
   }
 });
@@ -143,10 +182,9 @@ const projects = c.router({
     method: 'POST',
     path: '/projects',
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string(),
       organizationIdOrName: z.string(),
-      defaultEnvironments: z.array(z.string()).optional()
     }),
     responses: {
       201: projectSchema.omit({ organization: true }),
@@ -160,7 +198,7 @@ const projects = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string(),
     }),
     responses: {
@@ -201,8 +239,7 @@ const environments = c.router({
     method: 'GET',
     path: '/environments',
     query: z.object({
-      projectIdOrPath: z.string().optional(),
-      environmentIdOrPath: z.string().optional(),
+      path: z.string().optional()
     }),
     responses: {
       200: environmentWithLatestVersionSchema.array()
@@ -218,7 +255,7 @@ const environments = c.router({
       versionNumber: z.string().optional()
     }),
     responses: {
-      200: environmentVersionSchema
+      200: envrionmentVersionWithWrappedEncryptionKeySchema
     },
     summary: 'Get a specific version of an environment'
   },
@@ -226,10 +263,15 @@ const environments = c.router({
     method: 'POST',
     path: '/environments',
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       project: z.string(),
-      content: z.string().optional(),
-      allowedUserIds: z.array(z.string()).optional()
+      encryptedContent: z.object({
+        keys: z.array(z.string()),
+        ciphertext: z.string()
+      }),
+      invitedUsers: z.array(invitedUserSchema).optional(),
+      userWrappedAesKey: z.string(),
+      userEphemeralPublicKey: z.string()
     }),
     responses: {
       201: environmentWithLatestVersionSchema,
@@ -247,7 +289,10 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      content: z.string()
+      encryptedContent: z.object({
+        keys: z.array(z.string()),
+        ciphertext: z.string()
+      }),
     }),
     responses: {
       200: z.object({}),
@@ -264,7 +309,6 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      allowedUserIds: z.array(z.string()).describe("If empty array, allow access to all users in the project").optional(),
       preserveVersions: z.number().min(5).max(100).optional()
     }),
     responses: {
@@ -292,7 +336,7 @@ export const organizations = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string().optional()
     }),
     responses: {
@@ -320,7 +364,7 @@ export const organizations = c.router({
     method: 'POST',
     path: '/organizations',
     body: z.object({
-      name: z.string().regex(nameRegex, 'Name can only contain latin letters, numbers and underscores'),
+      name: nameSchema,
       description: z.string().optional()
     }),
     responses: {

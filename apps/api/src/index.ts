@@ -18,9 +18,10 @@ import {
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
-import { and, eq } from 'drizzle-orm';
-import { getMe } from './routes/users';
+import { and, eq, or, gt, isNull } from 'drizzle-orm';
+import { getMe, setPublicKey } from './routes/users';
 import { createClient } from "redis";
+import { isUserRequester } from './types/cast';
 
 const AUTH_COOKIE_NAME = 'envie_token';
 
@@ -32,7 +33,7 @@ const corsOptions = {
   origin: env.FRONTEND_URL,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept-Encoding']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'Accept-Encoding', 'x-api-key']
 };
 app.use(cors(corsOptions));
 
@@ -51,41 +52,52 @@ const getToken = async (req: express.Request) => {
   } else if (req.headers.authorization?.startsWith('Bearer ')) {
     return req.headers.authorization.split(' ')[1];
   }
-  throw new Error('No token provided');
+  return null
 }
 
-const validateJWT = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const token = await getToken(req);
-  if (!token) {
-    throw new Error('Invalid token format');
-  }
+const getApiKey = (req: express.Request) => {
+  return req.headers['x-api-key'] as string | undefined;
+}
 
-  try {
+const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Try JWT first
+  const loginToken = await getToken(req);
+  if (loginToken) {
     const decoded = jwt.verify(
-      token,
-      env.JWT_SECRET as string) as unknown as { id: string; username: string };
-    req.user = decoded;
-  } catch (err) {
-    throw new Error('Invalid token');
-  }
-  next();
-};
-
-const validateJWTOptional = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const token = await getToken(req);
-  if (!token) {
+      loginToken,
+      env.JWT_SECRET as string) as unknown as { userId: string; username: string };
+    req.requester = {
+      userId: decoded.userId,
+      username: decoded.username
+    };
     return next();
   }
 
-  try {
-    const decoded = jwt.verify(
-      token,
-      env.JWT_SECRET as string) as unknown as { id: string; username: string };
-    req.user = decoded;
-  } catch (err) {
-    return next();
+  // Try API key
+  const apiKey = getApiKey(req);
+  if (apiKey) {
+    const accessToken = await db.query.accessTokens.findFirst({
+      where: and(
+        eq(Schema.accessTokens.value, apiKey),
+        or(
+          isNull(Schema.accessTokens.expires),
+          gt(Schema.accessTokens.expires, new Date())
+        )
+      ),
+      with: {
+        createdByUser: true
+      }
+    });
+
+    if (accessToken) {
+      req.requester = {
+        apiKeyId: accessToken.id,
+      };
+      return next();
+    }
   }
-  next();
+
+  return res.status(401).json({ message: 'Unauthorized' });
 };
 
 const router = s.router(contract, {
@@ -99,69 +111,73 @@ const router = s.router(contract, {
   }),
   environments: s.router(contract.environments, {
     getEnvironments: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getEnvironments
     },
     getEnvironmentVersion: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getEnvironmentVersion
     },
     createEnvironment: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: createEnvironment
     },
     updateEnvironmentContent: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateEnvironmentContent
     },
     updateEnvironmentSettings: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateEnvironmentSettings
     }
   }),
   organizations: s.router(contract.organizations, {
     getOrganizations: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getOrganizations
     },
     updateOrganization: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateOrganization
     },
     getOrganization: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getOrganization
     },
     createOrganization: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: createOrganization
     }
   }),
   user: s.router(contract.user, {
     getUser: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getMe
+    },
+    setPublicKey: {
+      middleware: [requireAuth],
+      handler: setPublicKey
     }
   }),
   projects: s.router(contract.projects, {
     getProjects: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getProjects
     },
     createProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: createProject
     },
     getProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getProject
     },
     updateProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateProject
     },
     deleteProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: deleteProject
     },
   })
@@ -186,21 +202,6 @@ passport.use(new GitHubStrategy({
         email: profile.emails?.[0]?.value
       }
     });
-
-    // If no hobby organization, create one
-    const hobbyOrg = await db.query.organizations.findFirst({
-      where: and(
-        eq(Schema.organizations.hobby, true),
-        eq(Schema.organizations.createdById, githubUserId)),
-    });
-
-    if (!hobbyOrg) {
-      await db.insert(Schema.organizations).values({
-        name: 'Personal',
-        createdById: githubUserId,
-        hobby: true
-      });
-    }
 
     return done(null, {
       id: githubUserId,
@@ -257,9 +258,9 @@ app.get('/auth/github/callback',
     // Generate JWT token
     const token = jwt.sign(
       { 
-        id: req.user.id, 
-        username: req.user.username 
-      } satisfies Express.User, 
+        userId: (req.user as { id: string }).id, 
+        username: (req.user as { username: string }).username 
+      } satisfies Express.Requester, 
       env.JWT_SECRET, 
       { expiresIn: '1h' }
     );

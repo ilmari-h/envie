@@ -11,6 +11,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/curves": "^1.9.2",
     "@repo/rest": "*",
     "@ts-rest/express": "^3.52.1",
     "@types/cookie-parser": "^1.4.8",

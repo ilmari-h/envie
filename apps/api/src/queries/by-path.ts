@@ -1,9 +1,14 @@
-import { db, Environment, Organization, OrganizationRole, Project, Schema } from '@repo/db';
+import { db, Environment, EnvironmentAccess, Organization, OrganizationRole, Project, Schema } from '@repo/db';
 import { eq, and, or, SQL } from 'drizzle-orm';
-import { isValidUUID } from '../crypto/crypto';
+import { isUserRequester } from '../types/cast';
 
+export const isValidUUID = (uuid: string) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
 export interface OperationScope {
-  userId: string;
+  // One or the other
+  requester: Express.Requester;
 
   addMembers?: boolean;
   createEnvironments?: boolean;
@@ -23,6 +28,7 @@ export interface OrganizationWithRole extends Organization {
   role: OrganizationRole;
 }
 
+
 export async function getOrganization(pathOrId: string, scope: Omit<OperationScope, 'editEnvironment'>): Promise<OrganizationWithRole> {
   if(!isValidPath(pathOrId, 1) && !isValidUUID(pathOrId)) {
     throw new Error('Invalid organization path');
@@ -38,27 +44,17 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
     if(pathOrId.includes(':')) {
       throw new Error('Invalid organization path');
     }
-    if (pathOrId === 'personal') {
 
-      // Cannot add users to personal organization
-      if(scope?.addMembers) {
-        throw new Error('Cannot add users to personal organization');
-      }
-
-      whereStatements.push(
-        eq(Schema.organizations.createdById, scope.userId),
-        eq(Schema.organizations.hobby, true)
-      );
-    } else {
-      whereStatements.push(eq(Schema.organizations.name, pathOrId));
-    }
+    whereStatements.push(eq(Schema.organizations.name, pathOrId));
   }
 
   const organization = await db.query.organizations.findFirst({
     where: and(...whereStatements),
     with: {
       roles: {
-        where: eq(Schema.organizationRoles.userId, scope.userId)
+        where: isUserRequester(scope.requester)
+          ? eq(Schema.organizationRoles.userId, scope.requester.userId)
+          : eq(Schema.organizationRoles.accessTokenId, scope.requester.apiKeyId)
       }
     }
     });
@@ -140,7 +136,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
 export async function getEnvironmentByPath(
   pathOrId: string,
   scope: OperationScope
-): Promise<[OrganizationWithRole, Project, Environment]> {
+): Promise<[OrganizationWithRole, Project, Environment & { access: EnvironmentAccess }]> {
   if(!isValidPath(pathOrId, 3) && !isValidUUID(pathOrId)) {
     throw new Error('Invalid environment path');
   }
@@ -172,7 +168,9 @@ export async function getEnvironmentByPath(
     where: and(...whereStatements),
     with: {
       access: {
-        where: eq(Schema.environmentAccess.userId, scope.userId)
+        where: isUserRequester(scope.requester)
+          ? eq(Schema.environmentAccess.userId, scope.requester.userId)
+          : eq(Schema.environmentAccess.accessTokenId, scope.requester.apiKeyId)
       },
     }
   });
@@ -193,20 +191,22 @@ export async function getEnvironmentByPath(
   if(!organization || !project) {
     [organization, project] = await getProjectByPath(environment.projectId, scope);
   }
-  return [organization, project, environment];
+  return [organization, project, { ...environment, access: userAccess }];
 }
 
 export async function getProjectEnvironments(
   projectPathOrId: string,
   scope: OperationScope
-): Promise<Environment[]> {
+): Promise<(Environment & { access: EnvironmentAccess })[]> {
   const [organization, project] = await getProjectByPath(projectPathOrId, scope);
 
   const environments = await db.query.environments.findMany({
     where: eq(Schema.environments.projectId, project.id),
     with: {
       access: {
-        where: eq(Schema.environmentAccess.userId, scope.userId)
+        where: isUserRequester(scope.requester)
+          ? eq(Schema.environmentAccess.userId, scope.requester.userId)
+          : eq(Schema.environmentAccess.accessTokenId, scope.requester.apiKeyId)
       },
     }
   });
@@ -219,5 +219,27 @@ export async function getProjectEnvironments(
     return true;
   });
 
-  return filteredEnvironments;
+  return filteredEnvironments.map(environment => ({
+    ...environment,
+    access: environment.access[0]!
+  }));
+}
+
+export async function getOrganizationEnvironments(
+  organizationPathOrId: string,
+  scope: OperationScope
+): Promise<(Environment & { access: EnvironmentAccess; project: Project })[]> {
+  const organization = await getOrganization(organizationPathOrId, scope);
+
+  const projects = await db.query.projects.findMany({
+    where: eq(Schema.projects.organizationId, organization.id),
+  });
+
+  const environmentsPromises = projects.map(project => 
+    getProjectEnvironments(project.id, scope)
+      .then(environments => environments.map(env => ({ ...env, project })))
+  );
+
+  const allEnvironments = await Promise.all(environmentsPromises);
+  return allEnvironments.flat();
 }

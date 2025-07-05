@@ -5,6 +5,7 @@ export const timestamps = {
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 }
 
+
 export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {
     return "bytea";
@@ -13,19 +14,23 @@ export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
     return value;
   },
   fromDriver(value: unknown): Buffer {
-    // Handle Buffer from Postgres (starts with \x)
     if (Buffer.isBuffer(value)) {
-      const str = value.toString();
-      if (str.startsWith('\\x')) {
-        return Buffer.from(str.slice(2), 'hex');
-      }
       return value;
     }
+    
     if (value && typeof value === 'object' && 'buffer' in value) {
       return Buffer.from(value as Uint8Array);
     }
     
-    // Last resort - try to convert whatever we got
+    if (typeof value === 'string' && value.startsWith('\\x')) {
+      return Buffer.from(value.slice(2), 'hex');
+    }
+    
     return Buffer.from(value as any);
   },
 }); 
+
+// TODO: this will have RSA in the future
+export const publicKeyColumns = {
+  publicKeyEd25519: bytea('public_key_ed25519'),
+}
