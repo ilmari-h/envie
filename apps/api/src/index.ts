@@ -52,47 +52,25 @@ const getToken = async (req: express.Request) => {
   } else if (req.headers.authorization?.startsWith('Bearer ')) {
     return req.headers.authorization.split(' ')[1];
   }
-  throw new Error('No token provided');
+  return null
 }
 
 const getApiKey = (req: express.Request) => {
   return req.headers['x-api-key'] as string | undefined;
 }
 
-const validateJWT = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const token = await getToken(req);
-  if (!token) {
-    throw new Error('Invalid token format');
-  }
-
-  try {
-    const decoded = jwt.verify(
-      token,
-      env.JWT_SECRET as string) as unknown as { id: string; username: string };
-    req.user = decoded;
-  } catch (err) {
-    throw new Error('Invalid token');
-  }
-  next();
-};
-
-
-const validateAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   // Try JWT first
-  try {
-    const token = await getToken(req);
-    if (token) {
-      const decoded = jwt.verify(
-        token,
-        env.JWT_SECRET as string) as unknown as { id: string; username: string };
-      req.requester = {
-        userId: decoded.id,
-        username: decoded.username
-      };
-      return next();
-    }
-  } catch (err) {
-    // Continue to API key check
+  const loginToken = await getToken(req);
+  if (loginToken) {
+    const decoded = jwt.verify(
+      loginToken,
+      env.JWT_SECRET as string) as unknown as { userId: string; username: string };
+    req.requester = {
+      userId: decoded.userId,
+      username: decoded.username
+    };
+    return next();
   }
 
   // Try API key
@@ -133,73 +111,73 @@ const router = s.router(contract, {
   }),
   environments: s.router(contract.environments, {
     getEnvironments: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getEnvironments
     },
     getEnvironmentVersion: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getEnvironmentVersion
     },
     createEnvironment: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: createEnvironment
     },
     updateEnvironmentContent: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateEnvironmentContent
     },
     updateEnvironmentSettings: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateEnvironmentSettings
     }
   }),
   organizations: s.router(contract.organizations, {
     getOrganizations: {
-      middleware: [validateAuth],
+      middleware: [requireAuth],
       handler: getOrganizations
     },
     updateOrganization: {
-      middleware: [validateAuth],
+      middleware: [requireAuth],
       handler: updateOrganization
     },
     getOrganization: {
-      middleware: [validateAuth],
+      middleware: [requireAuth],
       handler: getOrganization
     },
     createOrganization: {
-      middleware: [validateAuth],
+      middleware: [requireAuth],
       handler: createOrganization
     }
   }),
   user: s.router(contract.user, {
     getUser: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getMe
     },
     setPublicKey: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: setPublicKey
     }
   }),
   projects: s.router(contract.projects, {
     getProjects: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getProjects
     },
     createProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: createProject
     },
     getProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: getProject
     },
     updateProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: updateProject
     },
     deleteProject: {
-      middleware: [validateJWT],
+      middleware: [requireAuth],
       handler: deleteProject
     },
   })
