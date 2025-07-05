@@ -3,7 +3,7 @@ import { eq, and, count, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithLatestVersion } from '@repo/rest';
-import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath } from '../queries/by-path';
+import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
 
 export const getEnvironments = async ({ req, query: { path } }:
@@ -20,7 +20,7 @@ export const getEnvironments = async ({ req, query: { path } }:
       });
       environments = orgEnvironments;
     } else if(pathParts.length === 2) {
-      const [_organization, _project] = await getProjectByPath(pathParts[0]! + ':' + pathParts[1]!, {
+      environments = await getProjectEnvironments(pathParts[0]! + ':' + pathParts[1]!, {
         requester: req.requester
       });
     } else if(pathParts.length === 3) {

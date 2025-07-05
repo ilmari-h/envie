@@ -21,3 +21,7 @@ This is a CLI program for managing `.env` files securely and conviniently.
 - `envie environment unset <organization-name:project-name:env-name> <key=value>` - Set and enviornment variable
 - `envie environment list <path>` - List environments, optionally filtering by path (path format name of organization e.g `my_organization` or project `my_organization:my_project`)
 - `envie load <path> [--decrypt/-d]` - Load an environment 
+
+#### Security TODOS:
+- Add signatures and validate them
+  - Both server and client check that the user who uploaded content also signed it

@@ -33,7 +33,7 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
     throw new Error('Invalid organization path');
   }
 
-  const whereStatements: (SQL | undefined)[] = !isValidPath(pathOrId, 1) && isValidUUID(pathOrId)
+  const whereStatements: (SQL | undefined)[] = isValidUUID(pathOrId)
     ? [eq(Schema.organizations.id, pathOrId)]
     : [];
   
@@ -96,7 +96,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
       throw new Error('Invalid project path');
   }
 
-  const whereStatements: (SQL | undefined)[] = !isValidPath(pathOrId, 2) && isValidUUID(pathOrId)
+  const whereStatements: (SQL | undefined)[] = isValidUUID(pathOrId)
     ? [eq(Schema.projects.id, pathOrId)]
     : [];
 
