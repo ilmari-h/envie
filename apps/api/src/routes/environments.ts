@@ -2,17 +2,25 @@ import { db, Environment, EnvironmentAccess, Schema } from '@repo/db';
 import { eq, and, count, desc, inArray } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithLatestVersion } from '@repo/rest';
+import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithVersion } from '@repo/rest';
 import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
+import { getEnvironmentVersionByIndex } from '../queries/environment-version';
 
-export const getEnvironments = async ({ req, query: { path } }:
+export const getEnvironments = async ({ req, query: { path, version } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
   }) => {
 
     const pathParts = path?.split(':') ?? [];
+    if(pathParts.length !== 3 && version) {
+      return {
+        status: 400 as const,
+        body: { message: 'Version number only allowed for single environment' }
+      };
+    }
+
     let environments: (Environment & { access: EnvironmentAccess })[] = [];
     if(pathParts.length === 1) {
       const orgEnvironments = await getOrganizationEnvironments(pathParts[0]!, {
@@ -58,7 +66,6 @@ export const getEnvironments = async ({ req, query: { path } }:
       }));
     }
 
-
     if(!environments) {
       return {
         status: 404 as const,
@@ -68,13 +75,7 @@ export const getEnvironments = async ({ req, query: { path } }:
 
     const environmentsWithVersions = await Promise.all(environments
       .map(async (e) => {
-        const latestVersion = await db.query.environmentVersions.findFirst({
-          where: eq(Schema.environmentVersions.environmentId, e.id),
-          orderBy: desc(Schema.environmentVersions.createdAt),
-          with: {
-            keys: true
-          }
-        });
+        const environmentVersion = await getEnvironmentVersionByIndex(e.id, version);
         const totalVersions = await db.select({ count: count() })
           .from(Schema.environmentVersions)
           .where(eq(Schema.environmentVersions.environmentId, e.id));
@@ -84,9 +85,9 @@ export const getEnvironments = async ({ req, query: { path } }:
           .innerJoin(Schema.users, eq(Schema.environmentAccess.userId, Schema.users.id))
           .where(eq(Schema.environmentAccess.environmentId, e.id));
 
-        if (!latestVersion) return {
+        if (!environmentVersion) return {
           ...e,
-          latestVersion: null,
+          version: null,
           decryptionData: {
             wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
             ephemeralPublicKey: e.access.ephemeralPublicKey.toString('base64')
@@ -94,13 +95,13 @@ export const getEnvironments = async ({ req, query: { path } }:
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
-        } satisfies EnvironmentWithLatestVersion;
+        } satisfies EnvironmentWithVersion;
         return {
           ...e,
-          latestVersion: {
-            ...latestVersion,
-            content: latestVersion.encryptedContent.toString('base64'),
-            keys: latestVersion.keys.map(k => k.key),
+          version: {
+            ...environmentVersion,
+            content: environmentVersion.encryptedContent.toString('base64'),
+            keys: environmentVersion.keys.map(k => k.key),
             versionNumber: totalVersions[0]?.count ?? 1,
           } satisfies EnvironmentVersion,
           decryptionData: {
@@ -110,7 +111,7 @@ export const getEnvironments = async ({ req, query: { path } }:
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
-        } satisfies EnvironmentWithLatestVersion;
+        } satisfies EnvironmentWithVersion;
       })
     )
 
@@ -354,67 +355,5 @@ export const updateEnvironmentSettings = async ({
   return {
     status: 200 as const,
     body: { message: 'Environment access updated successfully' }
-  };
-};
-
-export const getEnvironmentVersion = async ({
-  req,
-  params: { idOrPath, versionNumber }
-}: {
-  req: TsRestRequest<typeof contract.environments.getEnvironmentVersion>;
-  params: TsRestRequest<typeof contract.environments.getEnvironmentVersion>['params'];
-}) => {
-  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
-    requester: req.requester,
-  });
-  if(!organization || !project || !environment) {
-    return {
-      status: 404 as const,
-      body: { message: 'Environment not found' }
-    };
-  }
-
-  // Get total version count
-  const totalVersions = await db.select({ count: count() })
-    .from(Schema.environmentVersions)
-    .where(eq(Schema.environmentVersions.environmentId, environment.id));
-
-  const versionCount = totalVersions[0]?.count ?? 0;
-  const targetVersion = versionNumber !== undefined ? parseInt(versionNumber, 10) : versionCount;
-
-  // Get the specific version
-  const version = await db.query.environmentVersions.findFirst({
-    where: eq(Schema.environmentVersions.environmentId, environment.id),
-    orderBy: desc(Schema.environmentVersions.createdAt),
-    offset: versionCount - targetVersion,
-    with: {
-      keys: true
-    }
-  });
-
-  if (!version) {
-    return {
-      status: 404 as const,
-      body: { message: 'Version not found' }
-    };
-  }
-
-
-  return {
-    status: 200 as const,
-    body: {
-      id: version.id,
-      environmentId: version.environmentId,
-      savedBy: version.savedBy,
-      createdAt: version.createdAt,
-      updatedAt: version.updatedAt,
-      content: version.encryptedContent.toString('base64'),
-      versionNumber: targetVersion,
-      keys: version.keys.map(k => k.key),
-      decryptionData: {
-        wrappedEncryptionKey: environment.access.encryptedSymmetricKey.toString('base64'),
-        ephemeralPublicKey: environment.access.ephemeralPublicKey.toString('base64')
-      }
-    } satisfies EnvironmentVersionWithWrappedEncryptionKey
   };
 };

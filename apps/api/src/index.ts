@@ -10,7 +10,6 @@ import cors from 'cors';
 import { randomBytes } from 'node:crypto';
 import { 
   getEnvironments, 
-  getEnvironmentVersion,
   createEnvironment, 
   updateEnvironmentContent, 
   updateEnvironmentSettings,
@@ -113,10 +112,6 @@ const router = s.router(contract, {
     getEnvironments: {
       middleware: [requireAuth],
       handler: getEnvironments
-    },
-    getEnvironmentVersion: {
-      middleware: [requireAuth],
-      handler: getEnvironmentVersion
     },
     createEnvironment: {
       middleware: [requireAuth],

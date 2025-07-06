@@ -65,18 +65,13 @@ environmentCommand
       printTable(
         [
           { header: 'Path', key: 'path' },
-          // { header: 'Project', key: 'project' },
-          //{ header: 'Organization', key: 'organization' },
-          //{ header: 'Variables', key: 'variables' },
+          // { header: 'Variables', key: 'variables' },
           { header: 'ID', key: 'id' },
           { header: 'Versions', key: 'versions' },
         ],
         response.body.map(env => ({
           path: `${env.project.organization.name}:${env.project.name}:${env.name}`,
-          //project: env.project.name,
-          //organization: env.project.organization.name,
-          // variables: env.latestVersion.
-          versions: env.latestVersion?.versionNumber || '0',
+          versions: env.version?.versionNumber || '0',
           id: env.id
         }))
       );

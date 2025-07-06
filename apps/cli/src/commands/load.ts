@@ -6,6 +6,7 @@ import { RootCommand, BaseOptions } from './root';
 
 type LoadOptions = BaseOptions & {
   instanceUrl?: string;
+  ver?: string;
   decrypt?: boolean;
 };
 
@@ -14,6 +15,7 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .description('Load an environment')
   .argument('<path>', 'Environment path in format "organization-name:project-name:env-name"')
   .option('--instance-url <url>', 'URL of the server to connect to')
+  .option('--ver <version>', 'Version of the environment to load')
   .option('-d, --decrypt', 'Decrypt and show the environment variables')
   .action(async function(environmentPath: string) {
     const opts = this.opts<LoadOptions>();
@@ -42,7 +44,7 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
       
       // Get the specific environment using the path
       const response = await client.environments.getEnvironments({
-        query: { path: environmentPath }
+        query: { path: environmentPath, version: opts.ver }
       });
 
       if (response.status !== 200) {
@@ -57,8 +59,8 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
 
       const environment = response.body[0];
       
-      if (!environment.latestVersion) {
-        console.error('Environment has no versions');
+      if (!environment.version) {
+        console.error('Version not found');
         process.exit(1);
       }
 
@@ -83,8 +85,8 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
 
           // Prepare encrypted content
           const encryptedContent: EncryptedContent = {
-            ciphertext: environment.latestVersion.content,
-            keys: environment.latestVersion.keys
+            ciphertext: environment.version.content,
+            keys: environment.version.keys
           };
 
           // Decrypt the content
@@ -99,7 +101,7 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
         }
       } else {
         // Print keys with "<encrypted>" as values
-        const keys = environment.latestVersion.keys;
+        const keys = environment.version.keys;
         for (const key of keys) {
           console.log(`${key}=<encrypted>`);
         }

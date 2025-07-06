@@ -66,8 +66,8 @@ export const envrionmentVersionWithWrappedEncryptionKeySchema = environmentVersi
   })
 });
 
-export const environmentWithLatestVersionSchema = environmentSchema.extend({
-  latestVersion: environmentVersionSchema.nullable(),
+export const environmentWithVersionSchema = environmentSchema.extend({
+  version: environmentVersionSchema.nullable(),
   decryptionData: z.object({
     wrappedEncryptionKey: z.string(),
     ephemeralPublicKey: z.string()
@@ -85,7 +85,7 @@ const c = initContract();
 
 export type EnvironmentVersion = z.infer<typeof environmentVersionSchema>;
 export type EnvironmentVersionWithWrappedEncryptionKey = z.infer<typeof envrionmentVersionWithWrappedEncryptionKeySchema>;
-export type EnvironmentWithLatestVersion = z.infer<typeof environmentWithLatestVersionSchema>;
+export type EnvironmentWithVersion = z.infer<typeof environmentWithVersionSchema>;
 
 export type OrganizationWithProjectsCount = z.infer<typeof organizationWithProjectsCountSchema>;
 
@@ -239,25 +239,21 @@ const environments = c.router({
     method: 'GET',
     path: '/environments',
     query: z.object({
-      path: z.string().optional()
+      path: z.string().optional(),
+      version: z.string()
+        .optional()
+        .describe('If single environment is requested, specifies the version')
+        .refine(v => !v || !isNaN(parseInt(v)), {
+          message: 'Version must be a number'
+        })
+        .refine(v => !v || parseInt(v) > 0, {
+          message: 'Version must be a positive number'
+        })
     }),
     responses: {
-      200: environmentWithLatestVersionSchema.array()
+      200: environmentWithVersionSchema.array()
     },
     summary: 'Get environments for current user, optionally filtered by project or environment id'
-  },
-
-  getEnvironmentVersion: {
-    method: 'GET',
-    path: '/environments/:idOrPath/versions/:versionNumber',
-    pathParams: z.object({
-      idOrPath: z.string(),
-      versionNumber: z.string().optional()
-    }),
-    responses: {
-      200: envrionmentVersionWithWrappedEncryptionKeySchema
-    },
-    summary: 'Get a specific version of an environment'
   },
   createEnvironment: {
     method: 'POST',
