@@ -15,7 +15,7 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .description('Load an environment')
   .argument('<path>', 'Environment path in format "organization-name:project-name:env-name"')
   .option('--instance-url <url>', 'URL of the server to connect to')
-  .option('--ver <version>', 'Version of the environment to load')
+  .option('-V, --version <version>', 'Version of the environment to load')
   .option('-d, --decrypt', 'Decrypt and show the environment variables')
   .action(async function(environmentPath: string) {
     const opts = this.opts<LoadOptions>();

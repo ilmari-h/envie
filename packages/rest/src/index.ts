@@ -325,6 +325,63 @@ export const organizations = c.router({
     },
     summary: 'Get all organizations the current user is a member of'
   },
+  getOrganizationMembers: {
+    method: 'GET',
+    path: '/organizations/:idOrPath/members',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    responses: {
+      200: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['user', 'token']),
+        permissions: z.object({
+          canAddMembers: z.boolean(),
+          canCreateEnvironments: z.boolean(),
+          canCreateProjects: z.boolean(),
+          canEditProject: z.boolean(),
+          canEditOrganization: z.boolean()
+        })
+      })),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Get all members of an organization'
+  },
+  createOrganizationInvite: {
+    method: 'POST',
+    path: '/organizations/:idOrPath/invites',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    body: z.object({
+      oneTimeUse: z.boolean().optional().default(true),
+      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+    }),
+    responses: {
+      201: z.object({
+        token: z.string(),
+        expiresAt: z.date(),
+        inviteUrl: z.string()
+      }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Create an organization invite'
+  },
+  acceptOrganizationInvite: {
+    method: 'GET',
+    path: '/organizations/invites/:token/accept',
+    pathParams: z.object({
+      token: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() }),
+      409: z.object({ message: z.string() })
+    },
+    summary: 'Accept an organization invite'
+  },
   updateOrganization: {
     method: 'PUT',
     path: '/organizations/:idOrPath',

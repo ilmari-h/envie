@@ -1,6 +1,7 @@
 export * from './users';
 export * from './organizations';
 export * from './organization-roles';
+export * from './organization-invites';
 export * from './projects';
 export * from './environments';
 export * from './envrionment-access';

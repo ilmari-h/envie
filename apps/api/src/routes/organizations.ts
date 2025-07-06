@@ -1,9 +1,10 @@
 import { db, Schema } from '@repo/db';
-import { count, eq } from 'drizzle-orm';
+import { count, eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { getOrganization as getOrganizationByPath } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
+import { randomBytes } from 'crypto';
 
 export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof contract.organizations.getOrganizations> }) => {
 
@@ -108,6 +109,60 @@ export const getOrganization = async ({
   };
 };
 
+export const getOrganizationMembers = async ({
+  req,
+  params: { idOrPath }
+}: {
+  req: TsRestRequest<typeof contract.organizations.getOrganizationMembers>;
+  params: TsRestRequest<typeof contract.organizations.getOrganizationMembers>['params'];
+}) => {
+  const organization = await getOrganizationByPath(idOrPath, {
+    requester: req.requester
+  });
+
+  if (!organization) {
+    return {
+      status: 404 as const,
+      body: { message: 'Organization not found' }
+    };
+  }
+
+  const members = await db.select({
+    roleId: Schema.organizationRoles.id,
+    userId: Schema.organizationRoles.userId,
+    accessTokenId: Schema.organizationRoles.accessTokenId,
+    canAddMembers: Schema.organizationRoles.canAddMembers,
+    canCreateEnvironments: Schema.organizationRoles.canCreateEnvironments,
+    canCreateProjects: Schema.organizationRoles.canCreateProjects,
+    canEditProject: Schema.organizationRoles.canEditProject,
+    canEditOrganization: Schema.organizationRoles.canEditOrganization,
+    userName: Schema.users.name,
+    tokenName: Schema.accessTokens.name
+  })
+    .from(Schema.organizationRoles)
+    .leftJoin(Schema.users, eq(Schema.organizationRoles.userId, Schema.users.id))
+    .leftJoin(Schema.accessTokens, eq(Schema.organizationRoles.accessTokenId, Schema.accessTokens.id))
+    .where(eq(Schema.organizationRoles.organizationId, organization.id));
+
+  const formattedMembers = members.map(member => ({
+    id: member.userId || member.accessTokenId || '',
+    name: member.userName || member.tokenName || '',
+    type: member.userId ? 'user' as const : 'token' as const,
+    permissions: {
+      canAddMembers: member.canAddMembers,
+      canCreateEnvironments: member.canCreateEnvironments,
+      canCreateProjects: member.canCreateProjects,
+      canEditProject: member.canEditProject,
+      canEditOrganization: member.canEditOrganization
+    }
+  }));
+
+  return {
+    status: 200 as const,
+    body: formattedMembers
+  };
+};
+
 export const updateOrganization = async ({
   req,
   params: { idOrPath },
@@ -150,4 +205,139 @@ export const updateOrganization = async ({
     status: 200 as const,
     body: updatedOrganization
   };
+};
+
+export const createOrganizationInvite = async ({
+  req,
+  params: { idOrPath },
+  body: { oneTimeUse, expiresAt }
+}: {
+  req: TsRestRequest<typeof contract.organizations.createOrganizationInvite>;
+  params: TsRestRequest<typeof contract.organizations.createOrganizationInvite>['params'];
+  body: TsRestRequest<typeof contract.organizations.createOrganizationInvite>['body'];
+}) => {
+  console.log('createOrganizationInvite', req.requester);
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Only users can create organization invites' }
+    };
+  }
+
+  const organization = await getOrganizationByPath(idOrPath, {
+    requester: req.requester,
+    addMembers: true
+  });
+
+  if (!organization) {
+    return {
+      status: 404 as const,
+      body: { message: 'Organization not found or insufficient permissions' }
+    };
+  }
+
+  const token = randomBytes(32).toString('hex');
+  const expirationDate = new Date(expiresAt + 'T23:59:59.999Z');
+
+  const [invite] = await db.insert(Schema.organizationInvites)
+    .values({
+      organizationId: organization.id,
+      token,
+      oneTimeUse: oneTimeUse ?? true,
+      expiresAt: expirationDate,
+      createdBy: req.requester.userId
+    })
+    .returning();
+
+  if (!invite) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to create invite' }
+    };
+  }
+
+  const inviteUrl = `${process.env.FRONTEND_URL}/invites/organization/${token}`;
+
+  return {
+    status: 201 as const,
+    body: {
+      token: invite.token,
+      expiresAt: invite.expiresAt,
+      inviteUrl
+    }
+  };
+};
+
+export const acceptOrganizationInvite = async ({
+  req,
+  params: { token }
+}: {
+  req: TsRestRequest<typeof contract.organizations.acceptOrganizationInvite>;
+  params: TsRestRequest<typeof contract.organizations.acceptOrganizationInvite>['params'];
+}) => {
+  const userId = isUserRequester(req.requester) ? req.requester.userId : null;
+  if (!userId) {
+    return {
+      status: 403 as const,
+      body: { message: 'Only users can accept organization invites' }
+    };
+  }
+
+  return db.transaction(async (tx) => {
+    const invite = await tx.query.organizationInvites.findFirst({
+      where: eq(Schema.organizationInvites.token, token),
+      with: {
+        organization: true
+      }
+    });
+
+    if (!invite || !invite.organization) {
+      return {
+        status: 404 as const,
+        body: { message: 'Invite not found or expired' }
+      };
+    }
+
+    if (invite.expiresAt < new Date()) {
+      return {
+        status: 404 as const,
+        body: { message: 'Invite has expired' }
+      };
+    }
+
+    const existingRole = await tx.query.organizationRoles.findFirst({
+      where: and(
+        eq(Schema.organizationRoles.organizationId, invite.organizationId!),
+        eq(Schema.organizationRoles.userId, userId)
+      )
+    });
+
+    if (existingRole) {
+      return {
+        status: 409 as const,
+        body: { message: 'You are already a member of this organization' }
+      };
+    }
+
+    await tx.insert(Schema.organizationRoles)
+      .values({
+        organizationId: invite.organizationId!,
+        userId,
+        canAddMembers: false,
+        canCreateEnvironments: false,
+        canCreateProjects: false,
+        canEditProject: false,
+        canEditOrganization: false
+      });
+
+    if (invite.oneTimeUse) {
+      await tx.delete(Schema.organizationInvites)
+        .where(eq(Schema.organizationInvites.token, token));
+    }
+
+    return {
+      status: 200 as const,
+      body: { message: `Successfully joined organization "${invite.organization.name}"` }
+    };
+  });
 };

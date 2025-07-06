@@ -13,7 +13,6 @@ async function main() {
   program
     .name('envie')
     .description('CLI for managing .env files securely and conveniently')
-    .version('0.0.1')
 
 
   // Add commands
