@@ -236,7 +236,7 @@ export const createOrganizationInvite = async ({
     };
   }
 
-  const token = randomBytes(32).toString('hex');
+  const token = randomBytes(32).toString('base64url');
   const expirationDate = new Date(expiresAt + 'T23:59:59.999Z');
 
   const [invite] = await db.insert(Schema.organizationInvites)
@@ -256,7 +256,7 @@ export const createOrganizationInvite = async ({
     };
   }
 
-  const inviteUrl = `${process.env.FRONTEND_URL}/invites/organization/${token}`;
+  const inviteUrl = `${process.env.FRONTEND_URL}/invite?inviteId=${token}`;
 
   return {
     status: 201 as const,
@@ -270,7 +270,7 @@ export const createOrganizationInvite = async ({
 
 export const acceptOrganizationInvite = async ({
   req,
-  params: { token }
+  params: { name, token }
 }: {
   req: TsRestRequest<typeof contract.organizations.acceptOrganizationInvite>;
   params: TsRestRequest<typeof contract.organizations.acceptOrganizationInvite>['params'];
@@ -298,6 +298,13 @@ export const acceptOrganizationInvite = async ({
       };
     }
 
+    if (invite.organization.name !== name) {
+      return {
+        status: 404 as const,
+        body: { message: 'Organization not found' }
+      };
+    }
+
     if (invite.expiresAt < new Date()) {
       return {
         status: 404 as const,
@@ -314,7 +321,7 @@ export const acceptOrganizationInvite = async ({
 
     if (existingRole) {
       return {
-        status: 409 as const,
+        status: 400 as const,
         body: { message: 'You are already a member of this organization' }
       };
     }
@@ -340,4 +347,32 @@ export const acceptOrganizationInvite = async ({
       body: { message: `Successfully joined organization "${invite.organization.name}"` }
     };
   });
+};
+
+export const getOrganizationByInvite = async ({
+  params: { token }
+}: {
+  params: TsRestRequest<typeof contract.organizations.getOrganizationByInvite>['params'];
+}) => {
+  const invite = await db.query.organizationInvites.findFirst({
+    where: eq(Schema.organizationInvites.token, token),
+    with: {
+      organization: true
+    }
+  });
+
+  if (!invite || !invite.organization || invite.expiresAt < new Date()) {
+    return {
+      status: 404 as const,
+      body: { message: 'Invite not found or expired' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: {
+      name: invite.organization.name,
+      id: invite.organization.id
+    }
+  };
 };

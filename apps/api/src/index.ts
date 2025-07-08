@@ -15,12 +15,11 @@ import {
   updateEnvironmentSettings,
 } from './routes/environments';
 import { env } from './env';
-import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite } from './routes/organizations';
+import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { getMe, setPublicKey } from './routes/users';
 import { createClient } from "redis";
-import { isUserRequester } from './types/cast';
 
 const AUTH_COOKIE_NAME = 'envie_token';
 
@@ -142,6 +141,9 @@ const router = s.router(contract, {
     acceptOrganizationInvite: {
       middleware: [requireAuth],
       handler: acceptOrganizationInvite
+    },
+    getOrganizationByInvite: {
+      handler: getOrganizationByInvite
     },
     updateOrganization: {
       middleware: [requireAuth],

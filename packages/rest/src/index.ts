@@ -371,14 +371,15 @@ export const organizations = c.router({
   },
   acceptOrganizationInvite: {
     method: 'GET',
-    path: '/organizations/invites/:token/accept',
+    path: '/organizations/:name/invites/:token/accept',
     pathParams: z.object({
+      name: z.string(),
       token: z.string()
     }),
     responses: {
       200: z.object({ message: z.string() }),
       404: z.object({ message: z.string() }),
-      409: z.object({ message: z.string() })
+      400: z.object({ message: z.string() })
     },
     summary: 'Accept an organization invite'
   },
@@ -425,6 +426,22 @@ export const organizations = c.router({
       403: z.object({ message: z.string() })
     },
     summary: 'Create a new organization'
+  },
+
+  getOrganizationByInvite: {
+    method: 'GET',
+    path: '/organizations/invites/:token/info',
+    pathParams: z.object({
+      token: z.string()
+    }),
+    responses: {
+      200: z.object({ 
+        name: z.string(),
+        id: z.string() 
+      }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Get organization info from invite token'
   }
 })
 

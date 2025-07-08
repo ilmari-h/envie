@@ -3,6 +3,8 @@ import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import { parseExpiryDate } from '../utils/time';
+import chalk from 'chalk';
+import { contract } from '@repo/rest';
 
 type OrganizationOptions = {
   instanceUrl?: string;
@@ -193,9 +195,38 @@ organizationCommand
         process.exit(1);
       }
 
-      console.log(`Organization "${response.body.name}" created successfully.`);
+      console.log(chalk.green(`Organization "${response.body.name}" created successfully.`));
     } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error);
+      console.error(chalk.red('Error:', error instanceof Error ? error.message : error));
       process.exit(1);
     }
   });
+
+organizationCommand
+  .command('join <name> <code>')
+  .description('Join an organization using an invite code')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(name: string, code: string) {
+    const opts = this.opts<OrganizationOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    
+    try {
+      if (!instanceUrl) {
+        console.error(chalk.red('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.'));
+        process.exit(1);
+      }
+
+      const client = createTsrClient(instanceUrl);
+      const response: { status: number, body: { message: string } } = await client.organizations.acceptOrganizationInvite({
+        params: { name, token: code }
+      }) as { status: number, body: { message: string } };
+      if (response.status === 200) {
+        console.log(chalk.green(response.body.message));
+      } else {
+        console.error(chalk.red(`Failed to join organization: ${response.status} ${response.body.message}`));
+      }
+    } catch (error) {
+      console.error(chalk.red('Failed to join organization'));
+      process.exit(1);
+    }
+  })
