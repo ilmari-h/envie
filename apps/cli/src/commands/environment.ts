@@ -155,7 +155,7 @@ environmentCommand
       }
       
       try {
-        const { encryptedEnvironment, wrappedKeys, dekBase64 } = userKeyPair.newEncryptionWithKeyExchange(
+        const { encryptedEnvironment, wrappedKeys, dekBase64 } = userKeyPair.encryptWithKeyExchange(
           [userKeyPair.publicKey], // TODO: add recipients
           parsedEnvFileContent
         );

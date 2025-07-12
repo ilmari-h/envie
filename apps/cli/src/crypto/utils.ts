@@ -125,10 +125,7 @@ export function wrapKey(aesKey: Uint8Array, recipientPublicKey: string): Wrapped
   };
 }
 
-/**
- * Unwrap an AES key using ECDH with user's private key
- */
-export function unwrapKey(wrappedKeyData: WrappedKeyX25519, userPrivateKey: Uint8Array): Uint8Array {
+export function unwrapKeyX25519(wrappedKeyData: WrappedKeyX25519, userPrivateKey: Uint8Array): Uint8Array {
   // Convert ephemeral public key from base64
   const ephemeralPublicKey = Buffer.from(wrappedKeyData.ephemeralPublicKey, 'base64');
   
@@ -154,10 +151,7 @@ export function unwrapKey(wrappedKeyData: WrappedKeyX25519, userPrivateKey: Uint
   return new Uint8Array(unwrappedKey);
 }
 
-/**
- * High-level function to encrypt environment content for multiple recipients
- */
-export function encryptForRecipients(
+export function encryptWithKeyExchangeX25519(
   content: string, 
   recipientPublicKeys: string[]
 ): {

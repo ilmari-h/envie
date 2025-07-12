@@ -1,5 +1,5 @@
 import { readFile } from "fs/promises";
-import { decryptContent, encryptContent, EncryptedContent, encryptForRecipients, unwrapKey, WrappedKeyX25519 } from "./utils";
+import { decryptContent, encryptContent, EncryptedContent, encryptWithKeyExchangeX25519, unwrapKeyX25519, WrappedKeyX25519 } from "./utils";
 import { Ed25519KeyPair, ed25519PublicKeyToX25519, getUserPrivateKey } from "../utils/keypair";
 
 export class DataEncryptionKey {
@@ -54,16 +54,16 @@ export class UserKeyPair {
   }
 
   public unwrapKey(wrappedKey: WrappedKeyX25519): DataEncryptionKey {
-    const aesKey = unwrapKey(wrappedKey, this.keyPair.privateKey);
+    const aesKey = unwrapKeyX25519(wrappedKey, this.keyPair.privateKey);
     return new DataEncryptionKey(aesKey);
   }
 
-  public newEncryptionWithKeyExchange(recipients: X25519PublicKey[], plaintext: string): {
+  public encryptWithKeyExchange(recipients: X25519PublicKey[], plaintext: string): {
     encryptedEnvironment: EncryptedContent;
     wrappedKeys: WrappedKeyX25519[];
     dekBase64: string
   } {
-    const { encryptedContent, wrappedKeys, dek } = encryptForRecipients(
+    const { encryptedContent, wrappedKeys, dek } = encryptWithKeyExchangeX25519(
       plaintext,
       recipients.map(recipient => recipient.content)
     );
