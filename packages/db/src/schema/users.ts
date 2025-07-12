@@ -6,7 +6,7 @@ import { organizationRoles } from './organization-roles';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
-  name: text('name').notNull(),
+  name: text('name').unique().notNull(),
   email: text('email'),
   ...publicKeyColumns,
   ...timestamps

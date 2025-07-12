@@ -3,16 +3,19 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { getKeypairPath, getInstanceUrl } from '../utils/config';
 import { saveToken } from '../utils/tokens';
-import { getUserPublicKey } from '../utils/keypair';
 import { createTsrClient } from '../utils/tsr-client';
+import { UserKeyPair } from '../crypto';
+import { BaseOptions, RootCommand } from './root';
+import chalk from 'chalk';
 
 const execAsync = promisify(exec);
 
-type LoginOptions = {
+type LoginOptions = BaseOptions & {
   instanceUrl?: string;
+  
 };
 
-export const loginCommand = new Command('login')
+export const loginCommand = new RootCommand().createCommand('login')
   .description('Start browser login flow')
   .option('--instance-url', 'URL of the server to connect to')
   .action(async function() {
@@ -28,9 +31,10 @@ export const loginCommand = new Command('login')
         process.exit(1);
       }
 
-      console.log('Starting login flow...');
-      console.log(`Instance URL: ${instanceUrl}`);
-      console.log(`Using keypair: ${keypairPath}`);
+      if (opts.verbose) {
+        console.log(`Instance URL: ${instanceUrl}`);
+        console.log(`Using keypair: ${keypairPath}`);
+      }
       
       // Step 1: Get nonce from server
       const nonceResponse = await fetch(`${instanceUrl}/auth/cli/nonce`);
@@ -39,7 +43,9 @@ export const loginCommand = new Command('login')
       }
       
       const { nonce } = await nonceResponse.json() as { nonce: string };
-      console.log('Got login nonce, opening browser...');
+      if (opts.verbose) {
+        console.log('Got login nonce, opening browser...');
+      }
       
       // Step 2: Open browser with GitHub OAuth + CLI token
       const authUrl = `${instanceUrl}/auth/github?cliToken=${nonce}`;
@@ -53,12 +59,14 @@ export const loginCommand = new Command('login')
       
       // Step 4: Save token
       saveToken(instanceUrl, token);
-      console.log('Login successful!');
+      console.log(chalk.green('Login successful!'));
       
       // Step 5: Check if user has a public key set, if not, send it to the server
-      console.log('Checking user profile...');
+      if (opts.verbose) {
+        console.log('Checking user profile...');
+      }
       const client = createTsrClient(instanceUrl);
-      const userPublicKey = await getUserPublicKey();
+      const userPublicKey = (await UserKeyPair.getInstance()).publicKey.content;
       if (!userPublicKey) {
         throw new Error('Error getting user public key');
       }
@@ -73,8 +81,9 @@ export const loginCommand = new Command('login')
         const user = userResult.body;
         
         if (!user.publicKey) {
-          console.log('No public key found, setting up public key...');
-          
+          if (opts.verbose) {
+            console.log('No public key found, setting up public key...');
+          }
 
           // Set public key on server
           const setKeyResult = await client.user.setPublicKey({
@@ -85,14 +94,18 @@ export const loginCommand = new Command('login')
             throw new Error(`Failed to set public key: ${setKeyResult.status}`);
           }
           
-          console.log('Public key configured successfully!');
+          if (opts.verbose) {
+            console.log('Public key configured successfully!');
+          }
         } else if (user.publicKey !== userPublicKey) {
-          console.warn('Your local public key does not match the one on the server')
+          console.warn(chalk.yellow('Your local public key does not match the one on the server'))
         }
-        console.log("User public key:", user.publicKey);
+        if (opts.verbose) {
+          console.log("User public key:", user.publicKey);
+        }
       } catch (error) {
-        console.warn('Warning: Failed to check/set public key:', error instanceof Error ? error.message : error);
-        console.warn('You may need to set your public key manually later.');
+        console.warn(chalk.yellow('Warning: Failed to check/set public key:', error instanceof Error ? error.message : error));
+        console.warn(chalk.yellow('You may need to set your public key manually later.'));
       }
     } catch (error) {
       console.error('Login failed:', error instanceof Error ? error.message : error);
@@ -125,8 +138,8 @@ async function openBrowser(url: string): Promise<void> {
 }
 
 async function pollForToken(instanceUrl: string, nonce: string): Promise<string> {
-  const maxAttempts = 60; // 5 minutes with 5-second intervals
-  const pollInterval = 5000; // 5 seconds
+  const maxAttempts = 60;
+  const pollInterval = 2000; // 2 seconds
   
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {

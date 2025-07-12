@@ -1,6 +1,7 @@
 import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '../utils/config';
 import { existsSync } from 'fs';
 import { RootCommand, BaseOptions } from './root';
+import { createTsrClient } from '../utils/tsr-client';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
@@ -45,6 +46,34 @@ configCommand
 
     setInstanceUrl(instanceUrl);
     console.log(`Instance URL set to: ${instanceUrl}`);
+  });
+
+configCommand
+  .command('name <name>')
+  .description('Set your display name')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(name: string) {
+    const opts = this.opts<BaseOptions & { instanceUrl?: string }>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+
+    if (opts.verbose) {
+      console.log(`Instance URL: ${instanceUrl}`);
+    }
+
+    try {
+      const client = createTsrClient(instanceUrl);
+      const response = await client.user.updateName({
+        body: { name }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to update name: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
   });
 
 configCommand

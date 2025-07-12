@@ -46,7 +46,7 @@ export class UserKeyPair {
     if (!UserKeyPair.#instance) {
       const keyPair = await getUserPrivateKey();
       if (!keyPair) {
-        throw new Error('No key pair found');
+        throw new Error('No key pair found, please set one using "envie config keypair <path>"');
       }
       UserKeyPair.#instance = new UserKeyPair(keyPair);
     }

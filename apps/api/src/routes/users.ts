@@ -106,4 +106,21 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     status: 200 as const,
     body: { message: 'Public key set' }
   }
+
+}
+
+export const updateName = async ({ req }: { req: TsRestRequest<typeof contract.user.updateName> }) => {
+  const { name } = req.body;
+  if(!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Unauthorized' }
+    }
+  }
+
+  await db.update(Schema.users).set({ name }).where(eq(Schema.users.id, req.requester.userId));
+  return {
+    status: 200 as const,
+    body: { message: 'Name updated' }
+  }
 }

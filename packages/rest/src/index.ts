@@ -128,6 +128,18 @@ const user = c.router({
       403: c.type<{ message: string }>(),
       400: c.type<{ message: string }>()
     }
+  },
+  updateName: {
+    method: 'POST',
+    path: '/users/me/name',
+    body: z.object({
+      name: z.string()
+    }),
+    responses: {
+      200: c.type<{ message: string }>(),
+      403: c.type<{ message: string }>(),
+      400: c.type<{ message: string }>()
+    }
   }
 });
 
