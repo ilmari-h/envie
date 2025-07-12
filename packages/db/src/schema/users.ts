@@ -1,7 +1,7 @@
 import { pgTable, text } from 'drizzle-orm/pg-core';
 import {  publicKeyColumns, timestamps } from './utils';
 import { relations } from 'drizzle-orm';
-import { environmentAccess } from './envrionment-access';
+import { environmentAccess } from './environment-access';
 import { organizationRoles } from './organization-roles';
 
 export const users = pgTable('users', {

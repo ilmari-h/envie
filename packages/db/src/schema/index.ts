@@ -4,7 +4,7 @@ export * from './organization-roles';
 export * from './organization-invites';
 export * from './projects';
 export * from './environments';
-export * from './envrionment-access';
+export * from './environment-access';
 export * from './environment-versions';
 export * from './project-invites';
 export * from './access-tokens'

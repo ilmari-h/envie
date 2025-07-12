@@ -3,7 +3,7 @@ import { Project, projects } from './projects';
 import { timestamps } from './utils';
 import { relations } from 'drizzle-orm';
 import { environmentVersions } from './environment-versions';
-import { environmentAccess } from './envrionment-access';
+import { environmentAccess } from './environment-access';
 
 export const environments = pgTable('environments', {
   id: uuid('id').primaryKey().defaultRandom(),
