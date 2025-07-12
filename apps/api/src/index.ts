@@ -15,7 +15,7 @@ import {
   updateEnvironmentSettings,
 } from './routes/environments';
 import { env } from './env';
-import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite } from './routes/organizations';
+import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { getMe, setPublicKey, updateName } from './routes/users';
@@ -156,6 +156,10 @@ const router = s.router(contract, {
     createOrganization: {
       middleware: [requireAuth],
       handler: createOrganization
+    },
+    updateAccess: {
+      middleware: [requireAuth],
+      handler: updateAccess
     }
   }),
   user: s.router(contract.user, {

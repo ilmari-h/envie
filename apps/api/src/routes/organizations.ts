@@ -1,10 +1,11 @@
 import { db, Schema } from '@repo/db';
-import { count, eq, and } from 'drizzle-orm';
+import { count, eq, and, or } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { getOrganization as getOrganizationByPath } from '../queries/by-path';
+import { getOrganization as getOrganizationByPath, isValidUUID } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
 import { randomBytes } from 'crypto';
+import { getUserByNameOrId } from '../queries/user';
 
 export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof contract.organizations.getOrganizations> }) => {
 
@@ -376,3 +377,90 @@ export const getOrganizationByInvite = async ({
     }
   };
 };
+
+export const updateAccess = async ({
+  req,
+  params: { idOrPath, userIdOrPath },
+  body: { access }
+}: {
+  req: TsRestRequest<typeof contract.organizations.updateAccess>;
+  params: TsRestRequest<typeof contract.organizations.updateAccess>['params'];
+  body: TsRestRequest<typeof contract.organizations.updateAccess>['body'];
+}) => {
+  try {
+
+    if(!isUserRequester(req.requester)) {
+      return {
+        status: 403 as const,
+        body: { message: 'Cannot edit organization access with API key' }
+      };
+    }
+
+    // Get organization and verify caller has canAddMembers permission
+    const organization = await getOrganizationByPath(idOrPath, {
+      requester: req.requester,
+      addMembers: true // This ensures caller has canAddMembers permission
+    });
+
+    if (!organization) {
+      return {
+        status: 404 as const,
+        body: { message: 'Organization not found or insufficient permissions' }
+      };
+    }
+
+    // Find the target user
+    const targetUser = await getUserByNameOrId(userIdOrPath);
+    if (!targetUser) {
+      return {
+        status: 404 as const,
+        body: { message: 'User not found' }
+      };
+    }
+
+    if(targetUser.id === req.requester.userId) {
+      return {
+        status: 400 as const,
+        body: { message: 'You cannot update your own permissions' }
+      };
+    }
+
+    // Update the role permissions
+    const [updatedRole] = await db.update(Schema.organizationRoles)
+      .set({
+        ...access.permissions,
+        updatedAt: new Date()
+      })
+      .where(and(
+        eq(Schema.organizationRoles.organizationId, organization.id),
+        eq(Schema.organizationRoles.userId, targetUser.id)
+      ))
+      .returning();
+
+    if (!updatedRole) {
+      return {
+        status: 500 as const,
+        body: { message: 'User is not a member of organization' }
+      };
+    }
+
+    return {
+      status: 200 as const,
+      body: { message: 'Permissions updated successfully' }
+    };
+
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Missing organization access rights')) {
+      return {
+        status: 403 as const,
+        body: { message: 'Insufficient permissions to update access' }
+      };
+    }
+
+    return {
+      status: 500 as const,
+      body: { message: 'Internal server error' }
+    };
+  }
+};
+

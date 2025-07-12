@@ -133,7 +133,7 @@ const user = c.router({
     method: 'POST',
     path: '/users/me/name',
     body: z.object({
-      name: z.string()
+      name: nameSchema
     }),
     responses: {
       200: c.type<{ message: string }>(),
@@ -359,6 +359,31 @@ export const organizations = c.router({
       404: z.object({ message: z.string() })
     },
     summary: 'Get all members of an organization'
+  },
+  updateAccess: {
+    method: 'PUT',
+    path: '/organizations/:idOrPath/access/:userIdOrPath',
+    pathParams: z.object({
+      idOrPath: z.string(),
+      userIdOrPath: z.string()
+    }),
+    body: z.object({
+      access: z.object({
+        permissions: z.object({
+          canAddMembers: z.boolean().optional(),
+          canCreateEnvironments: z.boolean().optional(),
+          canCreateProjects: z.boolean().optional(),
+          canEditProject: z.boolean().optional(),
+          canEditOrganization: z.boolean().optional()
+        })
+      }),
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Update access for a user in an organization'
   },
   createOrganizationInvite: {
     method: 'POST',

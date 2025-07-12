@@ -19,6 +19,14 @@ type InviteOrganizationOptions = OrganizationOptions & {
   oneTime?: boolean;
 };
 
+type SetAccessOptions = OrganizationOptions & {
+  addMembers?: string;
+  createEnvironments?: string;
+  createProjects?: string;
+  editProject?: string;
+  editOrganization?: string;
+};
+
 export const organizationCommand = new Command('organization')
   .alias('o')
   .description('Manage organizations');
@@ -230,3 +238,77 @@ organizationCommand
       process.exit(1);
     }
   })
+
+const validBoolStr = (str?: string): boolean | undefined => {
+  if (!str) return undefined;
+  if (str !== 'true' && str !== 'false') {
+    console.error(`Error: Permission values must be either "true" or "false", got "${str}"`);
+    process.exit(1);
+  }
+  return str === 'true';
+};
+
+organizationCommand
+  .command('set-access')
+  .description('Update access permissions for a user in an organization')
+  .argument('<organization-name>', 'Name of the organization')
+  .argument('<user>', 'User name or ID to update permissions for')
+  .option('--add-members <true|false>', 'Set permission to add members')
+  .option('--create-environments <true|false>', 'Set permission to create environments')
+  .option('--create-projects <true|false>', 'Set permission to create projects')
+  .option('--edit-project <true|false>', 'Set permission to edit projects')
+  .option('--edit-organization <true|false>', 'Set permission to edit organization')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(organizationPath: string, userIdOrPath: string) {
+    const opts = this.opts<SetAccessOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    
+    try {
+      if (!instanceUrl) {
+        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
+        process.exit(1);
+      }
+
+      // Convert string "true"/"false" to boolean and validate
+      const permissions: Partial<Record<string, boolean>> = {};
+      const addMembers = validBoolStr(opts.addMembers);
+      const createEnvironments = validBoolStr(opts.createEnvironments);
+      const createProjects = validBoolStr(opts.createProjects);
+      const editProject = validBoolStr(opts.editProject);
+      const editOrganization = validBoolStr(opts.editOrganization);
+
+      if (addMembers !== undefined) permissions.canAddMembers = addMembers;
+      if (createEnvironments !== undefined) permissions.canCreateEnvironments = createEnvironments;
+      if (createProjects !== undefined) permissions.canCreateProjects = createProjects;
+      if (editProject !== undefined) permissions.canEditProject = editProject;
+      if (editOrganization !== undefined) permissions.canEditOrganization = editOrganization;
+
+      // Check if at least one permission is being updated
+      if (Object.keys(permissions).length === 0) {
+        console.error('Error: At least one permission must be specified');
+        process.exit(1);
+      }
+
+      const client = createTsrClient(instanceUrl);
+      const response = await client.organizations.updateAccess({
+        params: { 
+          idOrPath: organizationPath,
+          userIdOrPath
+        },
+        body: {
+          access: {
+            permissions
+          }
+        }
+      });
+
+      if (response.status !== 200) {
+        const errorMsg = response.body as { message: string };
+        console.error(`Failed to update permissions: ${errorMsg.message}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
