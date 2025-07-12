@@ -2,7 +2,7 @@ import { x25519 } from '@noble/curves/ed25519';
 import { edwardsToMontgomeryPriv } from '@noble/curves/ed25519';
 import { randomBytes, createHash, createCipheriv, createDecipheriv } from 'crypto';
 
-export interface WrappedKey {
+export interface WrappedKeyX25519 {
   wrappedKey: string; // Base64 encoded wrapped AES key
   ephemeralPublicKey: string; // Base64 encoded ephemeral public key
 }
@@ -49,14 +49,14 @@ export function encryptContent(content: string, aesKey: Uint8Array): EncryptedCo
 /**
  * Decrypt content using AES-256-GCM
  */
-export function decryptContent(encryptedContent: EncryptedContent, aesKey: Uint8Array): string {
-  const combined = Buffer.from(encryptedContent.ciphertext, 'base64');
+export function decryptContent(ciphertextBase64: string, dek: Uint8Array): string {
+  const combined = Buffer.from(ciphertextBase64, 'base64');
   
   const iv = combined.slice(0, 12);
   const authTag = combined.slice(-16);
   const encrypted = combined.slice(12, -16);
   
-  const decipher = createDecipheriv('aes-256-gcm', aesKey, iv);
+  const decipher = createDecipheriv('aes-256-gcm', dek, iv);
   decipher.setAuthTag(authTag);
   
   let decrypted = decipher.update(encrypted);
@@ -93,7 +93,7 @@ export function deriveKey(sharedSecret: Uint8Array, contextInfo: string = 'envie
  * 3. Derive KEK from shared secret
  * 4. Encrypt AES key with KEK using AES-GCM
  */
-export function wrapKey(aesKey: Uint8Array, recipientPublicKey: string): WrappedKey {
+export function wrapKey(aesKey: Uint8Array, recipientPublicKey: string): WrappedKeyX25519 {
   // Generate ephemeral key pair
   const ephemeralPrivateKey = x25519.utils.randomPrivateKey();
   const ephemeralPublicKey = x25519.getPublicKey(ephemeralPrivateKey);
@@ -128,7 +128,7 @@ export function wrapKey(aesKey: Uint8Array, recipientPublicKey: string): Wrapped
 /**
  * Unwrap an AES key using ECDH with user's private key
  */
-export function unwrapKey(wrappedKeyData: WrappedKey, userPrivateKey: Uint8Array): Uint8Array {
+export function unwrapKey(wrappedKeyData: WrappedKeyX25519, userPrivateKey: Uint8Array): Uint8Array {
   // Convert ephemeral public key from base64
   const ephemeralPublicKey = Buffer.from(wrappedKeyData.ephemeralPublicKey, 'base64');
   
@@ -162,7 +162,8 @@ export function encryptForRecipients(
   recipientPublicKeys: string[]
 ): {
   encryptedContent: EncryptedContent;
-  wrappedKeys: WrappedKey[];
+  wrappedKeys: WrappedKeyX25519[];
+  dek: string;
 } {
   // Generate a new AES key for this environment
   const aesKey = generateAESKey();
@@ -175,6 +176,7 @@ export function encryptForRecipients(
   
   return {
     encryptedContent,
-    wrappedKeys
+    wrappedKeys,
+    dek: Buffer.from(aesKey).toString('base64')
   };
 }

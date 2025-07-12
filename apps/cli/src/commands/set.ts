@@ -1,8 +1,8 @@
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { getUserPrivateKey } from '../utils/keypair';
-import { unwrapKey, encryptContent, decryptContent, EncryptedContent, WrappedKey } from '../utils/crypto';
 import { RootCommand, BaseOptions } from './root';
+import { UserKeyPair } from '../crypto';
 
 type SetOptions = BaseOptions & {
   instanceUrl?: string;
@@ -71,23 +71,16 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
 
       try {
         // Unwrap the environment's encryption key
-        const wrappedKeyData = {
+        const dek = (await UserKeyPair.getInstance()).unwrapKey({
           wrappedKey: environment.decryptionData.wrappedEncryptionKey,
           ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
-        };
-        const aesKey = unwrapKey(wrappedKeyData, userPrivateKey);
+        });
 
         // Get current content and update/add the new key-value pair
         let currentContent = "";
-        if (environment.latestVersion) {
-          // Prepare encrypted content
-          const encryptedContent: EncryptedContent = {
-            ciphertext: environment.latestVersion.content,
-            keys: environment.latestVersion.keys
-          };
-
+        if (environment.version) {
           // Decrypt the content
-          currentContent = decryptContent(encryptedContent, aesKey);
+          currentContent = dek.decryptContent(environment.version.content);
         }
 
         // Parse current content into lines
@@ -101,7 +94,7 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
         }
 
         // Encrypt the updated content
-        const encryptedContent = encryptContent(lines.join('\n'), aesKey);
+        const encryptedContent = dek.encryptContent(lines.join('\n'));
 
         if (opts.verbose) {
           console.log('\nEncryption successful!');
@@ -182,23 +175,16 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
 
       try {
         // Unwrap the environment's encryption key
-        const wrappedKeyData = {
+        const dek = (await UserKeyPair.getInstance()).unwrapKey({
           wrappedKey: environment.decryptionData.wrappedEncryptionKey,
           ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
-        };
-        const aesKey = unwrapKey(wrappedKeyData, userPrivateKey);
+        });
 
         // Get current content and remove the key
         let currentContent = "";
-        if (environment.latestVersion) {
-          // Prepare encrypted content
-          const encryptedContent: EncryptedContent = {
-            ciphertext: environment.latestVersion.content,
-            keys: environment.latestVersion.keys
-          };
-
+        if (environment.version) {
           // Decrypt the content
-          currentContent = decryptContent(encryptedContent, aesKey);
+          currentContent = dek.decryptContent(environment.version.content);
         }
 
         // Parse current content into lines and remove the key
@@ -206,7 +192,7 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
           .filter(line => line.trim() && !line.startsWith(`${key}=`));
 
         // Encrypt the updated content
-        const encryptedContent = encryptContent(lines.join('\n'), aesKey);
+        const encryptedContent = dek.encryptContent(lines.join('\n'));
 
         if (opts.verbose) {
           console.log('\nEncryption successful!');

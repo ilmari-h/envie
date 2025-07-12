@@ -1,13 +1,14 @@
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
-import { unwrapKey, decryptContent, EncryptedContent, WrappedKey } from '../utils/crypto';
 import { getUserPrivateKey } from '../utils/keypair';
 import { RootCommand, BaseOptions } from './root';
+import { DataEncryptionKey, UserKeyPair } from '../crypto';
 
 type LoadOptions = BaseOptions & {
   instanceUrl?: string;
   ver?: string;
   decrypt?: boolean;
+  backupKey?: string;
 };
 
 const rootCmd = new RootCommand();
@@ -17,6 +18,7 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .option('--instance-url <url>', 'URL of the server to connect to')
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-d, --decrypt', 'Decrypt and show the environment variables')
+  .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .action(async function(environmentPath: string) {
     const opts = this.opts<LoadOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
@@ -74,23 +76,14 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
         }
 
         try {
-          // Prepare wrapped key data from the environment
-          const wrappedKeyData: WrappedKey = {
-            wrappedKey: environment.decryptionData.wrappedEncryptionKey,
-            ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
-          };
+          const dek = opts.backupKey
+          ? await DataEncryptionKey.readFromFile(opts.backupKey)
+          : (await UserKeyPair.getInstance()).unwrapKey({
+              wrappedKey: environment.decryptionData.wrappedEncryptionKey,
+              ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
+            });
 
-          // Unwrap the AES key
-          const aesKey = unwrapKey(wrappedKeyData, userKeyPair.privateKey);
-
-          // Prepare encrypted content
-          const encryptedContent: EncryptedContent = {
-            ciphertext: environment.version.content,
-            keys: environment.version.keys
-          };
-
-          // Decrypt the content
-          const decryptedContent = decryptContent(encryptedContent, aesKey);
+          const decryptedContent = dek.decryptContent(environment.version.content);
           
           // Print decrypted content to stdout (no other output)
           console.log(decryptedContent);

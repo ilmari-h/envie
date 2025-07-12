@@ -4,15 +4,17 @@ import { printTable } from '../ui/table';
 import { parseEnv } from 'node:util';
 import * as fs from 'fs';
 import * as path from 'path';
-import { encryptForRecipients, unwrapKey, encryptContent } from '../utils/crypto';
-import { getUserPrivateKey, getUserPublicKey, ed25519PublicKeyToX25519 } from '../utils/keypair';
+import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
+import { UserKeyPair } from '../crypto';
 
 type EnvironmentOptions = BaseOptions & {
   instanceUrl?: string;
 };
 
-type CreateEnvironmentOptions = EnvironmentOptions;
+type CreateEnvironmentOptions = EnvironmentOptions & {
+  secretKeyFile?: string;
+};
 
 const rootCmd = new RootCommand();
 export const environmentCommand = rootCmd.createCommand<EnvironmentOptions>('environment')
@@ -87,6 +89,7 @@ environmentCommand
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
   .argument('[file]', 'A file containing the initial content')
   .option('--instance-url <url>', 'URL of the server to connect to')
+  .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(environmentPath: string, filePath?: string) {
     const opts = this.opts<CreateEnvironmentOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
@@ -139,17 +142,7 @@ environmentCommand
       const parsedEnvFileContent = Object.entries(envVars).map(([key, value]) => `${key}=${value}`).join('\n');
 
       // Get user's keypair for encryption
-      const userKeyPair = await getUserPrivateKey();
-      if (!userKeyPair) {
-        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
-        process.exit(1);
-      }
-
-      const userPublicKey = await getUserPublicKey();
-      if (!userPublicKey) {
-        console.error('Error: Unable to get user public key.');
-        process.exit(1);
-      }
+      const userKeyPair = await UserKeyPair.getInstance();
 
       if (opts.verbose) {
         console.log('Parsed .env file content:');
@@ -162,14 +155,14 @@ environmentCommand
       }
       
       try {
-        const { encryptedContent, wrappedKeys } = encryptForRecipients(
-          parsedEnvFileContent,
-          [userPublicKey] // User's own public key as the only recipient
+        const { encryptedEnvironment, wrappedKeys, dekBase64 } = userKeyPair.newEncryptionWithKeyExchange(
+          [userKeyPair.publicKey], // TODO: add recipients
+          parsedEnvFileContent
         );
 
         if (opts.verbose) {
           console.log('\nEncryption successful!');
-          console.log('Encrypted content keys:', encryptedContent.keys);
+          console.log('Encrypted content keys:', encryptedEnvironment.keys);
           console.log('User wrapped key:', {
             wrappedKey: wrappedKeys[0].wrappedKey,
             ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey
@@ -182,8 +175,8 @@ environmentCommand
             name: environmentName,
             project: `${organizationName}:${projectName}`,
             encryptedContent: {
-              keys: encryptedContent.keys,
-              ciphertext: encryptedContent.ciphertext
+              keys: encryptedEnvironment.keys,
+              ciphertext: encryptedEnvironment.ciphertext
             },
             userWrappedAesKey: wrappedKeys[0].wrappedKey,
             userEphemeralPublicKey: wrappedKeys[0].ephemeralPublicKey,
@@ -194,6 +187,23 @@ environmentCommand
           console.error(`Failed to create environment: ${(response.body as { message: string }).message}`);
           process.exit(1);
         }
+
+        console.log(chalk.green(`Environment created!`));
+
+        // Write the secret key to a file or display it
+        if (opts.secretKeyFile) {
+          fs.writeFileSync(opts.secretKeyFile, `${dekBase64}\n`, 'utf-8');
+          console.log(
+            `Backup secret key written to ${opts.secretKeyFile}.\n`
+            + chalk.red("STORE IT SOMEWHERE SAFE!\n")
+            + `It can be used to decrypt this environment's content without your keypair.`);
+        } else {
+          console.log(
+            `Backup secret key: ${dekBase64}\n`
+            + chalk.red("STORE IT SOMEWHERE SAFE!\n")
+            + `It can be used to decrypt this environment's content without your keypair.`);
+        }
+
       } catch (error) {
         console.error('Error during encryption:', error instanceof Error ? error.message : error);
         process.exit(1);
@@ -244,14 +254,6 @@ environmentCommand
         process.exit(1);
       }
 
-      // Get user's private key for decryption
-      const userKeyPair = await getUserPrivateKey();
-      if (!userKeyPair) {
-        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
-        process.exit(1);
-      }
-      const userPrivateKey = userKeyPair.privateKey;
-
       // Validate and read the .env file
       if (!fs.existsSync(filePath)) {
         console.error(`Error: File "${filePath}" does not exist`);
@@ -285,20 +287,13 @@ environmentCommand
       }
       
       try {
-        // Unwrap the environment's encryption key
-        const wrappedKeyData = {
+        const userKeyPair = await UserKeyPair.getInstance();
+        const dek = userKeyPair.unwrapKey({
           wrappedKey: environment.decryptionData.wrappedEncryptionKey,
           ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
-        };
-        const aesKey = unwrapKey(wrappedKeyData, userPrivateKey);
+        });
+        const encryptedEnvironment = dek.encryptContent(parsedEnvFileContent);
 
-        // Encrypt the content with the environment's key
-        const encryptedContent = encryptContent(parsedEnvFileContent, aesKey);
-
-        if (opts.verbose) {
-          console.log('\nEncryption successful!');
-        }
-        
         // Update environment content
         const response = await client.environments.updateEnvironmentContent({
           params: {
@@ -306,8 +301,8 @@ environmentCommand
           },
           body: {
             encryptedContent: {
-              keys: encryptedContent.keys,
-              ciphertext: encryptedContent.ciphertext
+              keys: encryptedEnvironment.keys,
+              ciphertext: encryptedEnvironment.ciphertext
             }
           }
         });

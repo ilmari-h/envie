@@ -66,7 +66,7 @@ export const loginCommand = new Command('login')
       try {
         const userResult = await client.user.getUser();
         
-        if (userResult.status !== 200) {
+        if (userResult.status !== 200 || 'message' in userResult.body) {
           throw new Error(`Failed to get user info: ${userResult.status}`);
         }
         
