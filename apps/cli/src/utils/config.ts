@@ -20,7 +20,8 @@ export const config = new Conf<EnvieConfig>({
   schema: configSchema,
   defaults: {
     instanceUrl: 'http://localhost:3001'
-  }
+  },
+  cwd: process.env.ENVIE_CONFIG_DIRECTORY
 });
 
 export function getKeypairPath(): string | undefined {

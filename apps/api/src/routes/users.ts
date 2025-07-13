@@ -54,7 +54,7 @@ export const getUserPublicKey = async ({
 
   return {
     status: 200 as const,
-    body: { x25519PublicKey: targetUser.publicKeyEd25519.toString('base64') }
+    body: { x25519PublicKey:  Buffer.from(targetUser.publicKeyEd25519).toString('base64') }
   };
 };
 

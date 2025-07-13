@@ -59,13 +59,6 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
 
       // Check if decryption is requested
       if (opts.decrypt) {
-        // Get user's private key for decryption
-        const userKeyPair = await getUserPrivateKey();
-        if (!userKeyPair) {
-          console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
-          process.exit(1);
-        }
-
         try {
           const dek = opts.backupKey
           ? await DataEncryptionKey.readFromFile(opts.backupKey)

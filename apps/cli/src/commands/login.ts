@@ -67,9 +67,6 @@ export const loginCommand = new RootCommand().createCommand('login')
       }
       const client = createTsrClient(instanceUrl);
       const userPublicKey = (await UserKeyPair.getInstance()).publicKey.content;
-      if (!userPublicKey) {
-        throw new Error('Error getting user public key');
-      }
       
       try {
         const userResult = await client.user.getUser();
