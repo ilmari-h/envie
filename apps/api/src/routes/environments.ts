@@ -6,6 +6,7 @@ import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, En
 import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
 import { getEnvironmentVersionByIndex } from '../queries/environment-version';
+import { getUserByNameOrId } from '../queries/user';
 
 export const getEnvironments = async ({ req, query: { path, version } }:
   {
@@ -355,5 +356,196 @@ export const updateEnvironmentSettings = async ({
   return {
     status: 200 as const,
     body: { message: 'Environment access updated successfully' }
+  };
+};
+
+export const setEnvironmentAccess = async ({
+  req,
+  params: { idOrPath },
+  body: { userIdOrName, expiresAt, write, ephemeralPublicKey, encryptedSymmetricKey }
+}: {
+  req: TsRestRequest<typeof contract.environments.setEnvironmentAccess>;
+  params: TsRestRequest<typeof contract.environments.setEnvironmentAccess>['params'];
+  body: TsRestRequest<typeof contract.environments.setEnvironmentAccess>['body']
+}) => {
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Environment access management only via CLI' }
+    };
+  }
+
+  // Get environment with write access check and organization with canAddMembers check
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester,
+    editEnvironment: true, // Ensures write access
+    addMembers: true // Ensures canAddMembers permission
+  });
+
+  if (!organization || !project || !environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  const targetUser = await getUserByNameOrId(userIdOrName);
+  if (!targetUser) {
+    return {
+      status: 404 as const,
+      body: { message: 'User not found' }
+    };
+  }
+
+  // Find the target user's organization role
+  const targetUserRole = await db.query.organizationRoles.findFirst({
+    where: eq(Schema.organizationRoles.userId, targetUser.id)
+  });
+
+  if (!targetUserRole) {
+    return {
+      status: 404 as const,
+      body: { message: 'User not found in organization' }
+    };
+  }
+
+  // Create new access entry
+  await db.insert(Schema.environmentAccess).values({
+    environmentId: environment.id,
+    userId: userIdOrName,
+    organizationRoleId: targetUserRole.id,
+    write: write ?? false,
+    expiresAt: expiresAt ? new Date(expiresAt) : null,
+    encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
+    ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
+  }).onConflictDoUpdate({
+    target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId],
+    set: {
+      write: write ?? false,
+    }
+  });
+
+  return {
+    status: 200 as const,
+    body: { message: 'Environment access granted successfully' }
+  };
+};
+
+export const deleteEnvironmentAccess = async ({
+  req,
+  params: { idOrPath },
+  body: { userIdOrName }
+}: {
+  req: TsRestRequest<typeof contract.environments.deleteEnvironmentAccess>;
+  params: TsRestRequest<typeof contract.environments.deleteEnvironmentAccess>['params'];
+  body: TsRestRequest<typeof contract.environments.deleteEnvironmentAccess>['body'];
+}) => {
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Environment access management only via CLI' }
+    };
+  }
+
+  // Get environment with write access check and organization with canAddMembers check
+  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester,
+    editEnvironment: true, // Ensures write access
+    addMembers: true // Ensures canAddMembers permission
+  });
+
+  if (!organization || !project || !environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  const targetUser = await getUserByNameOrId(userIdOrName);
+  if (!targetUser) {
+    return {
+      status: 404 as const,
+      body: { message: 'User not found' }
+    };
+  }
+
+  // Find the target user's organization role to verify they exist in org
+  const targetUserRole = await db.query.organizationRoles.findFirst({
+    where: eq(Schema.organizationRoles.userId, targetUser.id)
+  });
+
+  if (!targetUserRole) {
+    return {
+      status: 404 as const,
+      body: { message: 'User not found in organization' }
+    };
+  }
+
+  // Delete the access entry
+  const result = await db.delete(Schema.environmentAccess)
+    .where(and(
+      eq(Schema.environmentAccess.environmentId, environment.id),
+      eq(Schema.environmentAccess.userId, targetUser.id)
+    )).returning();
+
+  // Check if any rows were affected
+  if (result.length === 0) {
+    return {
+      status: 404 as const,
+      body: { message: 'User does not have access to this environment' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: { message: 'Environment access removed successfully' }
+  };
+};
+
+export const getAccessKeys = async ({
+  req,
+  params: { idOrPath }
+}: {
+  req: TsRestRequest<typeof contract.environments.getAccessKeys>;
+  params: TsRestRequest<typeof contract.environments.getAccessKeys>['params'];
+}) => {
+
+  // Get environment - no special permissions needed since we're only getting our own access
+  const [_organization, _project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Get the user's own access entry
+  const accessEntry = await db.query.environmentAccess.findFirst({
+    where: and(
+      eq(Schema.environmentAccess.environmentId, environment.id),
+      isUserRequester(req.requester)
+        ? eq(Schema.environmentAccess.userId, req.requester.userId)
+        : eq(Schema.environmentAccess.accessTokenId, req.requester.apiKeyId)
+    )
+  });
+
+  if (!accessEntry) {
+    return {
+      status: 404 as const,
+      body: { message: 'No access found for current user' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: {
+      x25519DecryptionData: {
+        wrappedDek: accessEntry.encryptedSymmetricKey.toString('base64'),
+        ephemeralPublicKey: accessEntry.ephemeralPublicKey.toString('base64')
+      }
+    }
   };
 };

@@ -13,12 +13,15 @@ import {
   createEnvironment, 
   updateEnvironmentContent, 
   updateEnvironmentSettings,
+  setEnvironmentAccess,
+  getAccessKeys,
+  deleteEnvironmentAccess,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
-import { getMe, setPublicKey, updateName } from './routes/users';
+import { getMe, getUserPublicKey, setPublicKey, updateName } from './routes/users';
 import { createClient } from "redis";
 
 const AUTH_COOKIE_NAME = 'envie_token';
@@ -123,6 +126,18 @@ const router = s.router(contract, {
     updateEnvironmentSettings: {
       middleware: [requireAuth],
       handler: updateEnvironmentSettings
+    },
+    setEnvironmentAccess: {
+      middleware: [requireAuth],
+      handler: setEnvironmentAccess
+    },
+    deleteEnvironmentAccess: {
+      middleware: [requireAuth],
+      handler: deleteEnvironmentAccess
+    },
+    getAccessKeys: {
+      middleware: [requireAuth],
+      handler: getAccessKeys
     }
   }),
   organizations: s.router(contract.organizations, {
@@ -166,6 +181,10 @@ const router = s.router(contract, {
     getUser: {
       middleware: [requireAuth],
       handler: getMe
+    },
+    getUserPublicKey: {
+      middleware: [requireAuth],
+      handler: getUserPublicKey
     },
     setPublicKey: {
       middleware: [requireAuth],

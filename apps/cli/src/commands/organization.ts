@@ -293,13 +293,11 @@ organizationCommand
       const response = await client.organizations.updateAccess({
         params: { 
           idOrPath: organizationPath,
-          userIdOrPath
         },
         body: {
-          access: {
-            permissions
+          userIdOrName: userIdOrPath,
+          ...permissions
           }
-        }
       });
 
       if (response.status !== 200) {

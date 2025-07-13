@@ -6,7 +6,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
-import { UserKeyPair } from '../crypto';
+import { UserKeyPair, X25519PublicKey } from '../crypto';
+import { parseExpiryDate } from '../utils/time';
+import { EnvironmentPath } from './utils';
 
 type EnvironmentOptions = BaseOptions & {
   instanceUrl?: string;
@@ -90,10 +92,11 @@ environmentCommand
   .argument('[file]', 'A file containing the initial content')
   .option('--instance-url <url>', 'URL of the server to connect to')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
-  .action(async function(environmentPath: string, filePath?: string) {
+  .action(async function(pathParam: string, filePath?: string) {
     const opts = this.opts<CreateEnvironmentOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
     const client = createTsrClient(instanceUrl);
+    const environmentPath = new EnvironmentPath(pathParam);
     
     try {
       if (!instanceUrl) {
@@ -102,22 +105,9 @@ environmentCommand
       }
 
       if (opts.verbose) {
-        console.log(`Creating environment: ${environmentPath}`);
+        console.log(`Creating environment: ${environmentPath.toString()}`);
         console.log(`Reading from file: ${filePath}`);
         console.log(`Instance URL: ${instanceUrl}`);
-      }
-
-      // Validate environment path format
-      const parts = environmentPath.split(':');
-      if (parts.length !== 3) {
-        console.error('Error: Environment path must be in format "organization-name:project-name:env-name"');
-        process.exit(1);
-      }
-
-      const [organizationName, projectName, environmentName] = parts;
-      if (!organizationName.trim() || !projectName.trim() || !environmentName.trim()) {
-        console.error('Error: All parts (organization, project, environment) must be non-empty');
-        process.exit(1);
       }
 
       // Validate and read the .env file
@@ -147,7 +137,7 @@ environmentCommand
       if (opts.verbose) {
         console.log('Parsed .env file content:');
         console.log(JSON.stringify(envVars, null, 2));
-        console.log(`\nEnvironment path: ${organizationName.trim()}:${projectName.trim()}:${environmentName.trim()}`);
+        console.log(`\nEnvironment path: ${environmentPath.toString()}`);
       }
       
       if(opts.verbose) {
@@ -172,8 +162,8 @@ environmentCommand
         // Create environment
         const response = await client.environments.createEnvironment({
           body: {
-            name: environmentName,
-            project: `${organizationName}:${projectName}`,
+            name: environmentPath.environmentName,
+            project: environmentPath.projectPath.toString(),
             encryptedContent: {
               keys: encryptedEnvironment.keys,
               ciphertext: encryptedEnvironment.ciphertext
@@ -218,14 +208,15 @@ environmentCommand
 environmentCommand
   .command('update')
   .description('Update an environment\'s content from a file')
-  .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
+  .argument('<path>', 'Environment path')
   .argument('<file>', 'Path to .env file')
   .option('--instance-url <url>', 'URL of the server to connect to')
-  .action(async function(environmentPath: string, filePath: string) {
+  .action(async function(pathParam: string, filePath: string) {
     const opts = this.opts<EnvironmentOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
     const client = createTsrClient(instanceUrl);
-    
+    const environmentPath = new EnvironmentPath(pathParam);
+
     try {
       if (!instanceUrl) {
         console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
@@ -233,14 +224,14 @@ environmentCommand
       }
 
       if (opts.verbose) {
-        console.log(`Updating environment: ${environmentPath}`);
+        console.log(`Updating environment: ${environmentPath.toString()}`);
         console.log(`Reading from file: ${filePath}`);
         console.log(`Instance URL: ${instanceUrl}`);
       }
 
       // First get the environment to get the decryption data
       const envResponse = await client.environments.getEnvironments({
-        query: { path: environmentPath }
+        query: { path: environmentPath.toString() }
       });
 
       if (envResponse.status !== 200 || envResponse.body.length === 0) {
@@ -297,7 +288,7 @@ environmentCommand
         // Update environment content
         const response = await client.environments.updateEnvironmentContent({
           params: {
-            idOrPath: environmentPath
+            idOrPath: environmentPath.toString()
           },
           body: {
             encryptedContent: {
@@ -316,6 +307,116 @@ environmentCommand
         process.exit(1);
       }
 
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .command('set-access')
+  .description('Grant or update access to an environment for a user')
+  .argument('<path>', 'Environment path')
+  .argument('<user>', 'User name or ID to grant access to')
+  .option('--write', 'Grant write access (default: false)')
+  .option('--expiry <date>', 'Access expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(path: string, userIdOrName: string) {
+    const opts = this.opts<EnvironmentOptions & { write?: boolean, expiry?: string }>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
+    
+    try {
+      if (!instanceUrl) {
+        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
+        process.exit(1);
+      }
+
+      // Parse expiry date if provided
+      if (opts.expiry) {
+        try {
+          parseExpiryDate(opts.expiry);
+        } catch (error) {
+          console.error(`Error: ${error instanceof Error ? error.message : error}`);
+          process.exit(1);
+        }
+      }
+
+      const client = createTsrClient(instanceUrl);
+      
+      // Get environment access key and wrap it with the user's public key
+      const userKeyPair = await UserKeyPair.getInstance();
+      const [accessKeys, userPublicKey] = await Promise.all([
+        client.environments.getAccessKeys({
+          params: { idOrPath: environmentPath.toString() }
+        }),
+        client.user.getUserPublicKey({
+          params: { userIdOrName }
+        })
+      ]);
+      if (accessKeys.status !== 200 ) {
+        console.error(`Failed to get environment access keys: ${(accessKeys.body as { message: string }).message}`);
+        process.exit(1);
+      }
+      if (userPublicKey.status !== 200) {
+        console.error(`Failed to get user public key: ${(userPublicKey.body as { message: string }).message}`);
+        process.exit(1);
+      }
+
+      const dek = userKeyPair.unwrapKey({
+        wrappedKey: accessKeys.body.x25519DecryptionData.wrappedDek,
+        ephemeralPublicKey: accessKeys.body.x25519DecryptionData.ephemeralPublicKey
+      });
+      const wrappedDek = dek.wrap(new X25519PublicKey(userPublicKey.body.x25519PublicKey));
+
+      const response = await client.environments.setEnvironmentAccess({
+        params: { idOrPath: environmentPath.toString() },
+        body: {
+          userIdOrName,
+          write: opts.write ?? false,
+          expiresAt: opts.expiry,
+          ephemeralPublicKey: wrappedDek.ephemeralPublicKey,
+          encryptedSymmetricKey: wrappedDek.wrappedKey
+        }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to set environment access: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .command('remove-access')
+  .description('Remove a user\'s access to an environment')
+  .argument('<path>', 'Environment path')
+  .argument('<user>', 'User to remove access from')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(path: string, userIdOrName: string) {
+    const opts = this.opts<EnvironmentOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
+    
+    try {
+      if (!instanceUrl) {
+        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
+        process.exit(1);
+      }
+
+      const client = createTsrClient(instanceUrl);
+      const response = await client.environments.deleteEnvironmentAccess({
+        params: { idOrPath: environmentPath.toString() },
+        body: { userIdOrName }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to remove environment access: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);

@@ -1,5 +1,5 @@
 import { readFile } from "fs/promises";
-import { decryptContent, encryptContent, EncryptedContent, encryptWithKeyExchangeX25519, unwrapKeyX25519, WrappedKeyX25519 } from "./utils";
+import { decryptContent, encryptContent, EncryptedContent, encryptWithKeyExchangeX25519, unwrapKeyX25519, wrapKeyX25519, WrappedKeyX25519 } from "./utils";
 import { Ed25519KeyPair, ed25519PublicKeyToX25519, getUserPrivateKey } from "../utils/keypair";
 
 export class DataEncryptionKey {
@@ -17,6 +17,10 @@ export class DataEncryptionKey {
 
   public decryptContent(ciphertext: string): string {
     return decryptContent(ciphertext, this.key);
+  }
+
+  public wrap(publicKey: X25519PublicKey): WrappedKeyX25519 {
+    return wrapKeyX25519(this.key, publicKey.content);
   }
 
   public encryptContent(plaintext: string): EncryptedContent {

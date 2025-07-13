@@ -116,6 +116,17 @@ const user = c.router({
       401: c.type<{ message: string }>()
     }
   },
+  getUserPublicKey: {
+    method: 'GET',
+    path: '/users/:userIdOrName/public-key',
+    pathParams: z.object({
+      userIdOrName: z.string()
+    }),
+    responses: {
+      200: z.object({ x25519PublicKey: z.string() }),
+      404: c.type<{ message: string }>(),
+    }
+  },
   setPublicKey: {
     method: 'POST',
     path: '/users/me/public-key',
@@ -325,6 +336,60 @@ const environments = c.router({
       404: z.object({ message: z.string() })
     },
     summary: 'Update environment settings'
+  },
+
+  setEnvironmentAccess: {
+    method: 'PUT',
+    path: '/environments/:idOrPath/access',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    body: z.object({
+      userIdOrName: z.string(),
+      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
+      write: z.boolean().optional(),
+      ephemeralPublicKey: z.string(),
+      encryptedSymmetricKey: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Set access for a user in an environment'
+  },
+
+  deleteEnvironmentAccess: {
+    method: 'DELETE',
+    path: '/environments/:idOrPath/access',
+    pathParams: z.object({
+      idOrPath: z.string(),
+    }),
+    body: z.object({
+      userIdOrName: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Remove user access from an environment'
+  },
+
+  getAccessKeys: {
+    method: 'GET',
+    path: '/environments/:idOrPath/access/decryption',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    responses: {
+      200: z.object({
+        x25519DecryptionData: z.object({
+          wrappedDek: z.string(),
+          ephemeralPublicKey: z.string()
+        })
+      })
+    }
   }
 })
 
@@ -362,21 +427,17 @@ export const organizations = c.router({
   },
   updateAccess: {
     method: 'PUT',
-    path: '/organizations/:idOrPath/access/:userIdOrPath',
+    path: '/organizations/:idOrPath/access',
     pathParams: z.object({
       idOrPath: z.string(),
-      userIdOrPath: z.string()
     }),
     body: z.object({
-      access: z.object({
-        permissions: z.object({
+          userIdOrName: z.string(),
           canAddMembers: z.boolean().optional(),
           canCreateEnvironments: z.boolean().optional(),
           canCreateProjects: z.boolean().optional(),
           canEditProject: z.boolean().optional(),
           canEditOrganization: z.boolean().optional()
-        })
-      }),
     }),
     responses: {
       200: z.object({ message: z.string() }),

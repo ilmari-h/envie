@@ -380,8 +380,8 @@ export const getOrganizationByInvite = async ({
 
 export const updateAccess = async ({
   req,
-  params: { idOrPath, userIdOrPath },
-  body: { access }
+  params: { idOrPath },
+  body: { userIdOrName, canAddMembers, canCreateEnvironments, canCreateProjects, canEditProject, canEditOrganization }
 }: {
   req: TsRestRequest<typeof contract.organizations.updateAccess>;
   params: TsRestRequest<typeof contract.organizations.updateAccess>['params'];
@@ -410,7 +410,7 @@ export const updateAccess = async ({
     }
 
     // Find the target user
-    const targetUser = await getUserByNameOrId(userIdOrPath);
+    const targetUser = await getUserByNameOrId(userIdOrName);
     if (!targetUser) {
       return {
         status: 404 as const,
@@ -428,8 +428,11 @@ export const updateAccess = async ({
     // Update the role permissions
     const [updatedRole] = await db.update(Schema.organizationRoles)
       .set({
-        ...access.permissions,
-        updatedAt: new Date()
+        canAddMembers,
+        canCreateEnvironments,
+        canCreateProjects,
+        canEditProject,
+        canEditOrganization,
       })
       .where(and(
         eq(Schema.organizationRoles.organizationId, organization.id),

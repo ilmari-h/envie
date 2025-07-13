@@ -3,6 +3,7 @@ import { getInstanceUrl } from '../utils/config';
 import { getUserPrivateKey } from '../utils/keypair';
 import { RootCommand, BaseOptions } from './root';
 import { DataEncryptionKey, UserKeyPair } from '../crypto';
+import { EnvironmentPath } from './utils';
 
 type LoadOptions = BaseOptions & {
   instanceUrl?: string;
@@ -19,7 +20,7 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-d, --decrypt', 'Decrypt and show the environment variables')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
-  .action(async function(environmentPath: string) {
+  .action(async function(path: string) {
     const opts = this.opts<LoadOptions>();
     const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
     
@@ -30,23 +31,13 @@ export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
       }
 
       // Validate environment path format (must have exactly 3 parts)
-      const parts = environmentPath.split(':');
-      if (parts.length !== 3) {
-        console.error('Error: Environment path must be in format "organization-name:project-name:env-name"');
-        process.exit(1);
-      }
-
-      const [organizationName, projectName, environmentName] = parts;
-      if (!organizationName.trim() || !projectName.trim() || !environmentName.trim()) {
-        console.error('Error: All parts (organization, project, environment) must be non-empty');
-        process.exit(1);
-      }
+      const environmentPath = new EnvironmentPath(path);
 
       const client = createTsrClient(instanceUrl);
       
       // Get the specific environment using the path
       const response = await client.environments.getEnvironments({
-        query: { path: environmentPath, version: opts.ver }
+        query: { path: environmentPath.toString(), version: opts.ver }
       });
 
       if (response.status !== 200) {

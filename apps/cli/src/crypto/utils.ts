@@ -87,13 +87,8 @@ export function deriveKey(sharedSecret: Uint8Array, contextInfo: string = 'envie
 
 /**
  * Wrap an AES key using ECDH with ephemeral key pair
- * Algorithm: 
- * 1. Generate ephemeral key pair
- * 2. Perform ECDH with recipient's public key
- * 3. Derive KEK from shared secret
- * 4. Encrypt AES key with KEK using AES-GCM
  */
-export function wrapKey(aesKey: Uint8Array, recipientPublicKey: string): WrappedKeyX25519 {
+export function wrapKeyX25519(aesKey: Uint8Array, recipientPublicKey: string): WrappedKeyX25519 {
   // Generate ephemeral key pair
   const ephemeralPrivateKey = x25519.utils.randomPrivateKey();
   const ephemeralPublicKey = x25519.getPublicKey(ephemeralPrivateKey);
@@ -166,7 +161,7 @@ export function encryptWithKeyExchangeX25519(
   const encryptedContent = encryptContent(content, aesKey);
   
   // Wrap the AES key for each recipient
-  const wrappedKeys = recipientPublicKeys.map(pubKey => wrapKey(aesKey, pubKey));
+  const wrappedKeys = recipientPublicKeys.map(pubKey => wrapKeyX25519(aesKey, pubKey));
   
   return {
     encryptedContent,
