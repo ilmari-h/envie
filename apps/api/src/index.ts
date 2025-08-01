@@ -16,6 +16,8 @@ import {
   setEnvironmentAccess,
   getAccessKeys,
   deleteEnvironmentAccess,
+  listEnvironmentAccess,
+  deleteEnvironment,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess } from './routes/organizations';
@@ -135,9 +137,17 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: deleteEnvironmentAccess
     },
+    listEnvironmentAccess: {
+      middleware: [requireAuth],
+      handler: listEnvironmentAccess
+    },
     getAccessKeys: {
       middleware: [requireAuth],
       handler: getAccessKeys
+    },
+    deleteEnvironment: {
+      middleware: [requireAuth],
+      handler: deleteEnvironment
     }
   }),
   organizations: s.router(contract.organizations, {

@@ -230,19 +230,7 @@ const projects = c.router({
       404: z.object({ message: z.string() })
     }
   },
-  // acceptInviteLink: {
-  //   method: 'GET',
-  //   path: '/invite/accept/:inviteId',
-  //   pathParams: z.object({
-  //     inviteId: z.string()
-  //   }),
-  //   responses: {
-  //     200: z.object({ message: z.string() }),
-  //     302: z.object({ message: z.string() }),
-  //     403: z.object({ message: z.string() }),
-  //     404: z.object({ message: z.string() })
-  //   }
-  // },
+
   deleteProject: {
     method: 'DELETE',
     path: '/projects/:idOrPath',
@@ -321,6 +309,20 @@ const environments = c.router({
     summary: 'Update environment content'
   },
 
+  deleteEnvironment: {
+    method: 'DELETE',
+    path: '/environments/:idOrPath',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    responses: {
+      200: z.object({}),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Update environment content'
+  },
+
   updateEnvironmentSettings: {
     method: 'PUT',
     path: '/environments/:idOrPath/settings',
@@ -359,6 +361,29 @@ const environments = c.router({
     summary: 'Set access for a user in an environment'
   },
 
+  listEnvironmentAccess: {
+    method: 'GET',
+    path: '/environments/:idOrPath/access',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    responses: {
+      200: z.object({
+        users: z.array(z.object({
+          id: z.string(),
+          name: z.string(),
+          type: z.enum(['user', 'token']),
+          write: z.boolean(),
+        }))
+      }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Set access for a user in an environment'
+  },
+
+
+
   deleteEnvironmentAccess: {
     method: 'DELETE',
     path: '/environments/:idOrPath/access',
@@ -378,6 +403,7 @@ const environments = c.router({
 
   getAccessKeys: {
     method: 'GET',
+    summary: 'Get calling user\'s access keys for an environment',
     path: '/environments/:idOrPath/access/decryption',
     pathParams: z.object({
       idOrPath: z.string()

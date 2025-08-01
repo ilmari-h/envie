@@ -200,6 +200,17 @@ export const deleteProject = async ({
     };
   }
 
+  // If there are any environments in the project, refuse to delete
+  const environments = await db.query.environments.findMany({
+    where: eq(Schema.environments.projectId, project.id)
+  });
+  if (environments.length > 0) {
+    return {
+      status: 400 as const,
+      body: { message: 'Cannot delete a project with environments' }
+    };
+  }
+
   // Delete project (cascade will handle related records)
   const result = await db.delete(Schema.projects)
     .where(eq(Schema.projects.id, project.id))

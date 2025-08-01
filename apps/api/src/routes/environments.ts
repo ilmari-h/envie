@@ -431,6 +431,114 @@ export const setEnvironmentAccess = async ({
   };
 };
 
+export const listEnvironmentAccess = async ({
+  req,
+  params: { idOrPath }
+}: {
+  req: TsRestRequest<typeof contract.environments.listEnvironmentAccess>;
+  params: TsRestRequest<typeof contract.environments.listEnvironmentAccess>['params'];
+}) => {
+  // Get environment - no special permissions needed since we're only listing access
+  const [_organization, _project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Get all access entries for this environment
+  const userAccess = await db.select({
+    id: Schema.users.id,
+    name: Schema.users.name,
+    write: Schema.environmentAccess.write
+  })
+  .from(Schema.environmentAccess)
+  .innerJoin(Schema.users, eq(Schema.environmentAccess.userId, Schema.users.id))
+  .where(eq(Schema.environmentAccess.environmentId, environment.id));
+
+  const tokenAccess = await db.select({
+    id: Schema.accessTokens.id,
+    name: Schema.accessTokens.name,
+    write: Schema.environmentAccess.write
+  })
+  .from(Schema.environmentAccess)
+  .innerJoin(Schema.accessTokens, eq(Schema.environmentAccess.accessTokenId, Schema.accessTokens.id))
+  .where(eq(Schema.environmentAccess.environmentId, environment.id));
+
+  const accessEntries = [
+    ...userAccess.map(u => ({ ...u, type: 'user' as const })),
+    ...tokenAccess.map(t => ({ ...t, type: 'token' as const }))
+  ];
+
+  return {
+    status: 200 as const,
+    body: {
+      users: accessEntries
+    }
+  };
+};
+
+export const deleteEnvironment = async ({
+  req,
+  params: { idOrPath }
+}: {
+  req: TsRestRequest<typeof contract.environments.deleteEnvironment>;
+  params: TsRestRequest<typeof contract.environments.deleteEnvironment>['params'];
+}) => {
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Environment deletion only via CLI' }
+    };
+  }
+
+  // Get environment with write access check
+  const [_organization, _project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester,
+    editEnvironment: true // Ensures write access
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Delete environment and all related data in transaction
+  await db.transaction(async (tx) => {
+    // Delete all environment access entries
+    await tx.delete(Schema.environmentAccess)
+      .where(eq(Schema.environmentAccess.environmentId, environment.id));
+
+    // Delete all environment versions and their keys
+    const versions = await tx.select()
+      .from(Schema.environmentVersions)
+      .where(eq(Schema.environmentVersions.environmentId, environment.id));
+
+    for (const version of versions) {
+      await tx.delete(Schema.environmentVersionKeys)
+        .where(eq(Schema.environmentVersionKeys.environmentVersionId, version.id));
+    }
+    
+    await tx.delete(Schema.environmentVersions)
+      .where(eq(Schema.environmentVersions.environmentId, environment.id));
+
+    // Finally delete the environment itself
+    await tx.delete(Schema.environments)
+      .where(eq(Schema.environments.id, environment.id));
+  });
+
+  return {
+    status: 200 as const,
+    body: {}
+  };
+};
+
 export const deleteEnvironmentAccess = async ({
   req,
   params: { idOrPath },

@@ -422,3 +422,97 @@ environmentCommand
       process.exit(1);
     }
   });
+
+environmentCommand
+  .command('list-access')
+  .description('List users and tokens with access to an environment')
+  .argument('<path>', 'Environment path')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(path: string) {
+    const opts = this.opts<EnvironmentOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
+    
+    try {
+      if (!instanceUrl) {
+        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
+        process.exit(1);
+      }
+
+      const client = createTsrClient(instanceUrl);
+      const response = await client.environments.listEnvironmentAccess({
+        params: { idOrPath: environmentPath.toString() }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to fetch environment access: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+
+      printTable(
+        [
+          { header: 'Name', key: 'name' },
+          { header: 'Type', key: 'type' },
+          { header: 'ID', key: 'id' },
+          { header: 'Write Access', key: 'write' },
+        ],
+        response.body.users.map(user => ({
+          name: user.name,
+          type: user.type,
+          id: user.id,
+          write: user.write ? '✓' : '✗'
+        }))
+      );
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .command('delete')
+  .description('Delete an environment and all its data')
+  .argument('<path>', 'Environment path')
+  .option('--instance-url <url>', 'URL of the server to connect to')
+  .action(async function(path: string) {
+    const opts = this.opts<EnvironmentOptions>();
+    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
+    
+    try {
+      if (!instanceUrl) {
+        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
+        process.exit(1);
+      }
+
+      // Ask for confirmation
+      process.stdout.write(chalk.red(`Are you sure you want to delete environment "${environmentPath.toString()}"? This action cannot be undone. [y/N] `));
+      
+      const response = await new Promise<string>(resolve => {
+        process.stdin.once('data', data => {
+          resolve(data.toString().trim().toLowerCase());
+        });
+      });
+
+      if (response !== 'y') {
+        console.log('Operation cancelled.');
+        process.exit(0);
+      }
+
+      const client = createTsrClient(instanceUrl);
+      const deleteResponse = await client.environments.deleteEnvironment({
+        params: { idOrPath: environmentPath.toString() }
+      });
+
+      if (deleteResponse.status !== 200) {
+        console.error(`Failed to delete environment: ${(deleteResponse.body as { message: string }).message}`);
+        process.exit(1);
+      }
+
+      console.log(chalk.green('Environment deleted successfully.'));
+      process.exit(0);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
