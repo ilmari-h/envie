@@ -610,12 +610,12 @@ export const deleteEnvironmentAccess = async ({
   };
 };
 
-export const getAccessKeys = async ({
+export const getDecryptionKeys = async ({
   req,
   params: { idOrPath }
 }: {
-  req: TsRestRequest<typeof contract.environments.getAccessKeys>;
-  params: TsRestRequest<typeof contract.environments.getAccessKeys>['params'];
+  req: TsRestRequest<typeof contract.environments.getDecryptionKeys>;
+  params: TsRestRequest<typeof contract.environments.getDecryptionKeys>['params'];
 }) => {
 
   // Get environment - no special permissions needed since we're only getting our own access

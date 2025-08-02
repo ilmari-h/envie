@@ -83,8 +83,8 @@ export const loginCommand = new RootCommand().createCommand('login')
           }
 
           // Set public key on server
-          const setKeyResult = await client.user.setPublicKey({
-            body: { publicKey: userPublicKey }
+          const setKeyResult = await client.publicKeys.setPublicKey({
+            body: { publicKey: { valueBase64: userPublicKey, algorithm: 'x25519' } }
           });
           
           if (setKeyResult.status !== 200) {

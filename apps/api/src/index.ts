@@ -14,7 +14,7 @@ import {
   updateEnvironmentContent, 
   updateEnvironmentSettings,
   setEnvironmentAccess,
-  getAccessKeys,
+  getDecryptionKeys,
   deleteEnvironmentAccess,
   listEnvironmentAccess,
   deleteEnvironment,
@@ -23,8 +23,10 @@ import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
-import { getMe, getUserPublicKey, setPublicKey, updateName } from './routes/users';
+import { getMe, updateName } from './routes/users';
+import { getPublicKey, setPublicKey } from './routes/public-keys';
 import { createClient } from "redis";
+import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
 
 const AUTH_COOKIE_NAME = 'envie_token';
 
@@ -141,9 +143,9 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: listEnvironmentAccess
     },
-    getAccessKeys: {
+    getDecryptionKeys: {
       middleware: [requireAuth],
-      handler: getAccessKeys
+      handler: getDecryptionKeys
     },
     deleteEnvironment: {
       middleware: [requireAuth],
@@ -187,18 +189,20 @@ const router = s.router(contract, {
       handler: updateAccess
     }
   }),
-  user: s.router(contract.user, {
-    getUser: {
+  publicKeys: s.router(contract.publicKeys, {
+    getPublicKey: {
       middleware: [requireAuth],
-      handler: getMe
-    },
-    getUserPublicKey: {
-      middleware: [requireAuth],
-      handler: getUserPublicKey
+      handler: getPublicKey
     },
     setPublicKey: {
       middleware: [requireAuth],
       handler: setPublicKey
+    }
+  }),
+  user: s.router(contract.user, {
+    getUser: {
+      middleware: [requireAuth],
+      handler: getMe
     },
     updateName: {
       middleware: [requireAuth],
@@ -226,7 +230,21 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: deleteProject
     },
-  })
+  }),
+  accessTokens: s.router(contract.accessTokens, {
+    getAccessTokens: {
+      middleware: [requireAuth],
+      handler: getAccessTokens
+    },
+    createAccessToken: {
+      middleware: [requireAuth],
+      handler: createAccessToken
+    },
+    deleteAccessToken: {
+      middleware: [requireAuth],
+      handler: deleteAccessToken
+    }
+  })    
 });
 
 passport.use(new GitHubStrategy({

@@ -99,6 +99,37 @@ const health = c.router({
   }
 });
 
+const publicKeys = c.router({
+  getPublicKey: {
+    method: 'GET',
+    path: '/public-keys/:userOrTokenNameOrId',
+    pathParams: z.object({
+      userOrTokenNameOrId: z.string()
+    }),
+    responses: {
+      200: z.object({ x25519PublicKey: z.string() }),
+      404: c.type<{ message: string }>(),
+    }
+  },
+  setPublicKey: {
+    method: 'POST',
+    summary: 'Set the public key for the calling user or access token. Warning: when overriding existing key, all environment access will be revoked and has to be granted again.',
+    path: '/public-keys',
+    body: z.object({
+      publicKey: z.object({
+        valueBase64: z.string(),
+        algorithm: z.enum(['x25519', 'rsa'])
+      }),
+      allowOverride: z.boolean().optional().default(false)
+    }),
+    responses: {
+      200: c.type<{ message: string }>(),
+      403: c.type<{ message: string }>(),
+      400: c.type<{ message: string }>()
+    }
+  }
+})
+
 const user = c.router({
   getUser: {
     method: 'GET',
@@ -114,30 +145,6 @@ const user = c.router({
         message: z.string()
       })),
       401: c.type<{ message: string }>()
-    }
-  },
-  getUserPublicKey: {
-    method: 'GET',
-    path: '/users/:userIdOrName/public-key',
-    pathParams: z.object({
-      userIdOrName: z.string()
-    }),
-    responses: {
-      200: z.object({ x25519PublicKey: z.string() }),
-      404: c.type<{ message: string }>(),
-    }
-  },
-  setPublicKey: {
-    method: 'POST',
-    path: '/users/me/public-key',
-    body: z.object({
-      publicKey: z.string(),
-      allowOverride: z.boolean().optional().default(false)
-    }),
-    responses: {
-      200: c.type<{ message: string }>(),
-      403: c.type<{ message: string }>(),
-      400: c.type<{ message: string }>()
     }
   },
   updateName: {
@@ -401,9 +408,9 @@ const environments = c.router({
     summary: 'Remove user access from an environment'
   },
 
-  getAccessKeys: {
+  getDecryptionKeys: {
     method: 'GET',
-    summary: 'Get calling user\'s access keys for an environment',
+    summary: 'Get calling user\'s decryption keys for an environment',
     path: '/environments/:idOrPath/access/decryption',
     pathParams: z.object({
       idOrPath: z.string()
@@ -569,10 +576,51 @@ export const organizations = c.router({
   }
 })
 
+export const accessTokens = c.router({
+  getAccessTokens: {
+    method: 'GET',
+    path: '/access-tokens',
+    responses: {
+      200: z.array(z.object({
+        name: z.string(),
+        expiresAt: z.date().nullable()
+      }))
+    }
+  },
+  deleteAccessToken: {
+    method: 'DELETE',
+    path: '/access-tokens/:name',
+    pathParams: z.object({
+      name: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() })
+    }
+  },
+  createAccessToken: {
+    method: 'POST',
+    path: '/access-tokens',
+    body: z.object({
+      name: nameSchema,
+      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
+      publicKey: z.object({
+        valueBase64: z.string(),
+        algorithm: z.enum(['x25519', 'rsa'])
+      }),
+    }),
+    responses: {
+      201: z.object({ }),
+      403: z.object({ message: z.string() })
+    }
+  }
+})
+
 export const contract = c.router({
   health,
   environments,
   organizations,
   user,
-  projects
+  projects,
+  publicKeys,
+  accessTokens
 });

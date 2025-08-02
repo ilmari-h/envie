@@ -317,7 +317,7 @@ environmentCommand
   .command('set-access')
   .description('Grant or update access to an environment for a user')
   .argument('<path>', 'Environment path')
-  .argument('<user>', 'User name or ID to grant access to')
+  .argument('<user-or-token>', 'User name, token name, or ID to grant access to')
   .option('--write', 'Grant write access (default: false)')
   .option('--expiry <date>', 'Access expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
   .option('--instance-url <url>', 'URL of the server to connect to')
@@ -347,11 +347,11 @@ environmentCommand
       // Get environment access key and wrap it with the user's public key
       const userKeyPair = await UserKeyPair.getInstance();
       const [accessKeys, userPublicKey] = await Promise.all([
-        client.environments.getAccessKeys({
+        client.environments.getDecryptionKeys({
           params: { idOrPath: environmentPath.toString() }
         }),
-        client.user.getUserPublicKey({
-          params: { userIdOrName }
+        client.publicKeys.getPublicKey({
+          params: { userOrTokenNameOrId: userIdOrName }
         })
       ]);
       if (accessKeys.status !== 200 ) {

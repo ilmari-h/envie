@@ -22,6 +22,7 @@
     "drizzle-orm": "^0.43.1",
     "express": "5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.1.5",
     "passport": "^0.7.0",
     "passport-github": "^1.1.0",
     "redis": "^5.1.1",

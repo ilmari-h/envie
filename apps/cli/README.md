@@ -1,6 +1,8 @@
 # Envie cli
 
-This is a CLI program for managing `.env` files securely and conviniently.
+This is a CLI program for managing environment secrets securely and conviniently.
+
+Say bye to .env files.
 
 ### Usage:
 
@@ -17,10 +19,15 @@ This is a CLI program for managing `.env` files securely and conviniently.
 - `envie project list [--organization/-o <organzation>]` - List projects optionally filter by some organization (name or ID)
 - `envie project create <organization-name:project-name> [--description/-d]` - Create a new project
 - `envie environment create <organization-name:project-name:env-name> [file]` - Create a new environment
-- `envie set <path> <key=value>` - Set an environment variable
-- `envie unset <path> <key=value>` - Set and enviornment variable
+- `envie set <path> <key=value>` - Set an environment variable in the given environment
+- `envie unset <path> <key=value>` - Unset an environment variable in the given environment
 - `envie environment list <path>` - List environments, optionally filtering by path (path format name of organization e.g `my_organization` or project `my_organization:my_project`)
-- `envie load <path> [--decrypt/-d]` - Load an environment 
+- `envie load <path> [--decrypt/-d]` - Load an environment and print to stdout
+
+##### TODO
+- `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
+- CLI auth with access token env variable
+- Make sure env access expiry works alright
 
 #### Security TODOS:
 - Add signatures and validate them

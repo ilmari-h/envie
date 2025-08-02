@@ -8,6 +8,7 @@ import { projectCommand } from './commands/project';
 import { environmentCommand } from './commands/environment';
 import { loadCommand } from './commands/load';
 import { setCommand, unsetCommand } from './commands/set';
+import { accessTokenCommand } from './commands/access-tokens';
 
 async function main() {
   program
@@ -16,14 +17,15 @@ async function main() {
 
 
   // Add commands
-  program.addCommand(configCommand);
   program.addCommand(loginCommand);
-  program.addCommand(organizationCommand);
-  program.addCommand(projectCommand);
-  program.addCommand(environmentCommand);
   program.addCommand(loadCommand);
   program.addCommand(setCommand);
   program.addCommand(unsetCommand);
+  program.addCommand(environmentCommand);
+  program.addCommand(projectCommand);
+  program.addCommand(organizationCommand);
+  program.addCommand(configCommand);
+  program.addCommand(accessTokenCommand);
 
   // Parse command line arguments
   await program.parseAsync(process.argv);
