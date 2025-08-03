@@ -610,6 +610,7 @@ export const accessTokens = c.router({
     }),
     responses: {
       201: z.object({ }),
+      400: z.object({ message: z.string() }),
       403: z.object({ message: z.string() })
     }
   }

@@ -14,18 +14,12 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
   .argument('<key-value>', 'Key-value pair in format "key=value" or as separate arguments')
   .argument('[value]', 'Value if provided separately from key')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(environmentPath: string, keyValue: string, separateValue?: string) {
     const opts = this.opts<SetOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const client = createTsrClient(instanceUrl);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Parse key-value pair
       let key: string, value: string;
       if (separateValue !== undefined) {
@@ -132,18 +126,12 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
   .description('Unset an environment variable')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
   .argument('<key>', 'Key to unset')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(environmentPath: string, key: string) {
     const opts = this.opts<SetOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const client = createTsrClient(instanceUrl);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       if (!key.trim()) {
         console.error('Error: Key cannot be empty');
         process.exit(1);

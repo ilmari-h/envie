@@ -10,9 +10,7 @@ import { UserKeyPair, X25519PublicKey } from '../crypto';
 import { parseExpiryDate } from '../utils/time';
 import { EnvironmentPath } from './utils';
 
-type EnvironmentOptions = BaseOptions & {
-  instanceUrl?: string;
-};
+type EnvironmentOptions = BaseOptions;
 
 type CreateEnvironmentOptions = EnvironmentOptions & {
   secretKeyFile?: string;
@@ -27,16 +25,11 @@ environmentCommand
   .command('list')
   .description('List environments, optionally filtering by path')
   .argument('[path]', 'Path to filter by (organization name or organization:project)')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(filterPath?: string) {
     const opts = this.opts<EnvironmentOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
 
       if (opts.verbose) {
         console.log(`Connecting to instance: ${instanceUrl}`);
@@ -58,7 +51,7 @@ environmentCommand
       });
 
       if (response.status !== 200) {
-        console.error(`Failed to fetch environments: ${response.status}`);
+        console.error(`Failed to fetch environments: ${response.status} ${(response.body as { message: string }).message}`);
         process.exit(1);
       }
 
@@ -90,20 +83,14 @@ environmentCommand
   .description('Create a new environment')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
   .argument('[file]', 'A file containing the initial content')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(pathParam: string, filePath?: string) {
     const opts = this.opts<CreateEnvironmentOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const client = createTsrClient(instanceUrl);
     const environmentPath = new EnvironmentPath(pathParam);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       if (opts.verbose) {
         console.log(`Creating environment: ${environmentPath.toString()}`);
         console.log(`Reading from file: ${filePath}`);
@@ -210,19 +197,13 @@ environmentCommand
   .description('Update an environment\'s content from a file')
   .argument('<path>', 'Environment path')
   .argument('<file>', 'Path to .env file')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(pathParam: string, filePath: string) {
     const opts = this.opts<EnvironmentOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const client = createTsrClient(instanceUrl);
     const environmentPath = new EnvironmentPath(pathParam);
 
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       if (opts.verbose) {
         console.log(`Updating environment: ${environmentPath.toString()}`);
         console.log(`Reading from file: ${filePath}`);
@@ -320,18 +301,12 @@ environmentCommand
   .argument('<user-or-token>', 'User name, token name, or ID to grant access to')
   .option('--write', 'Grant write access (default: false)')
   .option('--expiry <date>', 'Access expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(path: string, userIdOrName: string) {
     const opts = this.opts<EnvironmentOptions & { write?: boolean, expiry?: string }>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Parse expiry date if provided
       if (opts.expiry) {
         try {
@@ -395,18 +370,11 @@ environmentCommand
   .description('Remove a user\'s access to an environment')
   .argument('<path>', 'Environment path')
   .argument('<user>', 'User to remove access from')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(path: string, userIdOrName: string) {
-    const opts = this.opts<EnvironmentOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response = await client.environments.deleteEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() },
@@ -427,18 +395,11 @@ environmentCommand
   .command('list-access')
   .description('List users and tokens with access to an environment')
   .argument('<path>', 'Environment path')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(path: string) {
-    const opts = this.opts<EnvironmentOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response = await client.environments.listEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() }
@@ -473,18 +434,11 @@ environmentCommand
   .command('delete')
   .description('Delete an environment and all its data')
   .argument('<path>', 'Environment path')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(path: string) {
-    const opts = this.opts<EnvironmentOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Ask for confirmation
       process.stdout.write(chalk.red(`Are you sure you want to delete environment "${environmentPath.toString()}"? This action cannot be undone. [y/N] `));
       

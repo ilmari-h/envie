@@ -25,7 +25,7 @@ export const config = new Conf<EnvieConfig>({
 });
 
 export function getKeypairPath(): string | undefined {
-  return config.get('keypairPath');
+  return process.env.ENVIE_KEYPAIR_PATH ?? config.get('keypairPath');
 }
 
 export function setKeypairPath(path: string): void {
@@ -33,7 +33,7 @@ export function setKeypairPath(path: string): void {
 }
 
 export function getInstanceUrl(): string {
-  return config.get('instanceUrl', 'http://localhost:3001');
+  return process.env.ENVIE_INSTANCE_URL ?? config.get('instanceUrl', 'https://api.envie.cloud');
 }
 
 export function setInstanceUrl(url: string): void {

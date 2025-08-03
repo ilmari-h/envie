@@ -4,22 +4,18 @@ import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import { parseExpiryDate } from '../utils/time';
 import chalk from 'chalk';
-import { contract } from '@repo/rest';
+import { BaseOptions } from './root';
 
-type OrganizationOptions = {
-  instanceUrl?: string;
-};
-
-type CreateOrganizationOptions = OrganizationOptions & {
+type CreateOrganizationOptions = BaseOptions & {
   description?: string;
 };
 
-type InviteOrganizationOptions = OrganizationOptions & {
+type InviteOrganizationOptions = BaseOptions & {
   expiry: string;
   oneTime?: boolean;
 };
 
-type SetAccessOptions = OrganizationOptions & {
+type SetAccessOptions = BaseOptions & {
   addMembers?: string;
   createEnvironments?: string;
   createProjects?: string;
@@ -35,17 +31,10 @@ export const organizationCommand = new Command('organization')
 organizationCommand
   .command('list')
   .description('List organizations you have access to')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function() {
-    const opts = this.opts<OrganizationOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response = await client.organizations.getOrganizations();
 
@@ -78,17 +67,10 @@ organizationCommand
   .command('members')
   .description('Get members of an organization')
   .argument('<organization-name>', 'Name of the organization')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(organizationPath: string) {
-    const opts = this.opts<OrganizationOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response = await client.organizations.getOrganizationMembers({
         params: { idOrPath: organizationPath }
@@ -133,17 +115,11 @@ organizationCommand
   .argument('<organization-name>', 'Name of the organization')
   .requiredOption('--expiry <date>', 'Invite expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
   .option('--one-time', 'Make this a one-time use invite (default: false)')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(organizationPath: string) {
     const opts = this.opts<InviteOrganizationOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Parse expiry date
       try {
         parseExpiryDate(opts.expiry);
@@ -179,17 +155,11 @@ organizationCommand
   .description('Create a new organization')
   .argument('<name>', 'Organization name')
   .option('-d, --description <description>', 'Organization description')
-  .option('--instance-url', 'URL of the server to connect to')
   .action(async function(organizationName: string) {
     const opts = this.opts<CreateOrganizationOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response = await client.organizations.createOrganization({
         body: {
@@ -213,17 +183,10 @@ organizationCommand
 organizationCommand
   .command('join <name> <code>')
   .description('Join an organization using an invite code')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(name: string, code: string) {
-    const opts = this.opts<OrganizationOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error(chalk.red('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.'));
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response: { status: number, body: { message: string } } = await client.organizations.acceptOrganizationInvite({
         params: { name, token: code }
@@ -258,17 +221,11 @@ organizationCommand
   .option('--create-projects <true|false>', 'Set permission to create projects')
   .option('--edit-project <true|false>', 'Set permission to edit projects')
   .option('--edit-organization <true|false>', 'Set permission to edit organization')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(organizationPath: string, userIdOrPath: string) {
     const opts = this.opts<SetAccessOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Convert string "true"/"false" to boolean and validate
       const permissions: Partial<Record<string, boolean>> = {};
       const addMembers = validBoolStr(opts.addMembers);

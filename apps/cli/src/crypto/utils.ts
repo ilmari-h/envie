@@ -120,15 +120,6 @@ export function wrapKeyX25519(aesKey: Uint8Array, recipientPublicKey: string): W
   };
 }
 
-export function convertEd25519PublicKeyToX25519(publicKeyBase64: string): string {
-  // Convert base64 to Uint8Array
-  const publicKeyBytes = Buffer.from(publicKeyBase64, 'base64');
-  // Convert Ed25519 public key to X25519
-  const x25519Key = edwardsToMontgomeryPub(publicKeyBytes);
-  // Convert back to base64
-  return Buffer.from(x25519Key).toString('base64');
-}
-
 export function unwrapKeyX25519(wrappedKeyData: WrappedKeyX25519, userPrivateKey: Uint8Array): Uint8Array {
   // Convert ephemeral public key from base64
   const ephemeralPublicKey = Buffer.from(wrappedKeyData.ephemeralPublicKey, 'base64');

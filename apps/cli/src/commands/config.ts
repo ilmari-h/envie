@@ -51,10 +51,9 @@ configCommand
 configCommand
   .command('name <name>')
   .description('Set your display name')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(name: string) {
-    const opts = this.opts<BaseOptions & { instanceUrl?: string }>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const opts = this.opts<BaseOptions>();
+    const instanceUrl = getInstanceUrl();
 
     if (opts.verbose) {
       console.log(`Instance URL: ${instanceUrl}`);

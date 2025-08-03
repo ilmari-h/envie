@@ -68,13 +68,17 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
   // Try JWT first
   const loginToken = await getToken(req);
   if (loginToken) {
+    try {
     const decoded = jwt.verify(
       loginToken,
       env.JWT_SECRET as string) as unknown as { userId: string; username: string };
     req.requester = {
-      userId: decoded.userId,
-      username: decoded.username
-    };
+        userId: decoded.userId,
+        username: decoded.username
+      };
+    } catch (e) {
+      return res.status(401).json({ message: 'Unauthorized or login expired' });
+    }
     return next();
   }
 
@@ -326,7 +330,7 @@ app.get('/auth/github/callback',
         username: (req.user as { username: string }).username 
       } satisfies Express.Requester, 
       env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { expiresIn: '30d' }
     );
 
     // Either CLI or web UI login.

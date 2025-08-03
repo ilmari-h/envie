@@ -1,4 +1,3 @@
-import { Command } from 'commander';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { getKeypairPath, getInstanceUrl } from '../utils/config';
@@ -10,17 +9,12 @@ import chalk from 'chalk';
 
 const execAsync = promisify(exec);
 
-type LoginOptions = BaseOptions & {
-  instanceUrl?: string;
-  
-};
 
 export const loginCommand = new RootCommand().createCommand('login')
   .description('Start browser login flow')
-  .option('--instance-url', 'URL of the server to connect to')
   .action(async function() {
-    const opts = this.opts<LoginOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const opts = this.opts<BaseOptions>();
+    const instanceUrl = getInstanceUrl();
     
     try {
       // Check if keypair is configured

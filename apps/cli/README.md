@@ -4,11 +4,18 @@ This is a CLI program for managing environment secrets securely and conviniently
 
 Say bye to .env files.
 
+### Configuration
+
+#### Environment variables:
+- `ENVIE_CONFIG_DIRECTORY` - Config file directory location.
+- `ENVIE_KEYPAIR_PATH` - Specify Ed25519 keypair path (OpenSSH format) overriding the one in your config file.
+- `ENVIE_INSTANCE_URL` - Specify instance url overriding the one in your config file.
+
 ### Usage:
 
 #### Global flags:
 
-- `--instance-url` - URL of the server to connect to
+- `--verbose` - Verbose output
 
 #### Commands
 - `envie config keypair <keypair-path>` - Set your keypair path
@@ -28,6 +35,7 @@ Say bye to .env files.
 - `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
 - CLI auth with access token env variable
 - Make sure env access expiry works alright
+- Testing auth with access tokens
 
 #### Security TODOS:
 - Add signatures and validate them

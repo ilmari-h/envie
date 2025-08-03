@@ -6,7 +6,6 @@ import { DataEncryptionKey, UserKeyPair } from '../crypto';
 import { EnvironmentPath } from './utils';
 
 type LoadOptions = BaseOptions & {
-  instanceUrl?: string;
   ver?: string;
   decrypt?: boolean;
   backupKey?: string;
@@ -16,20 +15,14 @@ const rootCmd = new RootCommand();
 export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .description('Load an environment')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-d, --decrypt', 'Decrypt and show the environment variables')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .action(async function(path: string) {
     const opts = this.opts<LoadOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Validate environment path format (must have exactly 3 parts)
       const environmentPath = new EnvironmentPath(path);
 

@@ -3,9 +3,9 @@ import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
+import { BaseOptions } from './root';
 
-type ProjectOptions = {
-  instanceUrl?: string;
+type ProjectOptions = BaseOptions & {
   organization?: string;
 };
 
@@ -20,18 +20,12 @@ export const projectCommand = new Command('project')
 projectCommand
   .command('list')
   .description('List projects optionally filter by some organization (name or ID)')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .option('-o, --organization <organization>', 'Filter by organization name or ID')
   .action(async function() {
     const opts = this.opts<ProjectOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       const client = createTsrClient(instanceUrl);
       const response = await client.projects.getProjects({
         query: opts.organization ? { organization: opts.organization } : {}
@@ -65,17 +59,10 @@ projectCommand
   .command('delete')
   .description('Delete a project')
   .argument('<path>', 'Project path in format "organization-name:project-name"')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(projectPath: string) {
-    const opts = this.opts<ProjectOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Validate project path format
       const parts = projectPath.split(':');
       if (parts.length !== 2) {
@@ -120,17 +107,11 @@ projectCommand
   .description('Create a new project')
   .argument('<project-path>', 'Project path in format "organization-name:project-name"')
   .option('-d, --description <description>', 'Project description')
-  .option('--instance-url <url>', 'URL of the server to connect to')
   .action(async function(projectPath: string) {
     const opts = this.opts<CreateProjectOptions>();
-    const instanceUrl = opts.instanceUrl ?? getInstanceUrl();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      if (!instanceUrl) {
-        console.error('Error: Instance URL not set. Please run "envie config instance-url <url>" first or use --instance-url flag.');
-        process.exit(1);
-      }
-
       // Validate project path format
       const parts = projectPath.split(':');
       if (parts.length !== 2) {

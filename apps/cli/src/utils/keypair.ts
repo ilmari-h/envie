@@ -29,12 +29,51 @@ export function readEd25519KeyPair(filePath: string): Ed25519KeyPair {
     throw new Error(`Failed to read keypair from ${filePath}: ${error instanceof Error ? error.message : error}`);
   }
 }
+function decodeEd25519Base64BlobOpenSshFormat(buffer: Uint8Array) {
+  // Convert Uint8Array to Buffer for easier manipulation
+  const buf = Buffer.from(buffer);
+  let offset = 0;
 
+  const readUInt32 = () => {
+    const value = buf.readUInt32BE(offset);
+    offset += 4;
+    return value;
+  };
+
+  const readBytes = (length: number) => {
+    const bytes = buf.slice(offset, offset + length);
+    offset += length;
+    return bytes;
+  };
+
+  // Read and verify key type
+  const keyTypeLen = readUInt32();
+  const keyType = readBytes(keyTypeLen).toString('ascii');
+  if (keyType !== 'ssh-ed25519') {
+    throw new Error(`Expected ssh-ed25519 key type, got "${keyType}"`);
+  }
+
+  // Read the public key bytes
+  const pubKeyLen = readUInt32();
+  const pubKey = readBytes(pubKeyLen);
+
+  return {
+    keyType,
+    pubKeyBase64: pubKey.toString('base64'),
+    rawBytes: new Uint8Array(pubKey)
+  };
+}
 
 export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
   // Convert ed25519 public key to X25519 for ECDH
-  const x25519PublicKey = edwardsToMontgomeryPub(ed25519PublicKey);
-  return Buffer.from(x25519PublicKey).toString('base64');
+  // if length is 32 bytes, assume just the public key
+  if (ed25519PublicKey.length === 32) { 
+    const x25519PublicKey = edwardsToMontgomeryPub(ed25519PublicKey);
+    return Buffer.from(x25519PublicKey).toString('base64');
+  }
+  // if more, assume OpenSSH format
+  const decoded = decodeEd25519Base64BlobOpenSshFormat(ed25519PublicKey);
+  return decoded.pubKeyBase64;
 }
 
 
