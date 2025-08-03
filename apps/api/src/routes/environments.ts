@@ -371,7 +371,7 @@ export const setEnvironmentAccess = async ({
   if (!isUserRequester(req.requester)) {
     return {
       status: 403 as const,
-      body: { message: 'Environment access management only via CLI' }
+      body: { message: 'Environment access management not allowed' }
     };
   }
 
@@ -390,10 +390,43 @@ export const setEnvironmentAccess = async ({
   }
 
   const targetUser = await getUserByNameOrId(userIdOrName);
+  
+  // No user, check if it's an access token
   if (!targetUser) {
+    const targetToken = await db.query.accessTokens.findFirst({
+      where: and(
+        eq(Schema.accessTokens.name, userIdOrName),
+        eq(Schema.accessTokens.createdBy, req.requester.userId)
+      )
+    });
+    if (!targetToken) {
+      return {
+        status: 404 as const,
+        body: { message: 'No user or access token found' }
+      };
+    }
+
+    // Create new access entry for access token
+    await db.insert(Schema.environmentAccess).values({
+      environmentId: environment.id,
+      accessTokenId: targetToken.id,
+
+      // Access key organization role inherits the owner user's role so we use it here
+      organizationRoleId: organization.role.id,
+
+      write: write ?? false,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
+      ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
+    }).onConflictDoUpdate({
+      target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId, Schema.environmentAccess.accessTokenId],
+      set: {
+        write: write ?? false,
+      }
+    });
     return {
-      status: 404 as const,
-      body: { message: 'User not found' }
+      status: 200 as const,
+      body: { message: 'Environment access granted successfully' }
     };
   }
 
@@ -419,7 +452,7 @@ export const setEnvironmentAccess = async ({
     encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
     ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
   }).onConflictDoUpdate({
-    target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId],
+    target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId, Schema.environmentAccess.accessTokenId],
     set: {
       write: write ?? false,
     }

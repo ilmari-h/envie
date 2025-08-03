@@ -59,12 +59,13 @@ export const createOrganization = async ({
       description,
       createdById: req.requester.userId,
     })
+    .onConflictDoNothing()
     .returning();
 
   if (!organization) {
     return {
       status: 500 as const,
-      body: { message: 'Failed to create organization' }
+      body: { message: 'Organization already exists' }
     };
   }
 
@@ -137,7 +138,6 @@ export const getOrganizationMembers = async ({
     canEditProject: Schema.organizationRoles.canEditProject,
     canEditOrganization: Schema.organizationRoles.canEditOrganization,
     userName: Schema.users.name,
-    tokenName: Schema.accessTokens.name
   })
     .from(Schema.organizationRoles)
     .leftJoin(Schema.users, eq(Schema.organizationRoles.userId, Schema.users.id))

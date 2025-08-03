@@ -94,7 +94,7 @@ organizationCommand
         ],
         response.body.map(member => ({
           name: member.name,
-          type: member.type,
+          type: 'user',
           id: member.id,
           canAddMembers: member.permissions.canAddMembers ? '✓' : '✗',
           canCreateEnvironments: member.permissions.canCreateEnvironments ? '✓' : '✗',
@@ -169,7 +169,8 @@ organizationCommand
       });
 
       if (response.status !== 201) {
-        console.error(`Failed to create organization: ${response.status}`);
+        const errorMsg = response.body as { message: string };
+        console.error(`Failed to create organization: ${errorMsg.message}`);
         process.exit(1);
       }
 

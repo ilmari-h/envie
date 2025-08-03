@@ -39,7 +39,6 @@ projectCommand
       printTable(
         [
           { header: 'Path', key: 'path' },
-          { header: 'Organization', key: 'organization' },
           { header: 'Description', key: 'description' },
           { header: 'ID', key: 'id' },
         ],

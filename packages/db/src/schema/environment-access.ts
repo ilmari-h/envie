@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, pgEnum, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { environments } from './environments';
 import { bytea, timestamps } from './utils';
@@ -24,7 +24,9 @@ export const environmentAccess = pgTable('environment_access', {
   write: boolean('write').notNull().default(false),
   expiresAt: timestamp('expires_at'),
   ...timestamps
-});
+}, (table) => [
+  uniqueIndex('unique_environment_access_user_token').on(table.environmentId, table.userId, table.accessTokenId)
+]);
 
 export const environmentAccessRelations = relations(environmentAccess, ({ one }) => ({
   environment: one(environments, {
