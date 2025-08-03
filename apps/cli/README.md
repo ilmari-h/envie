@@ -10,6 +10,7 @@ Say bye to .env files.
 - `ENVIE_CONFIG_DIRECTORY` - Config file directory location.
 - `ENVIE_KEYPAIR_PATH` - Specify Ed25519 keypair path (OpenSSH format) overriding the one in your config file.
 - `ENVIE_INSTANCE_URL` - Specify instance url overriding the one in your config file.
+- `ENVIE_ACCESS_TOKEN` - Specify the value of your access token to authenticate with the instance (alternative to CLI login)
 
 ### Usage:
 
@@ -30,6 +31,12 @@ Say bye to .env files.
 - `envie unset <path> <key=value>` - Unset an environment variable in the given environment
 - `envie environment list <path>` - List environments, optionally filtering by path (path format name of organization e.g `my_organization` or project `my_organization:my_project`)
 - `envie load <path> [--decrypt/-d]` - Load an environment and print to stdout
+
+#### Access Tokens
+
+Users can create access tokens to allow programmatic log-in from e.g. a VPS, Docker image, etc.
+
+Access tokens inherit the user's organization role, but environment access must be explicitly granted.
 
 ##### TODO
 - `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.

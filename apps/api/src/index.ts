@@ -93,14 +93,12 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
           gt(Schema.accessTokens.expires, new Date())
         )
       ),
-      with: {
-        createdByUser: true
-      }
     });
 
     if (accessToken) {
       req.requester = {
         apiKeyId: accessToken.id,
+        apiKeyOwnerId: accessToken.createdBy
       };
       return next();
     }

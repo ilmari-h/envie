@@ -12,7 +12,7 @@ export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof cont
   // Get organizations where user/API key has access to
   const whereClause = isUserRequester(req.requester)
     ? eq(Schema.organizationRoles.userId, req.requester.userId)
-    : eq(Schema.organizationRoles.accessTokenId, req.requester.apiKeyId);
+    : eq(Schema.organizationRoles.userId, req.requester.apiKeyOwnerId);
 
   const orgs = await db.select({ 
     organizations: Schema.organizations,
@@ -131,7 +131,6 @@ export const getOrganizationMembers = async ({
   const members = await db.select({
     roleId: Schema.organizationRoles.id,
     userId: Schema.organizationRoles.userId,
-    accessTokenId: Schema.organizationRoles.accessTokenId,
     canAddMembers: Schema.organizationRoles.canAddMembers,
     canCreateEnvironments: Schema.organizationRoles.canCreateEnvironments,
     canCreateProjects: Schema.organizationRoles.canCreateProjects,
@@ -142,13 +141,11 @@ export const getOrganizationMembers = async ({
   })
     .from(Schema.organizationRoles)
     .leftJoin(Schema.users, eq(Schema.organizationRoles.userId, Schema.users.id))
-    .leftJoin(Schema.accessTokens, eq(Schema.organizationRoles.accessTokenId, Schema.accessTokens.id))
     .where(eq(Schema.organizationRoles.organizationId, organization.id));
 
   const formattedMembers = members.map(member => ({
-    id: member.userId || member.accessTokenId || '',
-    name: member.userName || member.tokenName || '',
-    type: member.userId ? 'user' as const : 'token' as const,
+    id: member.userId,
+    name: member.userName ?? '',
     permissions: {
       canAddMembers: member.canAddMembers,
       canCreateEnvironments: member.canCreateEnvironments,

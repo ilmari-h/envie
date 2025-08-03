@@ -53,7 +53,7 @@ export const getProjects = async ({ req, query }:
     const organizationRoles = await db.query.organizationRoles.findMany({
       where: isUserRequester(req.requester)
         ? eq(Schema.organizationRoles.userId, req.requester.userId)
-        : eq(Schema.organizationRoles.accessTokenId, req.requester.apiKeyId),
+        : eq(Schema.organizationRoles.userId, req.requester.apiKeyOwnerId),
       with: {
         organization: true
       }

@@ -1,6 +1,5 @@
 import { TsRestRequest } from "@ts-rest/express";
 import { x25519 } from '@noble/curves/ed25519';
-import crypto from 'crypto';
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
@@ -25,7 +24,8 @@ export const getAccessTokens = async ({ req }: { req: TsRestRequest<typeof contr
     columns: {
       id: true,
       name: true,
-      expires: true
+      expires: true,
+      publicKeyEd25519: true
     }
   });
 
@@ -34,7 +34,8 @@ export const getAccessTokens = async ({ req }: { req: TsRestRequest<typeof contr
     body: tokens.map(token => ({
       id: token.id,
       name: token.name,
-      expiresAt: token.expires
+      expiresAt: token.expires,
+      pubkeyBase64: token.publicKeyEd25519.toString('base64')
     }))
   };
 };
@@ -127,6 +128,6 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
 
   return {
     status: 201 as const,
-    body: { }
+    body: { tokenValue }
   };
 };

@@ -36,10 +36,12 @@ accessTokenCommand
         [
           { header: 'Name', key: 'name' },
           { header: 'Expires At', key: 'expiresAt' },
+          { header: 'Public Key', key: 'pubkeyBase64' }
         ],
         response.body.map(token => ({
           name: token.name,
-          expiresAt: token.expiresAt ? new Date(token.expiresAt).toLocaleDateString() : 'Never'
+          expiresAt: token.expiresAt ? new Date(token.expiresAt).toLocaleDateString() : 'Never',
+          pubkeyBase64: token.pubkeyBase64
         }))
       );
     } catch (error) {
@@ -119,6 +121,8 @@ accessTokenCommand
       }
 
       console.log(chalk.green(`Access token "${name}" created successfully.`));
+      console.log(chalk.green(`Copy the token value and store it securely, it will not be shown again:`));
+      console.log(response.body.tokenValue);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);

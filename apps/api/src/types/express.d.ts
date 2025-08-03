@@ -8,5 +8,6 @@ declare namespace Express {
     username: string;
   } | {
     apiKeyId: string;
+    apiKeyOwnerId: string;
   }
 } 

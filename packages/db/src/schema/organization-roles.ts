@@ -9,9 +9,7 @@ export const organizationRoles = pgTable('organization_roles', {
   id: uuid('id').defaultRandom().primaryKey(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
-  // One or the other
-  userId: text('user_id').references(() => users.id),
-  accessTokenId: text('access_token_id').references(() => accessTokens.id),
+  userId: text('user_id').references(() => users.id).notNull(),
 
   // Privileges
   canAddMembers: boolean('can_add_members').notNull().default(false),

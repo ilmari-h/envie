@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, unique, index } from "drizzle-orm/pg-core";
-import { publicKeyColumns, timestamps } from "./utils";
+import { bytea, timestamps } from "./utils";
 import { users } from "./users";
 
 export const accessTokens = pgTable('access_tokens', {
@@ -8,7 +8,7 @@ export const accessTokens = pgTable('access_tokens', {
   name: text('name').notNull(),
   createdBy: text('created_by').references(() => users.id).notNull(),
   expires: timestamp('expiry'),
-  ...publicKeyColumns,
+  publicKeyEd25519: bytea('public_key_ed25519').notNull(),
 
   ...timestamps
 }, (t) => ([

@@ -445,7 +445,6 @@ export const organizations = c.router({
       200: z.array(z.object({
         id: z.string(),
         name: z.string(),
-        type: z.enum(['user', 'token']),
         permissions: z.object({
           canAddMembers: z.boolean(),
           canCreateEnvironments: z.boolean(),
@@ -583,7 +582,8 @@ export const accessTokens = c.router({
     responses: {
       200: z.array(z.object({
         name: z.string(),
-        expiresAt: z.date().nullable()
+        expiresAt: z.date().nullable(),
+        pubkeyBase64: z.string()
       }))
     }
   },
@@ -609,7 +609,7 @@ export const accessTokens = c.router({
       }),
     }),
     responses: {
-      201: z.object({ }),
+      201: z.object({ tokenValue: z.string() }),
       400: z.object({ message: z.string() }),
       403: z.object({ message: z.string() })
     }

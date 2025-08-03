@@ -53,7 +53,7 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
       roles: {
         where: isUserRequester(scope.requester)
           ? eq(Schema.organizationRoles.userId, scope.requester.userId)
-          : eq(Schema.organizationRoles.accessTokenId, scope.requester.apiKeyId)
+          : eq(Schema.organizationRoles.userId, scope.requester.apiKeyOwnerId)
       }
     }
     });
