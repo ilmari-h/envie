@@ -135,16 +135,16 @@ const user = c.router({
     method: 'GET',
     path: '/users/me',
     responses: {
+      // User
       200: z.object({
         id: z.string(),
         name: z.string(),
-        authMethod: z.enum(['github', 'email']),
+        authMethod: z.enum(['github', 'email', 'token']),
         publicKey: z.string().nullable(),
         pkeAlgorithm: z.enum(['x25519', 'rsa']).nullable()
-      }).or(z.object({
-        message: z.string()
-      })),
-      401: c.type<{ message: string }>()
+      }),
+      401: c.type<{ message: string }>(),
+      404: c.type<{ message: string }>()
     }
   },
   updateName: {

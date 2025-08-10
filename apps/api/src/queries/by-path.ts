@@ -53,7 +53,7 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
       roles: {
         where: isUserRequester(scope.requester)
           ? eq(Schema.organizationRoles.userId, scope.requester.userId)
-          : eq(Schema.organizationRoles.userId, scope.requester.apiKeyOwnerId)
+          : eq(Schema.organizationRoles.userId, scope.requester.accessTokenOwnerId)
       }
     }
     });
@@ -170,7 +170,7 @@ export async function getEnvironmentByPath(
       access: {
         where: isUserRequester(scope.requester)
           ? eq(Schema.environmentAccess.userId, scope.requester.userId)
-          : eq(Schema.environmentAccess.accessTokenId, scope.requester.apiKeyId)
+          : eq(Schema.environmentAccess.accessTokenId, scope.requester.accessTokenId)
       },
     }
   });
@@ -207,7 +207,7 @@ export async function getProjectEnvironments(
       access: {
         where: isUserRequester(scope.requester)
           ? eq(Schema.environmentAccess.userId, scope.requester.userId)
-          : eq(Schema.environmentAccess.accessTokenId, scope.requester.apiKeyId)
+          : eq(Schema.environmentAccess.accessTokenId, scope.requester.accessTokenId)
       },
     }
   });

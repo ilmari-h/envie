@@ -94,7 +94,7 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
   
   // For access tokens
   } else {
-    const accessTokenId = req.requester.apiKeyId;
+    const accessTokenId = req.requester.accessTokenId;
 
     // Check if the public key is already set
     const existingAccessToken = await db.query.accessTokens.findFirst({

@@ -48,7 +48,7 @@ export const getEnvironments = async ({ req, query: { path, version } }:
       const environmentAccess = await db.query.environmentAccess.findMany({
         where: isUserRequester(req.requester)
           ? eq(Schema.environmentAccess.userId, req.requester.userId)
-          : eq(Schema.environmentAccess.accessTokenId, req.requester.apiKeyId),
+          : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId),
         with: {
           environment: {
             with: {
@@ -267,14 +267,7 @@ export const updateEnvironmentContent = async ({
   params: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['params'];
   body: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['body']
 }) => {
-  if (!isUserRequester(req.requester)) {
-    return {
-      status: 403 as const,
-      body: { message: 'Environment update only via CLI' }
-    };
-  }
 
-  const requester = req.requester
   const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
     requester: req.requester,
     editEnvironment: true
@@ -292,7 +285,7 @@ export const updateEnvironmentContent = async ({
       .values({
         environmentId: environment.id,
         encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
-        savedBy: requester.userId
+        savedBy: isUserRequester(req.requester) ? req.requester.userId : req.requester.accessTokenOwnerId
       })
       .returning();
 
@@ -669,7 +662,7 @@ export const getDecryptionKeys = async ({
       eq(Schema.environmentAccess.environmentId, environment.id),
       isUserRequester(req.requester)
         ? eq(Schema.environmentAccess.userId, req.requester.userId)
-        : eq(Schema.environmentAccess.accessTokenId, req.requester.apiKeyId)
+        : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
     )
   });
 

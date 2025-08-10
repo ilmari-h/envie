@@ -7,7 +7,7 @@ declare namespace Express {
     userId: string;
     username: string;
   } | {
-    apiKeyId: string;
-    apiKeyOwnerId: string;
+    accessTokenId: string;
+    accessTokenOwnerId: string;
   }
 } 

@@ -97,8 +97,8 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
 
     if (accessToken) {
       req.requester = {
-        apiKeyId: accessToken.id,
-        apiKeyOwnerId: accessToken.createdBy
+        accessTokenId: accessToken.id,
+        accessTokenOwnerId: accessToken.createdBy
       };
       return next();
     }

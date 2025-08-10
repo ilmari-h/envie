@@ -39,11 +39,8 @@ Users can create access tokens to allow programmatic log-in from e.g. a VPS, Doc
 Access tokens inherit the user's organization role, but environment access must be explicitly granted.
 
 ##### TODO
-- `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
-- CLI auth with access token env variable
-- Make sure env access expiry works alright
-- Testing auth with access tokens
-
-#### Security TODOS:
-- Add signatures and validate them
-  - Both server and client check that the user who uploaded content also signed it
+- [x] Testing auth with access tokens
+- [ ] When ever user updates environment, make sure to sign the payload and on server validate that signed by the correct keypair!
+- [ ] `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
+- [ ] CLI auth with access token env variable
+- [ ] Make sure env access expiry works alright

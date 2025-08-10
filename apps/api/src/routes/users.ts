@@ -10,9 +10,25 @@ import { getUserByNameOrId } from "../queries/user";
 
 export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.getUser> }) => {
   if (!isUserRequester(req.requester)) {
+    const accessToken = await db.query.accessTokens.findFirst({
+      where: eq(Schema.accessTokens.id, req.requester.accessTokenId)
+    })
+    if(!accessToken) {
+      return {
+        status: 404 as const,
+        body: { message: 'API key not found' }
+      }
+    }
+
     return {
       status: 200 as const,
-      body: { message: 'API key auth' }
+      body: { 
+        id: accessToken.createdBy,
+        name: accessToken.name,
+        authMethod: 'token' as const,
+        publicKey: accessToken.publicKeyEd25519 ? Buffer.from(accessToken.publicKeyEd25519).toString('base64') : null,
+        pkeAlgorithm: accessToken.publicKeyEd25519 ? 'x25519' as const : null
+      }
     }
   }
 

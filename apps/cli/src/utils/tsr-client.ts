@@ -1,8 +1,10 @@
 import { initClient } from '@ts-rest/core';
 import { contract } from '@repo/rest';
 import { getToken } from './tokens.js';
+import { getInstanceUrl } from './config.js';
 
-export function createTsrClient(instanceUrl: string) {
+export function createTsrClient(instanceUrlProp?: string) {
+  const instanceUrl = instanceUrlProp ?? getInstanceUrl();
   const apiKey = process.env.ENVIE_ACCESS_TOKEN;
   const token = getToken(instanceUrl);
   if (!token && !apiKey) {

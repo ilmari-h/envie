@@ -2,17 +2,72 @@ import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '
 import { existsSync } from 'fs';
 import { RootCommand, BaseOptions } from './root';
 import { createTsrClient } from '../utils/tsr-client';
+import { ed25519PublicKeyToX25519, readEd25519KeyPair } from '../utils/keypair';
+import chalk from 'chalk';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
   .description('Manage CLI configuration');
 
 configCommand
-  .command('keypair <keypair-path>')
-  .description('Set your keypair path')
-  .action(function(keypairPath: string) {
+  .command('keypair [keypair-path]')
+  .description('Set your keypair path or show current public key')
+  .action(async function(keypairPath?: string) {
     const opts = this.opts<BaseOptions>();
-    
+
+    // No arg: show current public key (or error if none configured)
+    if (!keypairPath) {
+      const client = createTsrClient();
+      const currentPath = getKeypairPath();
+      if (!currentPath) {
+        console.error('No keypair set');
+        process.exit(1);
+      }
+      try {
+        if (opts.verbose) {
+          console.log('Reading keypair from: ' + currentPath);
+        }
+        const { publicKey } = readEd25519KeyPair(currentPath);
+        const x25519Base64 = ed25519PublicKeyToX25519(publicKey);
+
+
+        // Check user pubkey on server if logged in
+        try {
+          const meResponse = await client.user.getUser();
+
+          // Could be missing login, ignore
+          if (meResponse.status !== 200) {
+            process.exit(0);
+          }
+          if('publicKey' in meResponse.body) {
+            // Check if there is a mismatch and warn if so
+            if(meResponse.body.publicKey !== x25519Base64) {
+              console.warn(chalk.yellow('Warning: Different public key configured on the server!'));
+              console.warn(chalk.yellow('Set the client to use the correct keypair or you will not be able to update or view environments'));
+              console.warn(chalk.yellow('Public key on server: ' + meResponse.body.publicKey));
+            }
+          }
+        } catch (error) {
+          // Could be missing login, ignore
+          if (opts.verbose) {
+            console.error('Could not check public key on server:', error instanceof Error ? error.message : error);
+          }
+          process.exit(0);
+        }
+
+        if (opts.verbose) {
+          console.log('Current public key (x25519 base64):');
+        }
+        console.log(x25519Base64);
+        process.exit(0);
+      } catch (error) {
+        if (opts.verbose) {
+          console.error('Could not read keypair:', error instanceof Error ? error.message : error);
+        }
+        process.exit(1);
+      }
+    }
+
     if (opts.verbose) {
       console.log(`Setting keypair path to: ${keypairPath}`);
     }

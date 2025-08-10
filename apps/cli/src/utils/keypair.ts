@@ -29,7 +29,7 @@ export function readEd25519KeyPair(filePath: string): Ed25519KeyPair {
     throw new Error(`Failed to read keypair from ${filePath}: ${error instanceof Error ? error.message : error}`);
   }
 }
-function decodeEd25519Base64BlobOpenSshFormat(buffer: Uint8Array) {
+export function decodeEd25519Base64BlobOpenSshFormat(buffer: Uint8Array) {
   // Convert Uint8Array to Buffer for easier manipulation
   const buf = Buffer.from(buffer);
   let offset = 0;
@@ -59,7 +59,6 @@ function decodeEd25519Base64BlobOpenSshFormat(buffer: Uint8Array) {
 
   return {
     keyType,
-    pubKeyBase64: pubKey.toString('base64'),
     rawBytes: new Uint8Array(pubKey)
   };
 }
@@ -73,7 +72,8 @@ export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
   }
   // if more, assume OpenSSH format
   const decoded = decodeEd25519Base64BlobOpenSshFormat(ed25519PublicKey);
-  return decoded.pubKeyBase64;
+  const x25519key = edwardsToMontgomeryPub(Buffer.from(decoded.rawBytes));
+  return Buffer.from(x25519key).toString('base64');
 }
 
 

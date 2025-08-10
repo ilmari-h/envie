@@ -12,7 +12,7 @@ export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof cont
   // Get organizations where user/API key has access to
   const whereClause = isUserRequester(req.requester)
     ? eq(Schema.organizationRoles.userId, req.requester.userId)
-    : eq(Schema.organizationRoles.userId, req.requester.apiKeyOwnerId);
+    : eq(Schema.organizationRoles.userId, req.requester.accessTokenOwnerId);
 
   const orgs = await db.select({ 
     organizations: Schema.organizations,
