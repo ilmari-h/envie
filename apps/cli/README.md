@@ -40,6 +40,7 @@ Access tokens inherit the user's organization role, but environment access must 
 
 ##### TODO
 - [x] Testing auth with access tokens
+- [ ] Updating env access for access key with `--write` does not update the entry but creates a new one
 - [ ] When ever user updates environment, make sure to sign the payload and on server validate that signed by the correct keypair!
 - [ ] `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
 - [ ] CLI auth with access token env variable
