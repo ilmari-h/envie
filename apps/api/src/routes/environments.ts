@@ -394,11 +394,6 @@ export const setEnvironmentAccess = async ({
     };
   }
 
-
-  console.log("CONTENT", signature);
-  console.log("SIGNATURE", signature.signature);
-  console.log("PUBLIC KEY", req.requester.pubkey);
-
   // Verify the signature on ephemeralPublicKey + encryptedSymmetricKey
   const message = ephemeralPublicKey + encryptedSymmetricKey;
   const signatureVerification = verifySignature(message, signature, req.requester.pubkey);

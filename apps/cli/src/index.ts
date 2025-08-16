@@ -9,6 +9,7 @@ import { environmentCommand } from './commands/environment';
 import { loadCommand } from './commands/load';
 import { setCommand, unsetCommand } from './commands/set';
 import { accessTokenCommand } from './commands/access-tokens';
+import { resetKeypairCommand } from './commands/reset-keypair';
 
 async function main() {
   program
@@ -26,6 +27,7 @@ async function main() {
   program.addCommand(organizationCommand);
   program.addCommand(configCommand);
   program.addCommand(accessTokenCommand);
+  program.addCommand(resetKeypairCommand);
 
   // Parse command line arguments
   await program.parseAsync(process.argv);

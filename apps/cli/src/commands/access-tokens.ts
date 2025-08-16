@@ -109,7 +109,7 @@ accessTokenCommand
           name,
           publicKey: {
             valueBase64: ed25519PublicKeyToX25519(Buffer.from(publicKey, 'base64')),
-            algorithm: 'x25519'
+            algorithm: 'ed25519'
           },
           expiresAt: opts.expiresAt
         }

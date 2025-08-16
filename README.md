@@ -39,7 +39,6 @@ Envie uses public key encryption to ensure your environment variables stay priva
 - **Privacy by design** - Your secrets are encrypted before they leave your computer
 - **Selective sharing** - Only decrypt data for users you specifically authorize
 - **No server access** - Even if the server is compromised, your environment variables remain encrypted
-- **Forward secrecy** - Past communications stay secure even if keys are later compromised
 
 ### Prerequisites
 - Bun >= 1.2.11

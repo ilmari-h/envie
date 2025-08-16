@@ -13,7 +13,6 @@ export const invitedUserSchema = z.object({
   ephemeralPublicKey: z.string()
 });
 
-
 export const signatureSchema = z.object({
   signature: z.string(),
   algorithm: z.enum(['ecdsa', 'rsa'])
@@ -289,7 +288,7 @@ const environments = c.router({
         keys: z.array(z.string()),
         ciphertext: z.string(),
 
-        // Used to verify that user used the correct key to encrypt the content
+        // PKE protocol - we validate that the caller matches his public key on record
         // Message = ciphertext
         signature: signatureSchema
       }),
@@ -316,7 +315,7 @@ const environments = c.router({
         keys: z.array(z.string()),
         ciphertext: z.string(),
 
-        // Used to verify that user used the correct key to encrypt the content
+        // PKE protocol - we validate that the caller matches his public key on record
         // Message = ciphertext
         signature: signatureSchema
       }),
@@ -373,8 +372,7 @@ const environments = c.router({
       ephemeralPublicKey: z.string(),
       encryptedSymmetricKey: z.string(),
       
-
-      // Used to verify that user used the correct key to wrap the symmetric key
+      // PKE protocol - we validate that the caller matches his public key on record
       // Message = ephemeralPublicKey + encryptedSymmetricKey
       signature: signatureSchema
     }),

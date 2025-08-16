@@ -81,10 +81,19 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     const existingUser = await db.query.users.findFirst({
       where: eq(Schema.users.id, userId)
     });
-    if (existingUser?.publicKeyEd25519 && !allowOverride) {
-      return {
-        status: 400 as const,
-        body: { message: 'Public key already set' }
+    if (existingUser?.publicKeyEd25519) {
+      if (!allowOverride) {
+        return {
+          status: 400 as const,
+          body: { message: 'Public key already set' }
+        }
+      }
+      // Check if it's the same key
+      if (Buffer.compare(existingUser.publicKeyEd25519, pubKeyBytes) === 0) {
+        return {
+          status: 400 as const,
+          body: { message: 'Given public key is the same as the one on record' }
+        }
       }
     }
 
@@ -104,10 +113,19 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     const existingAccessToken = await db.query.accessTokens.findFirst({
       where: eq(Schema.accessTokens.id, accessTokenId)
     });
-    if (existingAccessToken?.publicKeyEd25519 && !allowOverride) {
-      return {
-        status: 400 as const,
-        body: { message: 'Public key already set' }
+    if (existingAccessToken?.publicKeyEd25519) {
+      if (!allowOverride) {
+        return {
+          status: 400 as const,
+          body: { message: 'Public key already set' }
+        }
+      }
+      // Check if it's the same key
+      if (Buffer.compare(existingAccessToken.publicKeyEd25519, pubKeyBytes) === 0) {
+        return {
+          status: 400 as const,
+          body: { message: 'Given public key is the same as the one on record' }
+        }
       }
     }
     // Set public key and delete all environment access entries
