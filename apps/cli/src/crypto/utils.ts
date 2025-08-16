@@ -120,12 +120,12 @@ export function wrapKeyX25519(aesKey: Uint8Array, recipientPublicKey: string): W
   };
 }
 
-export function unwrapKeyX25519(wrappedKeyData: WrappedKeyX25519, userPrivateKey: Uint8Array): Uint8Array {
+export function unwrapKeyX25519(wrappedKeyData: WrappedKeyX25519, userPrivateKeyEd25519: Uint8Array): Uint8Array {
   // Convert ephemeral public key from base64
   const ephemeralPublicKey = Buffer.from(wrappedKeyData.ephemeralPublicKey, 'base64');
   
   // Convert ed25519 private key to X25519
-  const x25519PrivateKey = edwardsToMontgomeryPriv(userPrivateKey);
+  const x25519PrivateKey = edwardsToMontgomeryPriv(userPrivateKeyEd25519);
   // Perform ECDH to get shared secret
   const sharedSecret = x25519.getSharedSecret(x25519PrivateKey, ephemeralPublicKey);
   // Derive the same KEK

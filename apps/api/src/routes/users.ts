@@ -5,7 +5,6 @@ import { Schema } from "@repo/db";
 import { db } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { isUserRequester } from "../types/cast";
-import { getUserByNameOrId } from "../queries/user";
 
 export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.getUser> }) => {
   if (!isUserRequester(req.requester)) {

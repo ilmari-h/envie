@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
-import { UserKeyPair, X25519PublicKey } from '../crypto';
+import { UserKeyPair, Ed25519PublicKey } from '../crypto';
 import { parseExpiryDate } from '../utils/time';
 import { EnvironmentPath } from './utils';
 
@@ -349,7 +349,7 @@ environmentCommand
         wrappedKey: accessKeys.body.x25519DecryptionData.wrappedDek,
         ephemeralPublicKey: accessKeys.body.x25519DecryptionData.ephemeralPublicKey
       });
-      const wrappedDek = dek.wrap(new X25519PublicKey(userPublicKey.body.x25519PublicKey));
+      const wrappedDek = dek.wrap(new Ed25519PublicKey(userPublicKey.body.ed25519PublicKey));
       const response = await client.environments.setEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() },
         body: {
