@@ -126,7 +126,7 @@ export const getEnvironments = async ({ req, query: { path, version } }:
 // Optionally adds given users to the environment with the environment AES key wrapped with each user's public key
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, encryptedContent, invitedUsers, userWrappedAesKey, userEphemeralPublicKey }
+  body: { name, project, content, userWrappedAesKey, userEphemeralPublicKey }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
@@ -178,40 +178,6 @@ export const createEnvironment = async ({
 
       if (!newEnvironment) return null;
 
-      // If users were invited, we create an environment access entry for each of them with the AES key for the
-      // environment wrapped with their public key
-      if (invitedUsers) {
-
-        const invitedUserIds = invitedUsers.map(u => u.userId);
-        const organizationUsers = await tx.select()
-          .from(Schema.organizationRoles)
-          .where(and(
-            eq(Schema.organizationRoles.organizationId, organization.id),
-            inArray(Schema.organizationRoles.userId, invitedUserIds )
-          )
-        );
-        if (organizationUsers.length !== invitedUserIds.length) {
-          throw new Error('One or more user ids do not belong to the organization');
-        }
-
-
-        // Create environment access for each user
-        await tx.insert(Schema.environmentAccess)
-          .values(organizationUsers.map(r => {
-            const user = invitedUsers.find(u => u.userId === r.userId);
-            if (!user) {
-              throw new Error('User not found in invited users');
-            }
-            return {
-            environmentId: newEnvironment.id,
-            userId: r.userId!,
-            organizationRoleId: r.id,
-            encryptedSymmetricKey: Buffer.from(user.wrappedAesKey, 'base64'),
-            ephemeralPublicKey: Buffer.from(user.ephemeralPublicKey, 'base64'),
-            expiresAt: null
-          }}));
-      }
-
       // Create environment access for the creator with the AES key for the environment wrapped with their public key
       await tx.insert(Schema.environmentAccess)
         .values({
@@ -228,14 +194,14 @@ export const createEnvironment = async ({
       const [firstVersion] = await tx.insert(Schema.environmentVersions)
         .values({
           environmentId: newEnvironment.id,
-          encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
+          encryptedContent: Buffer.from(content.ciphertext, 'base64'),
           savedBy: requester.userId
         }).returning();
 
       if (!firstVersion) return null;
-      if (encryptedContent.keys && encryptedContent.keys.length > 0) {
+      if (content.keys && content.keys.length > 0) {
         await tx.insert(Schema.environmentVersionKeys)
-          .values(encryptedContent.keys.map(key => ({
+          .values(content.keys.map(key => ({
             key,
             environmentVersionId: firstVersion.id,
           })));
@@ -261,7 +227,7 @@ export const createEnvironment = async ({
 export const updateEnvironmentContent = async ({
   req,
   params: { idOrPath },
-  body: { encryptedContent }
+  body: { content }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentContent>;
   params: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['params'];
@@ -284,7 +250,7 @@ export const updateEnvironmentContent = async ({
     const [updatedVersion] = await tx.insert(Schema.environmentVersions)
       .values({
         environmentId: environment.id,
-        encryptedContent: Buffer.from(encryptedContent.ciphertext, 'base64'),
+        encryptedContent: Buffer.from(content.ciphertext, 'base64'),
         savedBy: isUserRequester(req.requester) ? req.requester.userId : req.requester.accessTokenOwnerId
       })
       .returning();
@@ -292,9 +258,9 @@ export const updateEnvironmentContent = async ({
     if (!updatedVersion) return null;
 
     // Add entries to environmentVersionKeys for each key
-    if (encryptedContent.keys && encryptedContent.keys.length > 0) {
+    if (content.keys && content.keys.length > 0) {
       await tx.insert(Schema.environmentVersionKeys)
-        .values(encryptedContent.keys.map(key => ({
+        .values(content.keys.map(key => ({
           key,
           environmentVersionId: updatedVersion.id,
         })));

@@ -13,6 +13,12 @@ export const invitedUserSchema = z.object({
   ephemeralPublicKey: z.string()
 });
 
+
+export const signatureSchema = z.object({
+  signature: z.string(),
+  algorithm: z.enum(['ecdsa', 'rsa'])
+})
+
 // Zod schemas for DB types
 export const userSchema = z.object({
   id: z.string(),
@@ -279,11 +285,10 @@ const environments = c.router({
     body: z.object({
       name: nameSchema,
       project: z.string(),
-      encryptedContent: z.object({
+      content: z.object({
         keys: z.array(z.string()),
         ciphertext: z.string()
       }),
-      invitedUsers: z.array(invitedUserSchema).optional(),
       userWrappedAesKey: z.string(),
       userEphemeralPublicKey: z.string()
     }),
@@ -303,9 +308,13 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      encryptedContent: z.object({
+      content: z.object({
         keys: z.array(z.string()),
-        ciphertext: z.string()
+        ciphertext: z.string(),
+
+        // Used to verify that user used the correct key to encrypt the content
+        // Message = ciphertext
+        signature: signatureSchema
       }),
     }),
     responses: {
@@ -358,7 +367,12 @@ const environments = c.router({
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
       write: z.boolean().optional(),
       ephemeralPublicKey: z.string(),
-      encryptedSymmetricKey: z.string()
+      encryptedSymmetricKey: z.string(),
+      
+
+      // Used to verify that user used the correct key to wrap the symmetric key
+      // Message = ephemeralPublicKey + encryptedSymmetricKey
+      signature: signatureSchema
     }),
     responses: {
       200: z.object({ message: z.string() }),

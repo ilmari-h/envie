@@ -151,7 +151,7 @@ environmentCommand
           body: {
             name: environmentPath.environmentName,
             project: environmentPath.projectPath.toString(),
-            encryptedContent: {
+            content: {
               keys: encryptedEnvironment.keys,
               ciphertext: encryptedEnvironment.ciphertext
             },
@@ -272,7 +272,7 @@ environmentCommand
             idOrPath: environmentPath.toString()
           },
           body: {
-            encryptedContent: {
+            content: {
               keys: encryptedEnvironment.keys,
               ciphertext: encryptedEnvironment.ciphertext
             }
