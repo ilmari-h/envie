@@ -287,7 +287,11 @@ const environments = c.router({
       project: z.string(),
       content: z.object({
         keys: z.array(z.string()),
-        ciphertext: z.string()
+        ciphertext: z.string(),
+
+        // Used to verify that user used the correct key to encrypt the content
+        // Message = ciphertext
+        signature: signatureSchema
       }),
       userWrappedAesKey: z.string(),
       userEphemeralPublicKey: z.string()

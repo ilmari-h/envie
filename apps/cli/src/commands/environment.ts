@@ -132,8 +132,10 @@ environmentCommand
       }
       
       try {
+
+        // Create DEK wrapped with just the user's own public key
         const { encryptedEnvironment, wrappedKeys, dekBase64 } = userKeyPair.encryptWithKeyExchange(
-          [userKeyPair.publicKey], // TODO: add recipients
+          [userKeyPair.publicKey],
           parsedEnvFileContent
         );
 
@@ -153,7 +155,8 @@ environmentCommand
             project: environmentPath.projectPath.toString(),
             content: {
               keys: encryptedEnvironment.keys,
-              ciphertext: encryptedEnvironment.ciphertext
+              ciphertext: encryptedEnvironment.ciphertext,
+              signature: userKeyPair.sign(encryptedEnvironment.ciphertext)
             },
             userWrappedAesKey: wrappedKeys[0].wrappedKey,
             userEphemeralPublicKey: wrappedKeys[0].ephemeralPublicKey,

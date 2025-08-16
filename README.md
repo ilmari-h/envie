@@ -1,84 +1,133 @@
-# Turborepo starter
+# Envie
 
-This Turborepo starter is maintained by the Turborepo core team.
+A secure environment variable management system designed to replace `.env` files with a modern, encrypted solution.
 
-## Using this example
+## Overview
 
-Run the following command:
+Envie provides a complete platform for managing environment variables across teams and projects with:
 
-```sh
-npx create-turbo@latest
+- **Always encrypted** - Environment variables are encrypted before storage and never visible to the server
+- **Fine-grained access control** - Grant access to specific environments on a per-user basis
+- **Multi-tenant organizations** - Support for teams with role-based permissions
+- **Version history** - Track changes to environment configurations over time
+
+## Architecture
+
+This is a TypeScript monorepo built with Turborepo containing:
+
+### Applications
+- **API Server** (`apps/api/`) - Express.js REST API with JWT authentication
+- **CLI Tool** (`apps/cli/`) - Command-line interface for managing environments
+- **Web Interface** (`apps/web/`) - Web UI
+
+## Security Practices
+
+Envie uses public key encryption to ensure your environment variables stay private and secure:
+
+### How It Works
+- **Client-side encryption** - Your environment variables are encrypted on your device before being sent anywhere
+- **Public key encryption** - Uses modern cryptography so only people you give access to can decrypt your data
+- **Zero-knowledge server** - The server stores encrypted data but can never see your actual environment variables
+
+### Access Control
+- **Fine-grained permissions** - Grant access to individual environments, not just entire projects
+- **Role-based access** - Organization admins can manage who can create projects and environments
+- **Explicit access only** - Users must be explicitly granted access to each environment they need
+- **Time-limited tokens** - API tokens can expire automatically for enhanced security
+
+### Public Key Encryption
+- **Privacy by design** - Your secrets are encrypted before they leave your computer
+- **Selective sharing** - Only decrypt data for users you specifically authorize
+- **No server access** - Even if the server is compromised, your environment variables remain encrypted
+- **Forward secrecy** - Past communications stay secure even if keys are later compromised
+
+### Prerequisites
+- Bun >= 1.2.11
+- PostgreSQL database
+- Redis instance (for CLI authentication)
+- GitHub OAuth application
+
+### Setup
+```bash
+# Install dependencies
+bun install
+
+# Set up environment variables (see apps/*/README.md for specifics)
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+
+# Run database migrations
+cd packages/db && bun run db:migrate
+
+# Start all services in development
+bun dev
 ```
 
-## What's inside?
+### Available Commands
+```bash
+# Development
+bun dev                 # Start all apps in development mode
+bun build              # Build all apps and packages
+bun lint               # Run ESLint across all packages
+bun check-types        # Run TypeScript type checking
+bun format             # Format code with Prettier
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm build
+# Database operations
+cd packages/db && bun run db:generate  # Generate migrations
+cd packages/db && bun run db:migrate   # Run migrations
+cd packages/db && bun run db:push      # Push schema changes
 ```
 
-### Develop
+## Usage
 
-To develop all apps and packages, run the following command:
+### CLI Tool
+The CLI provides a complete interface for managing environments:
 
-```
-cd my-turborepo
-pnpm dev
-```
+```bash
+# Configuration
+envie config keypair ~/.ssh/id_ed25519    # Set your Ed25519 keypair
+envie config instance-url https://api.envie.dev
+envie login                                # Authenticate via browser
 
-### Remote Caching
+# Organization management
+envie organization list
+envie organization create "My Team"
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+# Project management
+envie project list --organization "My Team"
+envie project create "My Team:my-app"
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-npx turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-npx turbo link
+# Environment management
+envie environment create "My Team:my-app:production"
+envie set "My Team:my-app:production" DATABASE_URL=postgres://...
+envie load "My Team:my-app:production"    # Load environment variables
 ```
 
-## Useful Links
+### Web Interface
+Access the web dashboard at your configured frontend URL to:
+- Manage organizations and invite team members
+- Create and configure projects
+- Edit environment variables with a user-friendly interface
+- Review environment version history
+- Manage user access and permissions
 
-Learn more about the power of Turborepo:
+## Project Structure
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+```
+envie/
+├── apps/
+│   ├── api/           # REST API server
+│   ├── web/           # Next.js web interface
+│   ├── cli/           # Command-line tool
+│   └── codegen/       # API specification generation
+├── packages/
+│   ├── db/            # Database schema and migrations
+│   ├── rest/          # Type-safe API contracts
+│   ├── ui/            # Shared React components
+│   └── config/        # Shared configuration packages
+└── README.md          # This file
+```
+
+## License
+
+MIT License - see LICENSE file for details.

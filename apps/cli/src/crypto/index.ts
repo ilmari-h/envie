@@ -75,6 +75,9 @@ export class UserKeyPair {
     return new DataEncryptionKey(aesKey);
   }
 
+  
+  // NOTE: this operation doesn't really involve the user's Keypair
+  // Just a helper function, should probably be moved to DEK class
   public encryptWithKeyExchange(recipients: Ed25519PublicKey[], plaintext: string): {
     encryptedEnvironment: EncryptedContent;
     wrappedKeys: WrappedKeyX25519[];
