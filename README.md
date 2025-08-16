@@ -6,7 +6,7 @@ A secure environment variable management system designed to replace `.env` files
 
 Envie provides a complete platform for managing environment variables across teams and projects with:
 
-- **Always encrypted** - Environment variables are encrypted before storage and never visible to the server
+- **Always encrypted** - Environment variables are encrypted before transit and never visible to the server
 - **Fine-grained access control** - Grant access to specific environments on a per-user basis
 - **Multi-tenant organizations** - Support for teams with role-based permissions
 - **Version history** - Track changes to environment configurations over time
