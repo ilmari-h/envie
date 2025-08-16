@@ -274,7 +274,8 @@ environmentCommand
           body: {
             content: {
               keys: encryptedEnvironment.keys,
-              ciphertext: encryptedEnvironment.ciphertext
+              ciphertext: encryptedEnvironment.ciphertext,
+              signature: userKeyPair.sign(encryptedEnvironment.ciphertext)
             }
           }
         });
@@ -349,7 +350,6 @@ environmentCommand
         ephemeralPublicKey: accessKeys.body.x25519DecryptionData.ephemeralPublicKey
       });
       const wrappedDek = dek.wrap(new X25519PublicKey(userPublicKey.body.x25519PublicKey));
-
       const response = await client.environments.setEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() },
         body: {
@@ -357,7 +357,8 @@ environmentCommand
           write: opts.write,
           expiresAt: opts.expiry,
           ephemeralPublicKey: wrappedDek.ephemeralPublicKey,
-          encryptedSymmetricKey: wrappedDek.wrappedKey
+          encryptedSymmetricKey: wrappedDek.wrappedKey,
+          signature: userKeyPair.sign(wrappedDek.ephemeralPublicKey + wrappedDek.wrappedKey)
         }
       });
 
@@ -375,7 +376,7 @@ environmentCommand
   .command('remove-access')
   .description('Remove a user\'s access to an environment')
   .argument('<path>', 'Environment path')
-  .argument('<user>', 'User to remove access from')
+  .argument('<user-or-token>', 'User name, token name, or ID to remove access from')
   .action(async function(path: string, userIdOrName: string) {
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);

@@ -28,7 +28,7 @@ configCommand
           console.log('Reading keypair from: ' + currentPath);
         }
         const { publicKey } = readEd25519KeyPair(currentPath);
-        const x25519Base64 = ed25519PublicKeyToX25519(publicKey);
+        const publicKeyBase64 = Buffer.from(publicKey).toString('base64');
 
 
         // Check user pubkey on server if logged in
@@ -41,7 +41,7 @@ configCommand
           }
           if('publicKey' in meResponse.body) {
             // Check if there is a mismatch and warn if so
-            if(meResponse.body.publicKey !== x25519Base64) {
+            if(meResponse.body.publicKey !== publicKeyBase64) {
               console.warn(chalk.yellow('Warning: Different public key configured on the server!'));
               console.warn(chalk.yellow('Set the client to use the correct keypair or you will not be able to update or view environments'));
               console.warn(chalk.yellow('Public key on server: ' + meResponse.body.publicKey));
@@ -58,7 +58,7 @@ configCommand
         if (opts.verbose) {
           console.log('Current public key (x25519 base64):');
         }
-        console.log(x25519Base64);
+        console.log(publicKeyBase64);
         process.exit(0);
       } catch (error) {
         if (opts.verbose) {

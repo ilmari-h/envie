@@ -1,5 +1,5 @@
 import { TsRestRequest } from "@ts-rest/express";
-import { x25519 } from '@noble/curves/ed25519';
+import { ed25519 } from '@noble/curves/ed25519';
 
 import { contract } from "@repo/rest";
 import { Schema } from "@repo/db";
@@ -18,7 +18,7 @@ export const getPublicKey = async ({
   if (targetUser?.publicKeyEd25519) {
     return {
       status: 200 as const,
-      body: { x25519PublicKey: Buffer.from(targetUser.publicKeyEd25519).toString('base64') }
+      body: { ed25519PublicKey: Buffer.from(targetUser.publicKeyEd25519).toString('base64') }
     };
   }
 
@@ -27,7 +27,7 @@ export const getPublicKey = async ({
   if (targetToken?.publicKeyEd25519) {
     return {
       status: 200 as const,
-      body: { x25519PublicKey: Buffer.from(targetToken.publicKeyEd25519).toString('base64') }
+      body: { ed25519PublicKey: Buffer.from(targetToken.publicKeyEd25519).toString('base64') }
     };
   }
 
@@ -40,10 +40,10 @@ export const getPublicKey = async ({
 export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract.publicKeys.setPublicKey> }) => {
   const { publicKey: { valueBase64: publicKey, algorithm }, allowOverride } = req.body;
 
-  if(algorithm !== 'x25519') {
+  if(algorithm !== 'ed25519') {
     return {
       status: 400 as const,
-      body: { message: 'Only x25519 keys are supported' }
+      body: { message: 'Only ed25519 keys are supported' }
     }
   }
 
@@ -60,12 +60,16 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     if (pubKeyBytes.length !== 32) {
       throw new Error('Invalid key length');
     }
-    // Validate key by attempting point decompression
-    x25519.getSharedSecret(new Uint8Array(32), new Uint8Array(pubKeyBytes));
+    // Validate by ensuring it's a valid curve point
+    const testPoint = ed25519.Point.fromHex(pubKeyBytes);
+    // Additional check: ensure it's not the identity/zero point
+    if (testPoint.equals(ed25519.Point.ZERO)) {
+      throw new Error('Invalid key: zero point');
+    }
   } catch (e) {
     return {
       status: 400 as const,
-      body: { message: 'Invalid x25519 public key format' }
+      body: { message: 'Invalid ed25519 public key format' }
     }
   }
 

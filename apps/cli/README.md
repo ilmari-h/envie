@@ -42,5 +42,6 @@ Access tokens inherit the user's organization role, but environment access must 
 - [x] Testing auth with access tokens
 - [x] Updating env access for access key with `--write` does not update the entry but creates a new one
 - [ ] When ever user updates environment, make sure to sign the payload and on server validate that signed by the correct keypair!
+  - [ ] Rewrite pubkey logic - store Ed22519 keys on server instead of X22519
 - [ ] `envie shell <environment-path>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
 - [ ] Make sure env access expiry works alright

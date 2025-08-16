@@ -60,7 +60,7 @@ export const loginCommand = new RootCommand().createCommand('login')
         console.log('Checking user profile...');
       }
       const client = createTsrClient(instanceUrl);
-      const userPublicKey = (await UserKeyPair.getInstance()).publicKey.content;
+      const userPublicKey = (await UserKeyPair.getInstance()).publicKey
       
       try {
         const userResult = await client.user.getUser();
@@ -78,7 +78,7 @@ export const loginCommand = new RootCommand().createCommand('login')
 
           // Set public key on server
           const setKeyResult = await client.publicKeys.setPublicKey({
-            body: { publicKey: { valueBase64: userPublicKey, algorithm: 'x25519' } }
+            body: { publicKey: { valueBase64: userPublicKey.toBase64(), algorithm: 'ed25519' } }
           });
           
           if (setKeyResult.status !== 200) {
@@ -88,7 +88,7 @@ export const loginCommand = new RootCommand().createCommand('login')
           if (opts.verbose) {
             console.log('Public key configured successfully!');
           }
-        } else if (user.publicKey !== userPublicKey) {
+        } else if (user.publicKey !== userPublicKey.toBase64()) {
           console.warn(chalk.yellow('Your local public key does not match the one on the server'))
         }
         if (opts.verbose) {

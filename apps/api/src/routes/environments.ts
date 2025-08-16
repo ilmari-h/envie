@@ -7,6 +7,41 @@ import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, ge
 import { isUserRequester } from '../types/cast';
 import { getEnvironmentVersionByIndex } from '../queries/environment-version';
 import { getUserByNameOrId } from '../queries/user';
+import { ed25519 } from '@noble/curves/ed25519';
+
+// Helper function to verify Ed25519 signatures
+function verifySignature(message: string, signature: { signature: string; algorithm: 'ecdsa' | 'rsa' }, publicKey: Buffer): { valid: boolean; error?: string } {
+  // Check algorithm support
+  if (signature.algorithm !== 'ecdsa') {
+    return { valid: false, error: 'Only ECDSA algorithm is supported' };
+  }
+
+  try {
+    const messageBytes = Buffer.from(message, 'utf-8');
+    const signatureBytes = Buffer.from(signature.signature, 'base64');
+    
+    // The public key from the database might be in SSH format, we need the raw 32-byte key
+    let ed25519PublicKey: Uint8Array;
+    
+    if (publicKey.length === 32) {
+      // Raw 32-byte Ed25519 public key
+      ed25519PublicKey = new Uint8Array(publicKey);
+    } else if (publicKey.length > 32) {
+      // Likely SSH format, extract the raw key (skip the SSH header)
+      // For ssh-ed25519, the format is: 4-byte length + "ssh-ed25519" + 4-byte length + 32-byte key
+      const keyTypeLen = publicKey.readUInt32BE(0);
+      const keyStart = 4 + keyTypeLen + 4; // Skip type length + type + key length
+      ed25519PublicKey = new Uint8Array(publicKey.slice(keyStart, keyStart + 32));
+    } else {
+      return { valid: false, error: 'Invalid public key format' };
+    }
+
+    const isValid = ed25519.verify(signatureBytes, messageBytes, ed25519PublicKey);
+    return { valid: isValid };
+  } catch (error) {
+    return { valid: false, error: `Signature verification failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+}
 
 export const getEnvironments = async ({ req, query: { path, version } }:
   {
@@ -234,6 +269,23 @@ export const updateEnvironmentContent = async ({
   body: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['body']
 }) => {
 
+  // Check if requester has a public key for signature verification
+  if (!req.requester.pubkey) {
+    return {
+      status: 400 as const,
+      body: { message: 'User public key is not available for verification' }
+    };
+  }
+
+  // Verify the signature on the ciphertext
+  const signatureVerification = verifySignature(content.ciphertext, content.signature, req.requester.pubkey);
+  if (!signatureVerification.valid) {
+    return {
+      status: 400 as const,
+      body: { message: signatureVerification.error || 'Invalid signature' }
+    };
+  }
+
   const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
     requester: req.requester,
     editEnvironment: true
@@ -321,7 +373,7 @@ export const updateEnvironmentSettings = async ({
 export const setEnvironmentAccess = async ({
   req,
   params: { idOrPath },
-  body: { userIdOrName, expiresAt, write, ephemeralPublicKey, encryptedSymmetricKey }
+  body: { userIdOrName, expiresAt, write, ephemeralPublicKey, encryptedSymmetricKey, signature }
 }: {
   req: TsRestRequest<typeof contract.environments.setEnvironmentAccess>;
   params: TsRestRequest<typeof contract.environments.setEnvironmentAccess>['params'];
@@ -331,6 +383,29 @@ export const setEnvironmentAccess = async ({
     return {
       status: 403 as const,
       body: { message: 'Environment access management not allowed' }
+    };
+  }
+
+  // Check if requester has a public key for signature verification
+  if (!req.requester.pubkey) {
+    return {
+      status: 400 as const,
+      body: { message: 'User public key is not available for verification' }
+    };
+  }
+
+
+  console.log("CONTENT", signature);
+  console.log("SIGNATURE", signature.signature);
+  console.log("PUBLIC KEY", req.requester.pubkey);
+
+  // Verify the signature on ephemeralPublicKey + encryptedSymmetricKey
+  const message = ephemeralPublicKey + encryptedSymmetricKey;
+  const signatureVerification = verifySignature(message, signature, req.requester.pubkey);
+  if (!signatureVerification.valid) {
+    return {
+      status: 400 as const,
+      body: { message: signatureVerification.error || 'Invalid signature' }
     };
   }
 
@@ -570,21 +645,31 @@ export const deleteEnvironmentAccess = async ({
 
   const targetUser = await getUserByNameOrId(userIdOrName);
   if (!targetUser) {
-    return {
-      status: 404 as const,
-      body: { message: 'User not found' }
-    };
-  }
 
-  // Find the target user's organization role to verify they exist in org
-  const targetUserRole = await db.query.organizationRoles.findFirst({
-    where: eq(Schema.organizationRoles.userId, targetUser.id)
-  });
+    // Check if it's an access token
+    const targetToken = await db.query.accessTokens.findFirst({
+      where: and(
+        eq(Schema.accessTokens.name, userIdOrName),
+        eq(Schema.accessTokens.createdBy, req.requester.userId)
+      )
+    });
 
-  if (!targetUserRole) {
+    if (!targetToken) {
+      return {
+        status: 404 as const,
+        body: { message: 'No user or access token found' }
+      };
+    }
+
+    await db.delete(Schema.environmentAccess)
+      .where(and(
+        eq(Schema.environmentAccess.environmentId, environment.id),
+        eq(Schema.environmentAccess.accessTokenId, targetToken.id)
+      ));
+
     return {
-      status: 404 as const,
-      body: { message: 'User not found in organization' }
+      status: 200 as const,
+      body: { message: 'Environment access removed successfully' }
     };
   }
 

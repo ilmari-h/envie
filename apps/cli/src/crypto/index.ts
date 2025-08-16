@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { decryptContent, encryptContent, EncryptedContent, encryptWithKeyExchangeX25519, unwrapKeyX25519, wrapKeyX25519, WrappedKeyX25519 } from "./utils";
 import { Ed25519KeyPair, ed25519PublicKeyToX25519, getUserPrivateKey } from "../utils/keypair";
+import { ed25519 } from "@noble/curves/ed25519";
 
 export class DataEncryptionKey {
   private key: Uint8Array<ArrayBufferLike>;
@@ -19,8 +20,8 @@ export class DataEncryptionKey {
     return decryptContent(ciphertext, this.key);
   }
 
-  public wrap(publicKey: X25519PublicKey): WrappedKeyX25519 {
-    return wrapKeyX25519(this.key, publicKey.content);
+  public wrap(publicKey: Ed25519PublicKey): WrappedKeyX25519 {
+    return wrapKeyX25519(this.key, publicKey.toX25519());
   }
 
   public encryptContent(plaintext: string): EncryptedContent {
@@ -28,22 +29,34 @@ export class DataEncryptionKey {
   }
 }
 
-export class X25519PublicKey {
-  content: string;
+export class Ed25519PublicKey {
+  private content: Uint8Array<ArrayBufferLike>;
 
-  constructor(content: string) {
-    this.content = content;
+  constructor(pubkey: Uint8Array<ArrayBufferLike> | string) {
+    if (typeof pubkey === 'string') {
+      this.content = Buffer.from(pubkey, 'base64');
+    } else {
+      this.content = pubkey;
+    }
+  }
+
+  public toX25519(): string {
+    return ed25519PublicKeyToX25519(this.content);
+  }
+  
+  public toBase64(): string {
+    return Buffer.from(this.content).toString('base64');
   }
 }
 
 export class UserKeyPair {
   static #instance: UserKeyPair;
   private keyPair: Ed25519KeyPair;
-  publicKey: X25519PublicKey;
+  publicKey: Ed25519PublicKey;
 
   private constructor(keyPair: Ed25519KeyPair) {
     this.keyPair = keyPair;
-    this.publicKey = new X25519PublicKey(ed25519PublicKeyToX25519(keyPair.publicKey));
+    this.publicKey = new Ed25519PublicKey(keyPair.publicKey);
   }
 
   public static async getInstance(): Promise<UserKeyPair> {
@@ -62,20 +75,29 @@ export class UserKeyPair {
     return new DataEncryptionKey(aesKey);
   }
 
-  public encryptWithKeyExchange(recipients: X25519PublicKey[], plaintext: string): {
+  public encryptWithKeyExchange(recipients: Ed25519PublicKey[], plaintext: string): {
     encryptedEnvironment: EncryptedContent;
     wrappedKeys: WrappedKeyX25519[];
     dekBase64: string
   } {
     const { encryptedContent, wrappedKeys, dek } = encryptWithKeyExchangeX25519(
       plaintext,
-      recipients.map(recipient => recipient.content)
+      recipients.map(recipient => recipient.toX25519())
     );
 
     return {
       encryptedEnvironment: encryptedContent,
       wrappedKeys,
       dekBase64: dek
+    };
+  }
+
+  public sign(message: string): { signature: string; algorithm: 'ecdsa' } {
+    const messageBytes = Buffer.from(message, 'utf-8');
+    const signatureBytes = ed25519.sign(messageBytes, this.keyPair.privateKey);
+    return {
+      signature: Buffer.from(signatureBytes).toString('base64'),
+      algorithm: 'ecdsa' as const
     };
   }
 

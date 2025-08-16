@@ -3,11 +3,13 @@ declare namespace Express {
     requester: Requester;
   }
 
-  type Requester = {
+  type Requester = ({
     userId: string;
     username: string;
   } | {
     accessTokenId: string;
     accessTokenOwnerId: string;
+  }) & {
+    pubkey: Buffer<ArrayBufferLike> | null;
   }
 } 

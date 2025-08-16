@@ -1,5 +1,4 @@
 import { TsRestRequest } from "@ts-rest/express";
-import { x25519 } from '@noble/curves/ed25519';
 
 import { contract } from "@repo/rest";
 import { Schema } from "@repo/db";
@@ -27,7 +26,7 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
         name: accessToken.name,
         authMethod: 'token' as const,
         publicKey: accessToken.publicKeyEd25519 ? Buffer.from(accessToken.publicKeyEd25519).toString('base64') : null,
-        pkeAlgorithm: accessToken.publicKeyEd25519 ? 'x25519' as const : null
+        pkeAlgorithm: accessToken.publicKeyEd25519 ? 'ed25519' as const : null
       }
     }
   }
@@ -49,7 +48,7 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
       name: user.name,
       authMethod: req.requester.userId.startsWith('github:') ? 'github' : 'email' as "github" | "email",
       publicKey: user.publicKeyEd25519 ? Buffer.from(user.publicKeyEd25519).toString('base64') : null,
-      pkeAlgorithm: user.publicKeyEd25519 ? 'x25519' as const : null
+      pkeAlgorithm: user.publicKeyEd25519 ? 'ed25519' as const : null
     }
   }
 }

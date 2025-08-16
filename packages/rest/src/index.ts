@@ -113,7 +113,7 @@ const publicKeys = c.router({
       userOrTokenNameOrId: z.string()
     }),
     responses: {
-      200: z.object({ x25519PublicKey: z.string() }),
+      200: z.object({ ed25519PublicKey: z.string() }),
       404: c.type<{ message: string }>(),
     }
   },
@@ -124,7 +124,7 @@ const publicKeys = c.router({
     body: z.object({
       publicKey: z.object({
         valueBase64: z.string(),
-        algorithm: z.enum(['x25519', 'rsa'])
+        algorithm: z.enum(['ed25519', 'rsa'])
       }),
       allowOverride: z.boolean().optional().default(false)
     }),
@@ -147,7 +147,7 @@ const user = c.router({
         name: z.string(),
         authMethod: z.enum(['github', 'email', 'token']),
         publicKey: z.string().nullable(),
-        pkeAlgorithm: z.enum(['x25519', 'rsa']).nullable()
+        pkeAlgorithm: z.enum(['ed25519', 'rsa']).nullable()
       }),
       401: c.type<{ message: string }>(),
       404: c.type<{ message: string }>()
@@ -619,7 +619,7 @@ export const accessTokens = c.router({
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
       publicKey: z.object({
         valueBase64: z.string(),
-        algorithm: z.enum(['x25519', 'rsa'])
+        algorithm: z.enum(['ed25519', 'rsa'])
       }),
     }),
     responses: {

@@ -72,9 +72,16 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
     const decoded = jwt.verify(
       loginToken,
       env.JWT_SECRET as string) as unknown as { userId: string; username: string };
+    const user = await db.query.users.findFirst({
+      where: eq(Schema.users.id, decoded.userId)
+    });
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
     req.requester = {
         userId: decoded.userId,
-        username: decoded.username
+        username: decoded.username,
+        pubkey: user.publicKeyEd25519  ?? null
       };
     } catch (e) {
       return res.status(401).json({ message: 'Unauthorized or login expired' });
@@ -98,7 +105,8 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
     if (accessToken) {
       req.requester = {
         accessTokenId: accessToken.id,
-        accessTokenOwnerId: accessToken.createdBy
+        accessTokenOwnerId: accessToken.createdBy,
+        pubkey: accessToken.publicKeyEd25519 ?? null
       };
       return next();
     }
@@ -325,7 +333,8 @@ app.get('/auth/github/callback',
     const token = jwt.sign(
       { 
         userId: (req.user as { id: string }).id, 
-        username: (req.user as { username: string }).username 
+        username: (req.user as { username: string }).username ,
+        pubkey: null
       } satisfies Express.Requester, 
       env.JWT_SECRET, 
       { expiresIn: '30d' }
