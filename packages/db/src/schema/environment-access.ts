@@ -3,7 +3,7 @@ import { users } from './users';
 import { environments } from './environments';
 import { bytea, timestamps } from './utils';
 import { organizationRoles } from './organization-roles';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { accessTokens } from './access-tokens';
 
 export const algorithmEnum = pgEnum('algorithm', ['X25519', 'rsa']);
@@ -25,7 +25,8 @@ export const environmentAccess = pgTable('environment_access', {
   expiresAt: timestamp('expires_at'),
   ...timestamps
 }, (table) => [
-  uniqueIndex('unique_environment_access_user_token').on(table.environmentId, table.userId, table.accessTokenId)
+  uniqueIndex('unique_environment_access_user').on(table.environmentId, table.userId),
+  uniqueIndex('unique_environment_access_token').on(table.environmentId, table.accessTokenId)
 ]);
 
 export const environmentAccessRelations = relations(environmentAccess, ({ one }) => ({

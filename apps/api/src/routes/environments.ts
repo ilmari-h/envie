@@ -1,5 +1,5 @@
 import { db, Environment, EnvironmentAccess, Schema } from '@repo/db';
-import { eq, and, count, desc, inArray } from 'drizzle-orm';
+import { eq, and, count, desc, inArray, sql } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithVersion } from '@repo/rest';
@@ -403,6 +403,7 @@ export const setEnvironmentAccess = async ({
     await db.insert(Schema.environmentAccess).values({
       environmentId: environment.id,
       accessTokenId: targetToken.id,
+      userId: null,
 
       // Access key organization role inherits the owner user's role so we use it here
       organizationRoleId: organization.role.id,
@@ -412,9 +413,12 @@ export const setEnvironmentAccess = async ({
       encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
       ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
     }).onConflictDoUpdate({
-      target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId, Schema.environmentAccess.accessTokenId],
+      target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.accessTokenId],
       set: {
-        write: write ?? false,
+        write: write,
+        encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
+        ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64'),
+        ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
       }
     });
     return {
@@ -438,16 +442,19 @@ export const setEnvironmentAccess = async ({
   // Create new access entry
   await db.insert(Schema.environmentAccess).values({
     environmentId: environment.id,
-    userId: userIdOrName,
+    userId: targetUser.id,
     organizationRoleId: targetUserRole.id,
     write: write ?? false,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
     encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
     ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
   }).onConflictDoUpdate({
-    target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId, Schema.environmentAccess.accessTokenId],
+    target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId],
     set: {
       write: write ?? false,
+      encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
+      ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64'),
+      ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
     }
   });
 

@@ -299,7 +299,13 @@ environmentCommand
   .description('Grant or update access to an environment for a user')
   .argument('<path>', 'Environment path')
   .argument('<user-or-token>', 'User name, token name, or ID to grant access to')
-  .option('--write', 'Grant write access (default: false)')
+  .option('--write [true|false]', 'Grant write access (default: false)', (value) => {
+    if (value && value === 'false') {
+      return false;
+    } else {
+      return true;
+    }
+  })
   .option('--expiry <date>', 'Access expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
   .action(async function(path: string, userIdOrName: string) {
     const opts = this.opts<EnvironmentOptions & { write?: boolean, expiry?: string }>();
@@ -348,7 +354,7 @@ environmentCommand
         params: { idOrPath: environmentPath.toString() },
         body: {
           userIdOrName,
-          write: opts.write ?? false,
+          write: opts.write,
           expiresAt: opts.expiry,
           ephemeralPublicKey: wrappedDek.ephemeralPublicKey,
           encryptedSymmetricKey: wrappedDek.wrappedKey
