@@ -175,6 +175,10 @@ export async function getEnvironmentByPath(
     }
   });
 
+  if(!environment) {
+    throw new Error('Environment not found');
+  }
+
   const userAccess = environment?.access.find(access => {
     if(scope?.editEnvironment && !access.write) {
       return false;

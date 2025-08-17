@@ -1,17 +1,29 @@
+import { getWorkspaceProjectPath } from "../utils/config";
+
 export class EnvironmentPath {
   organizationName: string;
   projectName: string;
   environmentName: string;
 
   constructor(path: string) {
-    const parts = path.split(':');
-    if (parts.length !== 3) {
-      throw new Error('Environment path must be in format "organization-name:project-name:env-name"');
+    const workspaceProjectPath = getWorkspaceProjectPath();
+    let pathParts = path.split(':');
+    
+    // User has provided just the environment name, so we get rest of the path from the workspace config
+    if (workspaceProjectPath && pathParts.length === 1) {
+      pathParts = workspaceProjectPath.split(':').concat(pathParts);
     }
-    const [organizationName, projectName, environmentName] = parts;
+
+    // Validate path parts
+    if (pathParts.length !== 3) {
+      throw new Error('Invalid environment path, expected format "organization-name:project-name:env-name"');
+    }
+
+    const [organizationName, projectName, environmentName] = pathParts;
     if (!organizationName.trim() || !projectName.trim() || !environmentName.trim()) {
       throw new Error('All parts (organization, project, environment) must be non-empty');
     }
+
     this.organizationName = organizationName;
     this.projectName = projectName;
     this.environmentName = environmentName;

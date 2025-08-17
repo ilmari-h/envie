@@ -17,7 +17,7 @@ Say bye to .env files.
 #### Global flags:
 
 - `--verbose` - Verbose output
-
+G
 #### Commands
 - `envie config keypair <keypair-path>` - Set your keypair path
 - `envie config instance-url <instance-url>` - Set your instance url
@@ -45,4 +45,5 @@ Access tokens inherit the user's organization role, but environment access must 
   - [x] Rewrite pubkey logic - store Ed22519 keys on server instead of X22519
 - [ ] `envie shell <environment-path> <command>` - Start a new shell with the given environment. This is the recommended way to inject your environment into a program runtime.
 - [ ] Make sure env access expiry works alright for also user's not just access tokens
-- [ ] Workspace specific files to specify environment and instance (envierc.json)
+- [x] Workspace specific files to specify environment and instance (envierc.json)
+  - Allows environment commands without specifying the full path

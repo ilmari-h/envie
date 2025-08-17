@@ -3,6 +3,7 @@ import { getInstanceUrl } from '../utils/config';
 import { getUserPrivateKey } from '../utils/keypair';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair } from '../crypto';
+import { EnvironmentPath } from './utils';
 
 type SetOptions = BaseOptions & {
   instanceUrl?: string;
@@ -14,9 +15,10 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
   .argument('<key-value>', 'Key-value pair in format "key=value" or as separate arguments')
   .argument('[value]', 'Value if provided separately from key')
-  .action(async function(environmentPath: string, keyValue: string, separateValue?: string) {
+  .action(async function(path: string, keyValue: string, separateValue?: string) {
     const opts = this.opts<SetOptions>();
     const instanceUrl = getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
     const client = createTsrClient(instanceUrl);
     
     try {
@@ -41,7 +43,7 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
 
       // First get the environment to get the decryption data
       const envResponse = await client.environments.getEnvironments({
-        query: { path: environmentPath }
+        query: { path: environmentPath.toString() }
       });
 
       if (envResponse.status !== 200 || envResponse.body.length === 0) {
@@ -56,12 +58,8 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
       }
 
       // Get user's private key for decryption
-      const userKeyPair = await getUserPrivateKey();
-      if (!userKeyPair) {
-        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
-        process.exit(1);
-      }
-      const userPrivateKey = userKeyPair.privateKey;
+      const userKeyPair = await UserKeyPair.getInstance();
+
 
       try {
         // Unwrap the environment's encryption key
@@ -78,6 +76,7 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
         }
 
         // Parse current content into lines
+        // TODO: make this more robust
         const lines = currentContent.split('\n').filter(line => line.trim());
         const existingKeyIndex = lines.findIndex(line => line.startsWith(`${key}=`));
 
@@ -97,18 +96,19 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
         // Update environment content
         const response = await client.environments.updateEnvironmentContent({
           params: {
-            idOrPath: environmentPath
+            idOrPath: environmentPath.toString()
           },
           body: {
-            encryptedContent: {
+            content: {
               keys: encryptedContent.keys,
-              ciphertext: encryptedContent.ciphertext
+              ciphertext: encryptedContent.ciphertext,
+              signature: userKeyPair.sign(encryptedContent.ciphertext)
             }
           }
         });
 
         if (response.status !== 200) {
-          console.error(`Failed to update environment: ${response.status}`);
+          console.error(`Failed to update environment: ${response.status}`, (response.body as { message: string }).message);
           process.exit(1);
         }
       } catch (error) {
@@ -126,9 +126,10 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
   .description('Unset an environment variable')
   .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
   .argument('<key>', 'Key to unset')
-  .action(async function(environmentPath: string, key: string) {
+  .action(async function(path: string, key: string) {
     const opts = this.opts<SetOptions>();
     const instanceUrl = getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
     const client = createTsrClient(instanceUrl);
     
     try {
@@ -139,7 +140,7 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
 
       // First get the environment to get the decryption data
       const envResponse = await client.environments.getEnvironments({
-        query: { path: environmentPath }
+        query: { path: environmentPath.toString() }
       });
 
       if (envResponse.status !== 200 || envResponse.body.length === 0) {
@@ -154,12 +155,7 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
       }
 
       // Get user's private key for decryption
-      const userKeyPair = await getUserPrivateKey();
-      if (!userKeyPair) {
-        console.error('Error: No keypair found. Please run "envie config keypair <path>" first.');
-        process.exit(1);
-      }
-      const userPrivateKey = userKeyPair.privateKey;
+      const userKeyPair = await UserKeyPair.getInstance();
 
       try {
         // Unwrap the environment's encryption key
@@ -176,6 +172,7 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
         }
 
         // Parse current content into lines and remove the key
+        // TODO: make this more robust
         const lines = currentContent.split('\n')
           .filter(line => line.trim() && !line.startsWith(`${key}=`));
 
@@ -189,18 +186,19 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
         // Update environment content
         const response = await client.environments.updateEnvironmentContent({
           params: {
-            idOrPath: environmentPath
+            idOrPath: environmentPath.toString()
           },
           body: {
-            encryptedContent: {
+            content: {
               keys: encryptedContent.keys,
-              ciphertext: encryptedContent.ciphertext
+              ciphertext: encryptedContent.ciphertext,
+              signature: userKeyPair.sign(encryptedContent.ciphertext)
             }
           }
         });
 
         if (response.status !== 200) {
-          console.error(`Failed to update environment: ${response.status}`);
+          console.error(`Failed to update environment: ${response.status}`, (response.body as { message: string }).message);
           process.exit(1);
         }
       } catch (error) {

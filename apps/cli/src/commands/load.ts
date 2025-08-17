@@ -14,7 +14,7 @@ type LoadOptions = BaseOptions & {
 const rootCmd = new RootCommand();
 export const loadCommand = rootCmd.createCommand<LoadOptions>('load')
   .description('Load an environment')
-  .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
+  .argument('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json)')
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-d, --decrypt', 'Decrypt and show the environment variables')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
