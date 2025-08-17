@@ -8,7 +8,6 @@ import { parseEnv } from 'node:util';
 
 type ShellOptions = BaseOptions & {
   ver?: string;
-  backupKey?: string;
 };
 
 const rootCmd = new RootCommand();
@@ -17,7 +16,6 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
   .argument('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json)')
   .argument('[command...]', 'Command to run (use -- to separate command arguments)')
   .option('-V, --version <version>', 'Version of the environment to load')
-  .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .allowUnknownOption()
   .action(async function(path: string, commandArgs: string[]) {
     const opts = this.opts<ShellOptions>();
@@ -53,9 +51,7 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
 
       // Decrypt environment variables
       try {
-        const dek = opts.backupKey
-        ? await DataEncryptionKey.readFromFile(opts.backupKey)
-        : (await UserKeyPair.getInstance()).unwrapKey({
+        const dek = (await UserKeyPair.getInstance()).unwrapKey({
             wrappedKey: environment.decryptionData.wrappedEncryptionKey,
             ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
           });
