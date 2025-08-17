@@ -8,6 +8,7 @@ import { projectCommand } from './commands/project';
 import { environmentCommand } from './commands/environment';
 import { loadCommand } from './commands/load';
 import { setCommand, unsetCommand } from './commands/set';
+import { execCommand } from './commands/exec';
 import { accessTokenCommand } from './commands/access-tokens';
 import { resetKeypairCommand } from './commands/reset-keypair';
 
@@ -19,6 +20,7 @@ async function main() {
 
   // Add commands
   program.addCommand(loginCommand);
+  program.addCommand(execCommand);
   program.addCommand(loadCommand);
   program.addCommand(setCommand);
   program.addCommand(unsetCommand);

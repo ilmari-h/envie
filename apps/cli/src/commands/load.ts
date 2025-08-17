@@ -1,6 +1,5 @@
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
-import { getUserPrivateKey } from '../utils/keypair';
 import { RootCommand, BaseOptions } from './root';
 import { DataEncryptionKey, UserKeyPair } from '../crypto';
 import { EnvironmentPath } from './utils';

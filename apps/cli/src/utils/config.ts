@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+const DEFAULT_INSTANCE_URL = 'https://api.envie.cloud';
+
 class ZodConf<T> {
   private schema: z.ZodSchema<T>;
   private filename: string;
@@ -74,7 +76,11 @@ const WorkspaceConfigSchema = z.object({
 const EnvieConfigSchema = z.object({
   keypairPath: z.string().optional(),
   instanceUrl: z.string().optional(),
-  allowedInstances: z.array(z.string()).optional(),
+  allowedInstances: z.array(z.object({
+    url: z.string(),
+    useDefaultKeypair: z.boolean().optional(),
+    keypairPath: z.string().optional()
+  })).optional(),
 });
 
 type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
@@ -153,18 +159,51 @@ const workspaceConfig = new ZodConf<WorkspaceConfig>(
 );
 
 export function getKeypairPath(): string | null {
-  return process.env.ENVIE_KEYPAIR_PATH ?? config.get('keypairPath') ?? null;
+  if (process.env.ENVIE_KEYPAIR_PATH) {
+    return process.env.ENVIE_KEYPAIR_PATH;
+  }
+  const configKeypairPath = config.get('keypairPath') ?? null;
+  const instance = getInstanceUrl();
+
+  // Check what keypair to use for the instance if it's not the default instance
+  if (instance !== config.get('instanceUrl')) {
+    const allowedInstances = config.get('allowedInstances') ?? [];
+    const instanceConfig = allowedInstances.find(i => i.url === instance);
+    if (instanceConfig?.useDefaultKeypair) {
+      return configKeypairPath;
+    }
+    if (instanceConfig?.keypairPath) {
+      return instanceConfig.keypairPath;
+    }
+
+    throw new Error(`Please specify which keypair to use for instance ${instance} in the "allowedInstances" section of your config file`);
+  }
+  return configKeypairPath;
 }
 
 export function setKeypairPath(path: string): void {
   config.set('keypairPath', path);
 }
 
+function validateInstanceUrl(instanceUrl?: string | null ): string | null {
+  if (instanceUrl) {
+    const allowedInstances = [
+      ...(config.get('allowedInstances') ?? []),
+      ...(config.get('instanceUrl') ?? []),
+      DEFAULT_INSTANCE_URL
+    ];
+    if (!allowedInstances.includes(instanceUrl)) {
+      throw new Error(`Unknown instance URL ${instanceUrl}. To allow it, add it to the "allowedInstances" section of your config file`);
+    }
+  }
+  return instanceUrl ?? null;
+}
+
 export function getInstanceUrl(): string {
-  return process.env.ENVIE_INSTANCE_URL
-    ?? workspaceConfig.get('instanceUrl')
+  return validateInstanceUrl(process.env.ENVIE_INSTANCE_URL)
+    ?? validateInstanceUrl(workspaceConfig.get('instanceUrl'))
     ?? config.get('instanceUrl')
-    ?? 'https://api.envie.cloud';
+    ?? DEFAULT_INSTANCE_URL;
 }
 
 export function setInstanceUrl(url: string): void {
