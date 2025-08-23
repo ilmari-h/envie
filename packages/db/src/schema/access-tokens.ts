@@ -23,3 +23,5 @@ export const accessTokensRelations = relations(accessTokens, ({ one }) => ({
     references: [publicKeys.id],
   }),
 }));
+
+export type AccessToken = typeof accessTokens.$inferSelect;

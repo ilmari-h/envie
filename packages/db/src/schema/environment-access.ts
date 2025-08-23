@@ -2,7 +2,6 @@ import { pgTable, uuid, text, boolean, timestamp, pgEnum, uniqueIndex } from 'dr
 import { users } from './users';
 import { environments } from './environments';
 import { bytea, timestamps } from './utils';
-import { organizationRoles } from './organization-roles';
 import { relations, sql } from 'drizzle-orm';
 import { accessTokens } from './access-tokens';
 import { publicKeys } from './public-keys';
@@ -10,7 +9,6 @@ import { publicKeys } from './public-keys';
 export const environmentAccess = pgTable('environment_access', {
   id: uuid('id').primaryKey().defaultRandom(),
   environmentId: uuid('environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
-  organizationRoleId: uuid('organization_role_id').references(() => organizationRoles.id, { onDelete: 'cascade' }).notNull(),
 
   // One or the other
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),

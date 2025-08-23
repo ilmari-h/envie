@@ -397,7 +397,7 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
-      userIdOrName: z.string(),
+      userOrAccessToken: z.string(),
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
       write: z.boolean().optional(),
 

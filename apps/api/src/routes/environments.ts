@@ -1,4 +1,4 @@
-import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, Schema } from '@repo/db';
+import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, Schema, AccessToken } from '@repo/db';
 import { eq, and, count, desc, inArray, sql } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
@@ -220,7 +220,6 @@ export const createEnvironment = async ({
         .values({
           environmentId: newEnvironment.id,
           userId: requester.userId,
-          organizationRoleId: organization.role.id,
           write: true,
           expiresAt: null
         }).returning();
@@ -386,7 +385,7 @@ export const updateEnvironmentSettings = async ({
 export const setEnvironmentAccess = async ({
   req,
   params: { idOrPath },
-  body: { userIdOrName, expiresAt, write, decryptionData, signature }
+  body: { userOrAccessToken, expiresAt, write, decryptionData, signature }
 }: {
   req: TsRestRequest<typeof contract.environments.setEnvironmentAccess>;
   params: TsRestRequest<typeof contract.environments.setEnvironmentAccess>['params'];
@@ -431,64 +430,31 @@ export const setEnvironmentAccess = async ({
     };
   }
 
-  const targetUser = await getUserByNameOrId(userIdOrName);
+  const targetUser = await getUserByNameOrId(userOrAccessToken);
+  let targetToken: AccessToken | undefined;
   
   // No user, check if it's an access token
   if (!targetUser) {
-    const targetToken = await db.query.accessTokens.findFirst({
+    targetToken = await db.query.accessTokens.findFirst({
       where: and(
-        eq(Schema.accessTokens.name, userIdOrName),
+        eq(Schema.accessTokens.name, userOrAccessToken),
         eq(Schema.accessTokens.createdBy, req.requester.userId)
       )
     });
-    if (!targetToken) {
-      return {
-        status: 404 as const,
-        body: { message: 'No user or access token found' }
-      };
-    }
 
-    // Create environment access and decryption data in transaction for access token
-    await db.transaction(async (tx) => {
-      const [environmentAccess] = await tx.insert(Schema.environmentAccess).values({
-        environmentId: environment.id,
-        accessTokenId: targetToken.id,
-        userId: null,
-        organizationRoleId: organization.role.id,
-        write: write ?? false,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-      }).onConflictDoUpdate({
-        target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.accessTokenId],
-        set: {
-          write: write ?? false,
-          ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
-        }
-      }).returning();
-
-      if (!environmentAccess) return;
-
-
-      // Create new decryption data entries for each provided entry
-      for (const data of decryptionData) {
-        await tx.insert(Schema.environmentDecryptionData)
-          .values({
-            environmentAccessId: environmentAccess.id,
-            publicKeyId: data.publicKeyBase64,
-            ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
-            encryptedSymmetricKey: Buffer.from(data.wrappedEncryptionKey, 'base64')
-          });
-      }
-    });
-
+  } 
+  
+  const roleOwnerId = targetUser?.id ?? targetToken?.createdBy;
+  if (!roleOwnerId) {
     return {
-      status: 200 as const,
-      body: { message: 'Environment access granted successfully' }
+      status: 404 as const,
+      body: { message: 'No user or access token found' }
     };
   }
-
-  // Find the target user's organization role
+  
+  // Access token inherits it's owner's role in the organization
   const targetUserRole = await db.query.organizationRoles.findFirst({
-    where: eq(Schema.organizationRoles.userId, targetUser.id)
+    where: eq(Schema.organizationRoles.userId, roleOwnerId)
   });
 
   if (!targetUserRole) {
@@ -498,12 +464,12 @@ export const setEnvironmentAccess = async ({
     };
   }
 
-  // Create environment access and decryption data in transaction for user
+  // Create environment access and decryption data in transaction for user or token
   await db.transaction(async (tx) => {
     const [environmentAccess] = await tx.insert(Schema.environmentAccess).values({
       environmentId: environment.id,
-      userId: targetUser.id,
-      organizationRoleId: targetUserRole.id,
+      accessTokenId: targetToken?.id,
+      userId: targetUser?.id,
       write: write ?? false,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     }).onConflictDoUpdate({
@@ -516,11 +482,6 @@ export const setEnvironmentAccess = async ({
 
     if (!environmentAccess) return;
 
-    // Delete existing decryption data for this access entry
-    await tx.delete(Schema.environmentDecryptionData)
-      .where(eq(Schema.environmentDecryptionData.environmentAccessId, environmentAccess.id));
-
-    // Create new decryption data entries for each provided entry
     for (const data of decryptionData) {
       await tx.insert(Schema.environmentDecryptionData)
         .values({
