@@ -76,7 +76,7 @@ export const environmentWithVersionSchema = environmentSchema.extend({
   decryptionData: z.object({
     wrappedEncryptionKey: z.string(),
     ephemeralPublicKey: z.string()
-  }),
+  }).nullable(),
   accessControl: z.object({
     users: z.array(userSchema).optional()
   })
@@ -105,14 +105,19 @@ const health = c.router({
 });
 
 const publicKeys = c.router({
-  getPublicKey: {
+  getPublicKeys: {
     method: 'GET',
     path: '/public-keys/:userOrTokenNameOrId',
     pathParams: z.object({
       userOrTokenNameOrId: z.string()
     }),
     responses: {
-      200: z.object({ ed25519PublicKey: z.string() }),
+      200: z.object({
+        publicKeys: z.array(z.object({
+          valueBase64: z.string(),
+          algorithm: z.enum(['ed25519', 'rsa'])
+        }))
+      }),
       404: c.type<{ message: string }>(),
     }
   },
@@ -122,10 +127,28 @@ const publicKeys = c.router({
     path: '/public-keys',
     body: z.object({
       publicKey: z.object({
+        name: z.string(),
         valueBase64: z.string(),
         algorithm: z.enum(['ed25519', 'rsa'])
       }),
-      allowOverride: z.boolean().optional().default(false)
+      existingEnvironmentAccessForNewKey: z.array(z.object({
+          environmentId: z.string(),
+          ephemeralPublicKey: z.string(),
+          encryptedSymmetricKey: z.string(),
+        })
+      ).optional(),
+    }),
+    responses: {
+      200: c.type<{ message: string }>(),
+      403: c.type<{ message: string }>(),
+      400: c.type<{ message: string }>()
+    }
+  },
+  removePublicKey: {
+    method: 'DELETE',
+    path: '/public-keys/:pubKeyBase64',
+    pathParams: z.object({
+      pubKeyBase64: z.string()
     }),
     responses: {
       200: c.type<{ message: string }>(),
@@ -263,6 +286,7 @@ const environments = c.router({
     path: '/environments',
     query: z.object({
       path: z.string().optional(),
+      pubkey: z.string().optional().describe('If single environment is requested, specifies the public key to use for decryption'),
       version: z.string()
         .optional()
         .describe('If single environment is requested, specifies the version')
@@ -292,6 +316,13 @@ const environments = c.router({
         // Message = ciphertext
         signature: signatureSchema
       }),
+
+      decryptionData: z.array(z.object({
+        publicKeyBase64: z.string(),
+        wrappedEncryptionKey: z.string(),
+        ephemeralPublicKey: z.string()
+      })),
+
       userWrappedAesKey: z.string(),
       userEphemeralPublicKey: z.string()
     }),
@@ -369,11 +400,15 @@ const environments = c.router({
       userIdOrName: z.string(),
       expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
       write: z.boolean().optional(),
-      ephemeralPublicKey: z.string(),
-      encryptedSymmetricKey: z.string(),
+
+      decryptionData: z.array(z.object({
+        publicKeyBase64: z.string(),
+        wrappedEncryptionKey: z.string(),
+        ephemeralPublicKey: z.string()
+      })),
       
       // PKE protocol - we validate that the caller matches his public key on record
-      // Message = ephemeralPublicKey + encryptedSymmetricKey
+      // Message = base64 public keys concatenated, no spaces
       signature: signatureSchema
     }),
     responses: {
@@ -427,9 +462,10 @@ const environments = c.router({
   getDecryptionKeys: {
     method: 'GET',
     summary: 'Get calling user\'s decryption keys for an environment',
-    path: '/environments/:idOrPath/access/decryption',
+    path: '/environments/:idOrPath/access/decryption/:pubkey',
     pathParams: z.object({
-      idOrPath: z.string()
+      idOrPath: z.string(),
+      pubkey: z.string()
     }),
     responses: {
       200: z.object({

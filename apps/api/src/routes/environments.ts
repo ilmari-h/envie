@@ -1,4 +1,4 @@
-import { db, Environment, EnvironmentAccess, Schema } from '@repo/db';
+import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, Schema } from '@repo/db';
 import { eq, and, count, desc, inArray, sql } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
@@ -43,7 +43,7 @@ function verifySignature(message: string, signature: { signature: string; algori
   }
 }
 
-export const getEnvironments = async ({ req, query: { path, version } }:
+export const getEnvironments = async ({ req, query: { path, version, pubkey } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
@@ -57,7 +57,7 @@ export const getEnvironments = async ({ req, query: { path, version } }:
       };
     }
 
-    let environments: (Environment & { access: EnvironmentAccess })[] = [];
+    let environments: (Environment & { access: EnvironmentAccess & { decryptionData: EnvironmentDecryptionData[] } })[] = [];
     if(pathParts.length === 1) {
       const orgEnvironments = await getOrganizationEnvironments(pathParts[0]!, {
         requester: req.requester
@@ -85,6 +85,7 @@ export const getEnvironments = async ({ req, query: { path, version } }:
           ? eq(Schema.environmentAccess.userId, req.requester.userId)
           : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId),
         with: {
+          decryptionData: true,
           environment: {
             with: {
               project: {
@@ -121,13 +122,14 @@ export const getEnvironments = async ({ req, query: { path, version } }:
           .innerJoin(Schema.users, eq(Schema.environmentAccess.userId, Schema.users.id))
           .where(eq(Schema.environmentAccess.environmentId, e.id));
 
+        const decryptionData = e.access.decryptionData.find(d => d.publicKeyId === pubkey);
         if (!environmentVersion) return {
           ...e,
           version: null,
-          decryptionData: {
-            wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
-            ephemeralPublicKey: e.access.ephemeralPublicKey.toString('base64')
-          },
+          decryptionData: decryptionData ? {
+            wrappedEncryptionKey: decryptionData.encryptedSymmetricKey.toString('base64'),
+            ephemeralPublicKey: decryptionData.ephemeralPublicKey.toString('base64')
+          } : null,
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
@@ -140,10 +142,10 @@ export const getEnvironments = async ({ req, query: { path, version } }:
             keys: environmentVersion.keys.map(k => k.key),
             versionNumber: totalVersions[0]?.count ?? 1,
           } satisfies EnvironmentVersion,
-          decryptionData: {
-            wrappedEncryptionKey: e.access.encryptedSymmetricKey.toString('base64'),
-            ephemeralPublicKey: e.access.ephemeralPublicKey.toString('base64')
-          },
+          decryptionData: decryptionData ? {
+            wrappedEncryptionKey: decryptionData.encryptedSymmetricKey.toString('base64'),
+            ephemeralPublicKey: decryptionData.ephemeralPublicKey.toString('base64')
+          } : null,
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
           }
@@ -161,7 +163,7 @@ export const getEnvironments = async ({ req, query: { path, version } }:
 // Optionally adds given users to the environment with the environment AES key wrapped with each user's public key
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, content, userWrappedAesKey, userEphemeralPublicKey }
+  body: { name, project, content, userWrappedAesKey, userEphemeralPublicKey, decryptionData }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
@@ -214,17 +216,28 @@ export const createEnvironment = async ({
       if (!newEnvironment) return null;
 
       // Create environment access for the creator with the AES key for the environment wrapped with their public key
-      await tx.insert(Schema.environmentAccess)
+      const [environmentAccess] = await tx.insert(Schema.environmentAccess)
         .values({
           environmentId: newEnvironment.id,
           userId: requester.userId,
           organizationRoleId: organization.role.id,
-          encryptedSymmetricKey: Buffer.from(userWrappedAesKey, 'base64'),
-          ephemeralPublicKey: Buffer.from(userEphemeralPublicKey, 'base64'),
           write: true,
           expiresAt: null
-        });
+        }).returning();
+      
+      if (!environmentAccess) return null;
 
+      // Create decryption data for the creator with the AES key for the environment wrapped with their public keys
+      for(const data of decryptionData) {
+        await tx.insert(Schema.environmentDecryptionData)
+          .values({
+            environmentAccessId: environmentAccess.id,
+            publicKeyId: data.publicKeyBase64,
+            ephemeralPublicKey: Buffer.from(userEphemeralPublicKey, 'base64'),
+            encryptedSymmetricKey: Buffer.from(userWrappedAesKey, 'base64')
+          });
+      }
+      
       // Create the first version of the environment with entries for each key
       const [firstVersion] = await tx.insert(Schema.environmentVersions)
         .values({
@@ -373,7 +386,7 @@ export const updateEnvironmentSettings = async ({
 export const setEnvironmentAccess = async ({
   req,
   params: { idOrPath },
-  body: { userIdOrName, expiresAt, write, ephemeralPublicKey, encryptedSymmetricKey, signature }
+  body: { userIdOrName, expiresAt, write, decryptionData, signature }
 }: {
   req: TsRestRequest<typeof contract.environments.setEnvironmentAccess>;
   params: TsRestRequest<typeof contract.environments.setEnvironmentAccess>['params'];
@@ -394,8 +407,8 @@ export const setEnvironmentAccess = async ({
     };
   }
 
-  // Verify the signature on ephemeralPublicKey + encryptedSymmetricKey
-  const message = ephemeralPublicKey + encryptedSymmetricKey;
+  // Verify the signature on base64 public keys concatenated, no spaces
+  const message = decryptionData.map(d => d.publicKeyBase64).join('');
   const signatureVerification = verifySignature(message, signature, req.requester.pubkey);
   if (!signatureVerification.valid) {
     return {
@@ -435,28 +448,38 @@ export const setEnvironmentAccess = async ({
       };
     }
 
-    // Create new access entry for access token
-    await db.insert(Schema.environmentAccess).values({
-      environmentId: environment.id,
-      accessTokenId: targetToken.id,
-      userId: null,
+    // Create environment access and decryption data in transaction for access token
+    await db.transaction(async (tx) => {
+      const [environmentAccess] = await tx.insert(Schema.environmentAccess).values({
+        environmentId: environment.id,
+        accessTokenId: targetToken.id,
+        userId: null,
+        organizationRoleId: organization.role.id,
+        write: write ?? false,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+      }).onConflictDoUpdate({
+        target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.accessTokenId],
+        set: {
+          write: write ?? false,
+          ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
+        }
+      }).returning();
 
-      // Access key organization role inherits the owner user's role so we use it here
-      organizationRoleId: organization.role.id,
+      if (!environmentAccess) return;
 
-      write: write ?? false,
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
-      encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
-      ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
-    }).onConflictDoUpdate({
-      target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.accessTokenId],
-      set: {
-        write: write,
-        encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
-        ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64'),
-        ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
+
+      // Create new decryption data entries for each provided entry
+      for (const data of decryptionData) {
+        await tx.insert(Schema.environmentDecryptionData)
+          .values({
+            environmentAccessId: environmentAccess.id,
+            publicKeyId: data.publicKeyBase64,
+            ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
+            encryptedSymmetricKey: Buffer.from(data.wrappedEncryptionKey, 'base64')
+          });
       }
     });
+
     return {
       status: 200 as const,
       body: { message: 'Environment access granted successfully' }
@@ -475,22 +498,37 @@ export const setEnvironmentAccess = async ({
     };
   }
 
-  // Create new access entry
-  await db.insert(Schema.environmentAccess).values({
-    environmentId: environment.id,
-    userId: targetUser.id,
-    organizationRoleId: targetUserRole.id,
-    write: write ?? false,
-    expiresAt: expiresAt ? new Date(expiresAt) : null,
-    encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
-    ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64')
-  }).onConflictDoUpdate({
-    target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId],
-    set: {
+  // Create environment access and decryption data in transaction for user
+  await db.transaction(async (tx) => {
+    const [environmentAccess] = await tx.insert(Schema.environmentAccess).values({
+      environmentId: environment.id,
+      userId: targetUser.id,
+      organizationRoleId: targetUserRole.id,
       write: write ?? false,
-      encryptedSymmetricKey: Buffer.from(encryptedSymmetricKey, 'base64'),
-      ephemeralPublicKey: Buffer.from(ephemeralPublicKey, 'base64'),
-      ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+    }).onConflictDoUpdate({
+      target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId],
+      set: {
+        write: write ?? false,
+        ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})
+      }
+    }).returning();
+
+    if (!environmentAccess) return;
+
+    // Delete existing decryption data for this access entry
+    await tx.delete(Schema.environmentDecryptionData)
+      .where(eq(Schema.environmentDecryptionData.environmentAccessId, environmentAccess.id));
+
+    // Create new decryption data entries for each provided entry
+    for (const data of decryptionData) {
+      await tx.insert(Schema.environmentDecryptionData)
+        .values({
+          environmentAccessId: environmentAccess.id,
+          publicKeyId: data.publicKeyBase64,
+          ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
+          encryptedSymmetricKey: Buffer.from(data.wrappedEncryptionKey, 'base64')
+        });
     }
   });
 
@@ -691,7 +729,7 @@ export const deleteEnvironmentAccess = async ({
 
 export const getDecryptionKeys = async ({
   req,
-  params: { idOrPath }
+  params: { idOrPath, pubkey }
 }: {
   req: TsRestRequest<typeof contract.environments.getDecryptionKeys>;
   params: TsRestRequest<typeof contract.environments.getDecryptionKeys>['params'];
@@ -716,7 +754,10 @@ export const getDecryptionKeys = async ({
       isUserRequester(req.requester)
         ? eq(Schema.environmentAccess.userId, req.requester.userId)
         : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
-    )
+    ),
+    with: {
+      decryptionData: true
+    }
   });
 
   if (!accessEntry) {
@@ -726,12 +767,20 @@ export const getDecryptionKeys = async ({
     };
   }
 
+  const decryptionData = accessEntry.decryptionData.find(d => d.publicKeyId === pubkey);
+  if (!decryptionData) {
+    return {
+      status: 404 as const,
+      body: { message: 'No decryption data found for public key' }
+    };
+  }
+
   return {
     status: 200 as const,
     body: {
       x25519DecryptionData: {
-        wrappedDek: accessEntry.encryptedSymmetricKey.toString('base64'),
-        ephemeralPublicKey: accessEntry.ephemeralPublicKey.toString('base64')
+        wrappedDek: decryptionData.encryptedSymmetricKey.toString('base64'),
+        ephemeralPublicKey: decryptionData.ephemeralPublicKey.toString('base64')
       }
     }
   };

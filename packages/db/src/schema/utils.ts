@@ -1,10 +1,9 @@
-import { timestamp, customType } from "drizzle-orm/pg-core";
+import { timestamp, customType, pgEnum } from "drizzle-orm/pg-core";
 
 export const timestamps = {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow()
 }
-
 
 export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   dataType() {
@@ -29,8 +28,3 @@ export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
     return Buffer.from(value as any);
   },
 }); 
-
-// TODO: this will have RSA in the future
-export const publicKeyColumns = {
-  publicKeyEd25519: bytea('public_key_ed25519'),
-}

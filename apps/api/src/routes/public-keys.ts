@@ -8,26 +8,40 @@ import { eq } from "drizzle-orm";
 import { isUserRequester } from "../types/cast";
 import { getAccessTokenByNameOrId, getUserByNameOrId } from "../queries/user";
 
+const MAX_USER_PUBLIC_KEYS = 5;
+
 export const getPublicKey = async ({
   params: { userOrTokenNameOrId }
 }: {
-  params: TsRestRequest<typeof contract.publicKeys.getPublicKey>['params']
+  params: TsRestRequest<typeof contract.publicKeys.getPublicKeys>['params']
 }) => {
   // Try to find user first
   const targetUser = await getUserByNameOrId(userOrTokenNameOrId);
-  if (targetUser?.publicKeyEd25519) {
+  if (targetUser?.userPublicKeys.length) {
     return {
       status: 200 as const,
-      body: { ed25519PublicKey: Buffer.from(targetUser.publicKeyEd25519).toString('base64') }
+      body: {
+        publicKeys: targetUser.userPublicKeys.map(upk => (
+        {
+        valueBase64: Buffer.from(upk.publicKey.id).toString('base64'),
+        algorithm: upk.publicKey.algorithm
+      }
+      ))
+    }
     };
   }
 
   // If no user found or no key, try access token
   const targetToken = await getAccessTokenByNameOrId(userOrTokenNameOrId);
-  if (targetToken?.publicKeyEd25519) {
+  if (targetToken?.publicKey) {
     return {
       status: 200 as const,
-      body: { ed25519PublicKey: Buffer.from(targetToken.publicKeyEd25519).toString('base64') }
+      body: {
+        publicKeys: [{
+          valueBase64: Buffer.from(targetToken.publicKey.id).toString('base64'),
+          algorithm: targetToken.publicKey.algorithm
+        }]
+      }
     };
   }
 
@@ -38,7 +52,7 @@ export const getPublicKey = async ({
 };
 
 export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract.publicKeys.setPublicKey> }) => {
-  const { publicKey: { valueBase64: publicKey, algorithm }, allowOverride } = req.body;
+  const { publicKey: { valueBase64: publicKey, algorithm, name }, existingEnvironmentAccessForNewKey } = req.body;
 
   if(algorithm !== 'ed25519') {
     return {
@@ -78,61 +92,133 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     const userId = req.requester.userId;
 
     // Check if the public key is already set
-    const existingUser = await db.query.users.findFirst({
-      where: eq(Schema.users.id, userId)
-    });
-    if (existingUser?.publicKeyEd25519) {
-      if (!allowOverride) {
-        return {
-          status: 400 as const,
-          body: { message: 'Public key already set' }
-        }
-      }
-      // Check if it's the same key
-      if (Buffer.compare(existingUser.publicKeyEd25519, pubKeyBytes) === 0) {
-        return {
-          status: 400 as const,
-          body: { message: 'Given public key is the same as the one on record' }
-        }
+    const user = await getUserByNameOrId(userId);
+    if ((user?.userPublicKeys.length ?? 0) >= MAX_USER_PUBLIC_KEYS) {
+      return {
+        status: 400 as const,
+        body: { message: `Maximum number of public keys (${MAX_USER_PUBLIC_KEYS}) reached` }
       }
     }
 
-    // Set public key and delete all environment access entries
-    await db.transaction(async (tx) => {
-      await tx.update(Schema.users).set({
-        publicKeyEd25519: pubKeyBytes
-      }).where(eq(Schema.users.id, userId));
-      await tx.delete(Schema.environmentAccess).where(eq(Schema.environmentAccess.userId, userId));
+    // Check if there are existing environment access entries
+    const existingEnvironmentAccess = await db.query.environmentAccess.findMany({
+      where: eq(Schema.environmentAccess.userId, userId)
     });
-  
+    if (existingEnvironmentAccess.length > 0
+      && existingEnvironmentAccessForNewKey?.length !== existingEnvironmentAccess.length) {
+        if(!existingEnvironmentAccessForNewKey?.length) {
+          return {
+            status: 400 as const,
+            body: { message: 'Missing new decryption data' }
+          }
+        }
+
+        return {
+          status: 400 as const,
+          body: { message: `Provided ${existingEnvironmentAccessForNewKey?.length} decryption data, but ${existingEnvironmentAccess.length} required` }
+        }
+    }
+
+    // Create new public key
+    await db.transaction(async (tx) => {
+      const newPublicKey = await tx.insert(Schema.publicKeys).values({
+        id: publicKey,
+        name,
+        algorithm: 'ed25519',
+        content: pubKeyBytes
+      }).returning();
+
+      const id = newPublicKey[0]?.id;
+      if (!id) {
+        throw new Error('Failed to create new public key');
+      }
+      await tx.insert(Schema.userPublicKeys).values({
+        userId,
+        publicKeyId: id
+      });
+    });
+
+    // Add decryption data for existing environment access entries
+    if (existingEnvironmentAccessForNewKey?.length) {
+      // Find environment access IDs by userId and environment IDs
+      const environmentAccessIds = await db.query.environmentAccess.findMany({
+        where: eq(Schema.environmentAccess.userId, userId),
+        columns: { id: true, environmentId: true }
+      });
+
+      // Create mapping of environmentId to access ID
+      const envIdToAccessId = new Map(
+        environmentAccessIds.map(ea => [ea.environmentId, ea.id])
+      );
+
+      // Prepare bulk insert data for environmentDecryptionData
+      const decryptionDataToInsert = existingEnvironmentAccessForNewKey.map(data => {
+        const accessId = envIdToAccessId.get(data.environmentId);
+        if (!accessId) {
+          throw new Error(`No environment access found for environment ${data.environmentId}`);
+        }
+        
+        return {
+          environmentAccessId: accessId,
+          publicKeyId: publicKey,
+          ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
+          encryptedSymmetricKey: Buffer.from(data.encryptedSymmetricKey, 'base64')
+        };
+      });
+
+      // Bulk insert decryption data
+      await db.insert(Schema.environmentDecryptionData).values(decryptionDataToInsert);
+    }
+
   // For access tokens
   } else {
     const accessTokenId = req.requester.accessTokenId;
 
     // Check if the public key is already set
     const existingAccessToken = await db.query.accessTokens.findFirst({
-      where: eq(Schema.accessTokens.id, accessTokenId)
-    });
-    if (existingAccessToken?.publicKeyEd25519) {
-      if (!allowOverride) {
-        return {
-          status: 400 as const,
-          body: { message: 'Public key already set' }
-        }
+      where: eq(Schema.accessTokens.id, accessTokenId),
+      with: {
+        publicKey: true
       }
-      // Check if it's the same key
-      if (Buffer.compare(existingAccessToken.publicKeyEd25519, pubKeyBytes) === 0) {
-        return {
-          status: 400 as const,
-          body: { message: 'Given public key is the same as the one on record' }
-        }
+    });
+    if(!existingAccessToken) {
+      return {
+        status: 400 as const,
+        body: { message: 'Access token not found' }
       }
     }
-    // Set public key and delete all environment access entries
+
+    // Check if it's the same key
+    if (Buffer.compare(existingAccessToken.publicKey.content, pubKeyBytes) === 0) {
+      return {
+        status: 400 as const,
+        body: { message: 'Given public key is the same as the one on record' }
+      }
+    }
     await db.transaction(async (tx) => {
+      // Create new public key
+      const newPublicKey = await tx.insert(Schema.publicKeys).values({
+        id: publicKey,
+        name,
+        algorithm: 'ed25519',
+        content: pubKeyBytes
+      }).returning();
+      
+      const id = newPublicKey[0]?.id;
+      if (!id) {
+        throw new Error('Failed to create new public key');
+      }
+
+      // Remove old public key
+      await tx.delete(Schema.publicKeys).where(eq(Schema.publicKeys.id, existingAccessToken.publicKey.id));
+
+      // Set public key
       await tx.update(Schema.accessTokens).set({
-        publicKeyEd25519: pubKeyBytes
+        publicKeyId: id
       }).where(eq(Schema.accessTokens.id, accessTokenId));
+
+      // Delete all environment access entries for old key
+      // TODO: allow resetting with new decryption data
       await tx.delete(Schema.environmentAccess).where(eq(Schema.environmentAccess.accessTokenId, accessTokenId));
     });
   }

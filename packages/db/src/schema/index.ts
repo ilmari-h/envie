@@ -7,4 +7,5 @@ export * from './environments';
 export * from './environment-access';
 export * from './environment-versions';
 export * from './project-invites';
-export * from './access-tokens'
+export * from './access-tokens';
+export * from './public-keys';

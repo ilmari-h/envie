@@ -46,5 +46,10 @@ Access tokens inherit the user's organization role, but environment access must 
   - [x] Rewrite pubkey logic - store Ed22519 keys on server instead of X22519
 - [x] Allow running commands in a new shell with specified environment
 - [x] Workspace specific files to specify environment and instance (envierc.json)
+  - [x] Allow environment commands without specifying the full path
+- [ ] Multiple public keys per user
 - [ ] Make sure env access expiry works alright for also user's not just access tokens
-  - Allows environment commands without specifying the full path
+
+
+- [ ] When giving access to environment, make sure provided decryption data covers all user pubkeys 
+- [ ] When giving access to environment, make sure given public keys belong to the correct users

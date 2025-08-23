@@ -10,6 +10,6 @@ declare namespace Express {
     accessTokenId: string;
     accessTokenOwnerId: string;
   }) & {
-    pubkey: Buffer<ArrayBufferLike> | null;
+    pubkey: Buffer<ArrayBufferLike> | null; // TODO: requester must specify, WHICH pubkey
   }
 } 

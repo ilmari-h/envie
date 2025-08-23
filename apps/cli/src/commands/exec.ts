@@ -91,8 +91,7 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
         
         // Handle process exit
         child.on('close', (code) => {
-          console.log(`Command exited with code ${code}`);
-          process.exit(code || 0);
+          process.exit(code ?? 0);
         });
         
         child.on('error', (error) => {
