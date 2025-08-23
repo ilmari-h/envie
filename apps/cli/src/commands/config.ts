@@ -4,10 +4,12 @@ import { RootCommand, BaseOptions } from './root';
 import { createTsrClient } from '../utils/tsr-client';
 import { ed25519PublicKeyToX25519, readEd25519KeyPair } from '../utils/keypair';
 import chalk from 'chalk';
+import { UserKeyPair } from '../crypto';
+import { showPublicKeyWarning } from '../ui/public-key-warning';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
-  .description('Manage CLI configuration');
+  .description('Manage configuration');
 
 const keypairCommand = configCommand
   .command('keypair')
@@ -31,6 +33,18 @@ keypairCommand
 
     setKeypairPath(keypairPath);
     console.log(`Keypair path set to: ${keypairPath}`);
+  });
+
+keypairCommand
+  .command('add-pubkey')
+  .description('Add a new public key to the server')
+  .action(async function() {
+
+    // TODO: 
+    // 1. get all access entries for user from server
+    // 2. unwrap all DEKs
+    // 3. wrap all DEKs with new pubkey
+    console.log('Not implemented');
   });
 
 keypairCommand
@@ -64,9 +78,10 @@ keypairCommand
         if('publicKey' in meResponse.body) {
           // Check if there is a mismatch and warn if so
           if(meResponse.body.publicKey !== publicKeyBase64) {
-            console.warn(chalk.yellow('Warning: Different public key configured on the server!'));
-            console.warn(chalk.yellow('Set the client to use the correct keypair or you will not be able to update or view environments'));
-            console.warn(chalk.yellow('Public key on server: ' + meResponse.body.publicKey));
+            showPublicKeyWarning(
+              meResponse.body.publicKeys.map(pk => pk.valueBase64),
+              publicKeyBase64
+            );
           }
         }
       } catch (error) {

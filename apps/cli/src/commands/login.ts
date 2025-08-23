@@ -6,6 +6,8 @@ import { createTsrClient } from '../utils/tsr-client';
 import { UserKeyPair } from '../crypto';
 import { BaseOptions, RootCommand } from './root';
 import chalk from 'chalk';
+import os from 'os';
+import { showPublicKeyWarning } from '../ui/public-key-warning';
 
 const execAsync = promisify(exec);
 
@@ -71,14 +73,20 @@ export const loginCommand = new RootCommand().createCommand('login')
         
         const user = userResult.body;
         
-        if (!user.publicKey) {
+        if (!user.publicKeys.length) {
           if (opts.verbose) {
             console.log('No public key found, setting up public key...');
           }
 
           // Set public key on server
           const setKeyResult = await client.publicKeys.setPublicKey({
-            body: { publicKey: { valueBase64: userPublicKey.toBase64(), algorithm: 'ed25519' } }
+            body: {
+              publicKey: {
+                valueBase64: userPublicKey.toBase64(),
+                algorithm: 'ed25519',
+                name: os.hostname()
+              } 
+            }
           });
           
           if (setKeyResult.status !== 200) {
@@ -88,11 +96,11 @@ export const loginCommand = new RootCommand().createCommand('login')
           if (opts.verbose) {
             console.log('Public key configured successfully!');
           }
-        } else if (user.publicKey !== userPublicKey.toBase64()) {
-          console.warn(chalk.yellow('Your local public key does not match the one on the server'))
+        } else if (!user.publicKeys.some(pk => pk.valueBase64 === userPublicKey.toBase64())) {
+          showPublicKeyWarning(user.publicKeys.map(pk => pk.valueBase64), userPublicKey.toBase64());
         }
         if (opts.verbose) {
-          console.log("User public key:", user.publicKey);
+          console.log("User public key:", user.publicKeys);
         }
       } catch (error) {
         console.warn(chalk.yellow('Warning: Failed to check/set public key:', error instanceof Error ? error.message : error));

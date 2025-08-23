@@ -42,5 +42,16 @@ export const environmentAccessRelations = relations(environmentAccess, ({ one, m
   decryptionData: many(environmentDecryptionData)
 }));
 
+export const environmentDecryptionDataRelations = relations(environmentDecryptionData, ({ one }) => ({
+  environmentAccess: one(environmentAccess, {
+    fields: [environmentDecryptionData.environmentAccessId],
+    references: [environmentAccess.id]
+  }),
+  publicKey: one(publicKeys, {
+    fields: [environmentDecryptionData.publicKeyId],
+    references: [publicKeys.id]
+  })
+}));
+
 export type EnvironmentAccess = typeof environmentAccess.$inferSelect;
 export type EnvironmentDecryptionData = typeof environmentDecryptionData.$inferSelect;

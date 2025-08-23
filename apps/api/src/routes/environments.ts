@@ -8,6 +8,7 @@ import { isUserRequester } from '../types/cast';
 import { getEnvironmentVersionByIndex } from '../queries/environment-version';
 import { getUserByNameOrId } from '../queries/user';
 import { ed25519 } from '@noble/curves/ed25519';
+import { getRequesterPublicKey } from '../queries/public-key';
 
 // Helper function to verify Ed25519 signatures
 function verifySignature(message: string, signature: { signature: string; algorithm: 'ecdsa' | 'rsa' }, publicKey: Buffer): { valid: boolean; error?: string } {
@@ -163,7 +164,7 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey } }:
 // Optionally adds given users to the environment with the environment AES key wrapped with each user's public key
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, content, userWrappedAesKey, userEphemeralPublicKey, decryptionData }
+  body: { name, project, content, decryptionData }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
@@ -203,7 +204,7 @@ export const createEnvironment = async ({
     };
   }
 
-  // Create environment and first version if content is provided.
+  // Create environment and first version if tent is provided.
   const environment = await db.transaction(async (tx) => {
 
       const [newEnvironment] = await tx.insert(Schema.environments)
@@ -232,8 +233,8 @@ export const createEnvironment = async ({
           .values({
             environmentAccessId: environmentAccess.id,
             publicKeyId: data.publicKeyBase64,
-            ephemeralPublicKey: Buffer.from(userEphemeralPublicKey, 'base64'),
-            encryptedSymmetricKey: Buffer.from(userWrappedAesKey, 'base64')
+            ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
+            encryptedSymmetricKey: Buffer.from(data.wrappedEncryptionKey, 'base64')
           });
       }
       
@@ -281,8 +282,9 @@ export const updateEnvironmentContent = async ({
   body: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['body']
 }) => {
 
-  // Check if requester has a public key for signature verification
-  if (!req.requester.pubkey) {
+  // Find the public key
+  const pubkey = await getRequesterPublicKey(content.signature.pubkeyBase64, req.requester)
+  if (!pubkey) {
     return {
       status: 400 as const,
       body: { message: 'User public key is not available for verification' }
@@ -290,7 +292,7 @@ export const updateEnvironmentContent = async ({
   }
 
   // Verify the signature on the ciphertext
-  const signatureVerification = verifySignature(content.ciphertext, content.signature, req.requester.pubkey);
+  const signatureVerification = verifySignature(content.ciphertext, content.signature, pubkey.content);
   if (!signatureVerification.valid) {
     return {
       status: 400 as const,
@@ -398,8 +400,9 @@ export const setEnvironmentAccess = async ({
     };
   }
 
-  // Check if requester has a public key for signature verification
-  if (!req.requester.pubkey) {
+  // Find the public key
+  const pubkey = await getRequesterPublicKey(signature.pubkeyBase64, req.requester)
+  if (!pubkey) {
     return {
       status: 400 as const,
       body: { message: 'User public key is not available for verification' }
@@ -408,7 +411,7 @@ export const setEnvironmentAccess = async ({
 
   // Verify the signature on base64 public keys concatenated, no spaces
   const message = decryptionData.map(d => d.publicKeyBase64).join('');
-  const signatureVerification = verifySignature(message, signature, req.requester.pubkey);
+  const signatureVerification = verifySignature(message, signature, pubkey.content);
   if (!signatureVerification.valid) {
     return {
       status: 400 as const,

@@ -48,6 +48,7 @@ Access tokens inherit the user's organization role, but environment access must 
 - [x] Workspace specific files to specify environment and instance (envierc.json)
   - [x] Allow environment commands without specifying the full path
 - [ ] Multiple public keys per user
+  - [ ] Upon login, handle any edge cases where user has already a different keypair on server.
 - [ ] Make sure env access expiry works alright for also user's not just access tokens
 
 

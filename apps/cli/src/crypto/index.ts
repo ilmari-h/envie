@@ -21,11 +21,28 @@ export class DataEncryptionKey {
   }
 
   public wrap(publicKey: Ed25519PublicKey): WrappedKeyX25519 {
-    return wrapKeyX25519(this.key, publicKey.toX25519());
+    return wrapKeyX25519(this.key, publicKey);
   }
 
   public encryptContent(plaintext: string): EncryptedContent {
     return encryptContent(plaintext, this.key);
+  }
+
+  public static newWithPKE(recipients: Ed25519PublicKey[], plaintext: string): {
+    encryptedEnvironment: EncryptedContent;
+    wrappedKeys: WrappedKeyX25519[];
+    dekBase64: string
+  } {
+    const { encryptedContent, wrappedKeys, dek } = encryptWithKeyExchangeX25519(
+      plaintext,
+      recipients
+    );
+
+    return {
+      encryptedEnvironment: encryptedContent,
+      wrappedKeys,
+      dekBase64: dek
+    };
   }
 }
 
@@ -70,37 +87,18 @@ export class UserKeyPair {
     return UserKeyPair.#instance;
   }
 
-  public unwrapKey(wrappedKey: WrappedKeyX25519): DataEncryptionKey {
+  public unwrapKey(wrappedKey: Omit<WrappedKeyX25519, 'publicKeyBase64'>): DataEncryptionKey {
     const aesKey = unwrapKeyX25519(wrappedKey, this.keyPair.privateKey);
     return new DataEncryptionKey(aesKey);
   }
 
-  
-  // NOTE: this operation doesn't really involve the user's Keypair
-  // Just a helper function, should probably be moved to DEK class
-  public encryptWithKeyExchange(recipients: Ed25519PublicKey[], plaintext: string): {
-    encryptedEnvironment: EncryptedContent;
-    wrappedKeys: WrappedKeyX25519[];
-    dekBase64: string
-  } {
-    const { encryptedContent, wrappedKeys, dek } = encryptWithKeyExchangeX25519(
-      plaintext,
-      recipients.map(recipient => recipient.toX25519())
-    );
-
-    return {
-      encryptedEnvironment: encryptedContent,
-      wrappedKeys,
-      dekBase64: dek
-    };
-  }
-
-  public sign(message: string): { signature: string; algorithm: 'ecdsa' } {
+  public sign(message: string): { signature: string; algorithm: 'ecdsa'; pubkeyBase64: string } {
     const messageBytes = Buffer.from(message, 'utf-8');
     const signatureBytes = ed25519.sign(messageBytes, this.keyPair.privateKey);
     return {
       signature: Buffer.from(signatureBytes).toString('base64'),
-      algorithm: 'ecdsa' as const
+      algorithm: 'ecdsa' as const,
+      pubkeyBase64: this.publicKey.toBase64()
     };
   }
 

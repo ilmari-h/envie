@@ -28,7 +28,7 @@ export const userPublicKeys = pgTable('user_public_keys', {
   publicKeyId: text('public_key_id').references(() => publicKeys.id, { onDelete: 'cascade' }).notNull(),
   ...timestamps
 }, (t) => ([
-  unique('user_public_key_unique').on(t.userId, t.publicKeyId)
+  unique('user_public_key_unique').on(t.userId, t.publicKeyId),
 ]));
 
 export const publicKeysRelations = relations(publicKeys, ({ many }) => ({

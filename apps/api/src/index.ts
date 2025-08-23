@@ -24,7 +24,7 @@ import { getOrganizations, createOrganization, updateOrganization, getOrganizati
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { getMe, updateName } from './routes/users';
-import { getPublicKey, setPublicKey } from './routes/public-keys';
+import { getPublicKeys, setPublicKey } from './routes/public-keys';
 import { createClient } from "redis";
 import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
 
@@ -81,7 +81,6 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
     req.requester = {
         userId: decoded.userId,
         username: decoded.username,
-        pubkey: user.publicKeyEd25519  ?? null
       };
     } catch (e) {
       return res.status(401).json({ message: 'Unauthorized or login expired' });
@@ -100,13 +99,19 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
           gt(Schema.accessTokens.expires, new Date())
         )
       ),
+      with: {
+        publicKey: true
+      }
     });
 
     if (accessToken) {
+      const pubkey = accessToken.publicKey.content
+      const pubkeyBase64 = Buffer.from(pubkey).toString('base64')
       req.requester = {
         accessTokenId: accessToken.id,
         accessTokenOwnerId: accessToken.createdBy,
-        pubkey: accessToken.publicKeyEd25519 ?? null
+        pubkey: pubkey,
+        pubkeyBase64: pubkeyBase64
       };
       return next();
     }
@@ -200,14 +205,14 @@ const router = s.router(contract, {
     }
   }),
   publicKeys: s.router(contract.publicKeys, {
-    getPublicKey: {
+    getPublicKeys: {
       middleware: [requireAuth],
-      handler: getPublicKey
+      handler: getPublicKeys
     },
     setPublicKey: {
       middleware: [requireAuth],
       handler: setPublicKey
-    }
+    },
   }),
   user: s.router(contract.user, {
     getUser: {

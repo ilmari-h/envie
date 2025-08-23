@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
-import { UserKeyPair, Ed25519PublicKey } from '../crypto';
+import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
 import { parseExpiryDate } from '../utils/time';
 import { EnvironmentPath } from './utils';
 
@@ -14,6 +14,11 @@ type EnvironmentOptions = BaseOptions;
 
 type CreateEnvironmentOptions = EnvironmentOptions & {
   secretKeyFile?: string;
+};
+type ShowOptions = BaseOptions & {
+  ver?: string;
+  backupKey?: string;
+  unsafeDecrypt?: boolean;
 };
 
 const rootCmd = new RootCommand();
@@ -81,7 +86,7 @@ environmentCommand
 environmentCommand
   .command('create')
   .description('Create a new environment')
-  .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
+  .argument('<path>', 'Environment path')
   .argument('[file]', 'A file containing the initial content')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(pathParam: string, filePath?: string) {
@@ -119,7 +124,15 @@ environmentCommand
       const parsedEnvFileContent = Object.entries(envVars).map(([key, value]) => `${key}=${value}`).join('\n');
 
       // Get user's keypair for encryption
-      const userKeyPair = await UserKeyPair.getInstance();
+      const [userKeyPair, userData] = await Promise.all([
+        UserKeyPair.getInstance(),
+        client.user.getUser()
+      ]);
+
+      if (userData.status !== 200 ) {
+        console.error(`Failed to get user data: ${(userData.body as { message: string }).message}`);
+        process.exit(1);
+      }
 
       if (opts.verbose) {
         console.log('Parsed .env file content:');
@@ -134,10 +147,12 @@ environmentCommand
       try {
 
         // Create DEK wrapped with just the user's own public key
-        const { encryptedEnvironment, wrappedKeys, dekBase64 } = userKeyPair.encryptWithKeyExchange(
-          [userKeyPair.publicKey],
+        const { encryptedEnvironment, wrappedKeys, dekBase64 } = DataEncryptionKey.newWithPKE(
+          userData.body.publicKeys.map(pk => new Ed25519PublicKey(pk.valueBase64)),
           parsedEnvFileContent
         );
+
+        console.log(userKeyPair.sign(encryptedEnvironment.ciphertext));
 
         if (opts.verbose) {
           console.log('\nEncryption successful!');
@@ -158,8 +173,11 @@ environmentCommand
               ciphertext: encryptedEnvironment.ciphertext,
               signature: userKeyPair.sign(encryptedEnvironment.ciphertext)
             },
-            userWrappedAesKey: wrappedKeys[0].wrappedKey,
-            userEphemeralPublicKey: wrappedKeys[0].ephemeralPublicKey,
+            decryptionData: wrappedKeys.map(key => ({
+              publicKeyBase64: key.publicKeyBase64,
+              wrappedEncryptionKey: key.wrappedKey,
+              ephemeralPublicKey: key.ephemeralPublicKey
+            }))
           }
         });
 
@@ -196,6 +214,90 @@ environmentCommand
   });
 
 environmentCommand
+  .command('show')
+  .description('Show an environment')
+  .argument('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)')
+  .option('-V, --version <version>', 'Version of the environment to load')
+  .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
+  .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
+  .action(async function(path: string) {
+    const opts = this.opts<ShowOptions>();
+    const instanceUrl = getInstanceUrl();
+    
+    try {
+      // Validate environment path format (must have exactly 3 parts)
+      const environmentPath = new EnvironmentPath(path);
+
+      const client = createTsrClient(instanceUrl);
+      const userKeyPair = await UserKeyPair.getInstance();
+      
+      // Get the specific environment using the path
+      const response = await client.environments.getEnvironments({
+        query: {
+          path: environmentPath.toString(),
+          version: opts.ver,
+          pubkey: userKeyPair.publicKey.toBase64()
+        }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to fetch environment: ${response.status}`);
+        process.exit(1);
+      }
+
+      if (response.body.length === 0) {
+        console.error('Environment not found');
+        process.exit(1);
+      }
+
+      const environment = response.body[0];
+      
+      if (!environment.version) {
+        console.error('Version not found');
+        process.exit(1);
+      }
+
+      const decryptionData = environment.decryptionData
+      if(!decryptionData) {
+        console.error('Decryption data not found');
+        process.exit(1);
+      }
+
+      // Check if decryption is requested
+      if (opts.unsafeDecrypt) {
+        try {
+          const dek = opts.backupKey
+          ? await DataEncryptionKey.readFromFile(opts.backupKey)
+          : (await UserKeyPair.getInstance()).unwrapKey({
+              wrappedKey: decryptionData.wrappedEncryptionKey,
+              ephemeralPublicKey: decryptionData.ephemeralPublicKey
+            });
+
+          const decryptedContent = dek.decryptContent(environment.version.content);
+          
+          // Print decrypted content to stdout (no other output)
+          console.log(decryptedContent);
+          
+        } catch (error) {
+          console.error('Error during decryption:', error instanceof Error ? error.message : error);
+          process.exit(1);
+        }
+      } else {
+        // Print keys with "<encrypted>" as values
+        const keys = environment.version.keys;
+        for (const key of keys) {
+          console.log(`${key}=<encrypted>`);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+
+environmentCommand
   .command('update')
   .description('Update an environment\'s content from a file')
   .argument('<path>', 'Environment path')
@@ -205,6 +307,7 @@ environmentCommand
     const instanceUrl = getInstanceUrl();
     const client = createTsrClient(instanceUrl);
     const environmentPath = new EnvironmentPath(pathParam);
+    const userKeyPair = await UserKeyPair.getInstance();
 
     try {
       if (opts.verbose) {
@@ -215,7 +318,12 @@ environmentCommand
 
       // First get the environment to get the decryption data
       const envResponse = await client.environments.getEnvironments({
-        query: { path: environmentPath.toString() }
+        query: {
+          path: environmentPath.toString(),
+
+          // Request decryption data for the user's public key
+          pubkey: userKeyPair.publicKey.toBase64()
+        }
       });
 
       if (envResponse.status !== 200 || envResponse.body.length === 0) {
@@ -262,10 +370,9 @@ environmentCommand
       }
       
       try {
-        const userKeyPair = await UserKeyPair.getInstance();
         const dek = userKeyPair.unwrapKey({
           wrappedKey: environment.decryptionData.wrappedEncryptionKey,
-          ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
+          ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey,
         });
         const encryptedEnvironment = dek.encryptContent(parsedEnvFileContent);
 
@@ -329,13 +436,18 @@ environmentCommand
 
       const client = createTsrClient(instanceUrl);
       
-      // Get environment access key and wrap it with the user's public key
+      // Get environment access key and wrap it with the user's public keys
       const userKeyPair = await UserKeyPair.getInstance();
-      const [accessKeys, userPublicKey] = await Promise.all([
+      const [accessKeys, userPublicKeys] = await Promise.all([
         client.environments.getDecryptionKeys({
-          params: { idOrPath: environmentPath.toString() }
+          params: {
+            idOrPath: environmentPath.toString(),
+
+            // Request decryption data for the user's public key
+            pubkey: userKeyPair.publicKey.toBase64()
+          }
         }),
-        client.publicKeys.getPublicKey({
+        client.publicKeys.getPublicKeys({
           params: { userOrTokenNameOrId: userIdOrName }
         })
       ]);
@@ -343,25 +455,28 @@ environmentCommand
         console.error(`Failed to get environment access keys: ${(accessKeys.body as { message: string }).message}`);
         process.exit(1);
       }
-      if (userPublicKey.status !== 200) {
-        console.error(`Failed to get user public key: ${(userPublicKey.body as { message: string }).message}`);
+      if (userPublicKeys.status !== 200) {
+        console.error(`Failed to get user public keys: ${(userPublicKeys.body as { message: string }).message}`);
         process.exit(1);
       }
 
       const dek = userKeyPair.unwrapKey({
         wrappedKey: accessKeys.body.x25519DecryptionData.wrappedDek,
-        ephemeralPublicKey: accessKeys.body.x25519DecryptionData.ephemeralPublicKey
+        ephemeralPublicKey: accessKeys.body.x25519DecryptionData.ephemeralPublicKey,
       });
-      const wrappedDek = dek.wrap(new Ed25519PublicKey(userPublicKey.body.ed25519PublicKey));
+      const wrappedDeks = userPublicKeys.body.publicKeys.map(pk => dek.wrap(new Ed25519PublicKey(pk.valueBase64)));
       const response = await client.environments.setEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() },
         body: {
-          userIdOrName,
+          userOrAccessToken: userIdOrName,
           write: opts.write,
           expiresAt: opts.expiry,
-          ephemeralPublicKey: wrappedDek.ephemeralPublicKey,
-          encryptedSymmetricKey: wrappedDek.wrappedKey,
-          signature: userKeyPair.sign(wrappedDek.ephemeralPublicKey + wrappedDek.wrappedKey)
+          decryptionData: wrappedDeks.map(key => ({
+            publicKeyBase64: key.publicKeyBase64,
+            wrappedEncryptionKey: key.wrappedKey,
+            ephemeralPublicKey: key.ephemeralPublicKey
+          })),
+          signature: userKeyPair.sign(wrappedDeks.map(key => key.publicKeyBase64).join(''))
         }
       });
 

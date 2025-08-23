@@ -1,8 +1,10 @@
 import { edwardsToMontgomeryPub, x25519 } from '@noble/curves/ed25519';
 import { edwardsToMontgomeryPriv } from '@noble/curves/ed25519';
 import { randomBytes, createHash, createCipheriv, createDecipheriv } from 'crypto';
+import { Ed25519PublicKey } from '.';
 
 export interface WrappedKeyX25519 {
+  publicKeyBase64: string; // Key that was used to wrap the AES key
   wrappedKey: string; // Base64 encoded wrapped AES key
   ephemeralPublicKey: string; // Base64 encoded ephemeral public key
 }
@@ -88,13 +90,13 @@ export function deriveKey(sharedSecret: Uint8Array, contextInfo: string = 'envie
 /**
  * Wrap an AES key using ECDH with ephemeral key pair
  */
-export function wrapKeyX25519(aesKey: Uint8Array, recipientPublicKey: string): WrappedKeyX25519 {
+export function wrapKeyX25519(aesKey: Uint8Array, recipientPublicKey: Ed25519PublicKey): WrappedKeyX25519 {
   // Generate ephemeral key pair
   const ephemeralPrivateKey = x25519.utils.randomPrivateKey();
   const ephemeralPublicKey = x25519.getPublicKey(ephemeralPrivateKey);
   
   // Convert recipient's base64 public key to Uint8Array
-  const recipientPubKeyBytes = Buffer.from(recipientPublicKey, 'base64');
+  const recipientPubKeyBytes = Buffer.from(recipientPublicKey.toX25519(), 'base64');
   
   // Perform ECDH to get shared secret
   const sharedSecret = x25519.getSharedSecret(ephemeralPrivateKey, recipientPubKeyBytes);
@@ -116,11 +118,12 @@ export function wrapKeyX25519(aesKey: Uint8Array, recipientPublicKey: string): W
   
   return {
     wrappedKey: combined.toString('base64'),
-    ephemeralPublicKey: Buffer.from(ephemeralPublicKey).toString('base64')
+    ephemeralPublicKey: Buffer.from(ephemeralPublicKey).toString('base64'),
+    publicKeyBase64: recipientPublicKey.toBase64()
   };
 }
 
-export function unwrapKeyX25519(wrappedKeyData: WrappedKeyX25519, userPrivateKeyEd25519: Uint8Array): Uint8Array {
+export function unwrapKeyX25519(wrappedKeyData: Omit<WrappedKeyX25519, 'publicKeyBase64'>, userPrivateKeyEd25519: Uint8Array): Uint8Array {
   // Convert ephemeral public key from base64
   const ephemeralPublicKey = Buffer.from(wrappedKeyData.ephemeralPublicKey, 'base64');
   
@@ -148,7 +151,7 @@ export function unwrapKeyX25519(wrappedKeyData: WrappedKeyX25519, userPrivateKey
 
 export function encryptWithKeyExchangeX25519(
   content: string, 
-  recipientPublicKeys: string[]
+  recipientPublicKeys: Ed25519PublicKey[]
 ): {
   encryptedContent: EncryptedContent;
   wrappedKeys: WrappedKeyX25519[];

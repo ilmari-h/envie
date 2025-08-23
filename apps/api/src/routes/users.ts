@@ -9,7 +9,10 @@ import { isUserRequester } from "../types/cast";
 export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.getUser> }) => {
   if (!isUserRequester(req.requester)) {
     const accessToken = await db.query.accessTokens.findFirst({
-      where: eq(Schema.accessTokens.id, req.requester.accessTokenId)
+      where: eq(Schema.accessTokens.id, req.requester.accessTokenId),
+      with: {
+        publicKey: true
+      }
     })
     if(!accessToken) {
       return {
@@ -24,14 +27,24 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
         id: accessToken.createdBy,
         name: accessToken.name,
         authMethod: 'token' as const,
-        publicKey: accessToken.publicKeyEd25519 ? Buffer.from(accessToken.publicKeyEd25519).toString('base64') : null,
-        pkeAlgorithm: accessToken.publicKeyEd25519 ? 'ed25519' as const : null
+        publicKeys: [{
+          valueBase64: accessToken.publicKey.id,
+          name: accessToken.publicKey.name,
+          algorithm: accessToken.publicKey.algorithm
+        }]
       }
     }
   }
 
   const user = await db.query.users.findFirst({
-    where: eq(Schema.users.id, req.requester.userId)
+    where: eq(Schema.users.id, req.requester.userId),
+    with: {
+      userPublicKeys: {
+        with: {
+          publicKey: true
+        },
+      }
+    }
   })
   if(!user) {
     return {
@@ -46,8 +59,11 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
       id: user.id,
       name: user.name,
       authMethod: req.requester.userId.startsWith('github:') ? 'github' : 'email' as "github" | "email",
-      publicKey: user.publicKeyEd25519 ? Buffer.from(user.publicKeyEd25519).toString('base64') : null,
-      pkeAlgorithm: user.publicKeyEd25519 ? 'ed25519' as const : null
+      publicKeys: user.userPublicKeys.map(upk => ({
+        valueBase64: upk.publicKey.id,
+        name: upk.publicKey.name,
+        algorithm: upk.publicKey.algorithm
+      }))
     }
   }
 }

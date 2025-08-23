@@ -10,7 +10,7 @@ import { getAccessTokenByNameOrId, getUserByNameOrId } from "../queries/user";
 
 const MAX_USER_PUBLIC_KEYS = 5;
 
-export const getPublicKey = async ({
+export const getPublicKeys = async ({
   params: { userOrTokenNameOrId }
 }: {
   params: TsRestRequest<typeof contract.publicKeys.getPublicKeys>['params']

@@ -25,7 +25,9 @@ export const getAccessTokens = async ({ req }: { req: TsRestRequest<typeof contr
       id: true,
       name: true,
       expires: true,
-      publicKeyEd25519: true
+    },
+    with: {
+      publicKey: true
     }
   });
 
@@ -35,7 +37,7 @@ export const getAccessTokens = async ({ req }: { req: TsRestRequest<typeof contr
       id: token.id,
       name: token.name,
       expiresAt: token.expires,
-      pubkeyBase64: token.publicKeyEd25519.toString('base64')
+      pubkeyBase64: token.publicKey.id
     }))
   };
 };
@@ -85,10 +87,10 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
 
   const { name, expiresAt, publicKey: { valueBase64: publicKey, algorithm } } = req.body;
 
-  if (algorithm !== 'x25519') {
+  if (algorithm !== 'ed25519') {
     return {
       status: 400 as const,
-      body: { message: 'Only x25519 keys are supported' }
+      body: { message: 'Only ed25519 keys are supported' }
     }
   }
 
@@ -110,21 +112,38 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
   const userId = req.requester.userId;
   const tokenValue = nanoid(32);
 
-  const createdRows = await db.insert(Schema.accessTokens).values({
-    id: nanoid(),
-    name,
-    value: tokenValue,
-    createdBy: userId,
-    expires: expiresAt ? new Date(expiresAt) : null,
-    publicKeyEd25519: pubKeyBytes
-  }).onConflictDoNothing().returning();
+  // Create access token and public key
+  db.transaction(async (tx) => {
 
-  if (createdRows.length === 0) {
-    return {
-      status: 400 as const,
-      body: { message: 'Access token with this name already exists' }
+    // Create public key - same name as access token
+    const publicKeyId = nanoid();
+    const publicKeyInsertRows = await tx.insert(Schema.publicKeys).values({
+      id: publicKeyId,
+      name: name,
+      content: pubKeyBytes,
+      algorithm: 'ed25519' as const
+    }).onConflictDoNothing().returning();
+
+    if (publicKeyInsertRows.length === 0) {
+      throw new Error('Failed to create public key, same key might already exist');
     }
-  }
+
+    const accessTokenInsertRows = await tx.insert(Schema.accessTokens).values({
+      id: nanoid(),
+      name,
+      value: tokenValue,
+      createdBy: userId,
+      expires: expiresAt ? new Date(expiresAt) : null,
+      publicKeyId
+    }).onConflictDoNothing().returning();
+
+    if (accessTokenInsertRows.length === 0) {
+      return {
+        status: 400 as const,
+        body: { message: 'Access token with this name already exists' }
+      }
+    }
+  });
 
   return {
     status: 201 as const,

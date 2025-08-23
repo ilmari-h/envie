@@ -14,6 +14,7 @@ export const invitedUserSchema = z.object({
 });
 
 export const signatureSchema = z.object({
+  pubkeyBase64: z.string(),
   signature: z.string(),
   algorithm: z.enum(['ecdsa', 'rsa'])
 })
@@ -123,7 +124,7 @@ const publicKeys = c.router({
   },
   setPublicKey: {
     method: 'POST',
-    summary: 'Set the public key for the calling user or access token. Warning: when overriding existing key, all environment access will be revoked and has to be granted again.',
+    summary: 'Set the public key for the calling user or access token.',
     path: '/public-keys',
     body: z.object({
       publicKey: z.object({
@@ -144,18 +145,18 @@ const publicKeys = c.router({
       400: c.type<{ message: string }>()
     }
   },
-  removePublicKey: {
-    method: 'DELETE',
-    path: '/public-keys/:pubKeyBase64',
-    pathParams: z.object({
-      pubKeyBase64: z.string()
-    }),
-    responses: {
-      200: c.type<{ message: string }>(),
-      403: c.type<{ message: string }>(),
-      400: c.type<{ message: string }>()
-    }
-  }
+  // removePublicKey: {
+  //   method: 'DELETE',
+  //   path: '/public-keys/:pubKeyBase64',
+  //   pathParams: z.object({
+  //     pubKeyBase64: z.string()
+  //   }),
+  //   responses: {
+  //     200: c.type<{ message: string }>(),
+  //     403: c.type<{ message: string }>(),
+  //     400: c.type<{ message: string }>()
+  //   }
+  // }
 })
 
 const user = c.router({
@@ -168,8 +169,11 @@ const user = c.router({
         id: z.string(),
         name: z.string(),
         authMethod: z.enum(['github', 'email', 'token']),
-        publicKey: z.string().nullable(),
-        pkeAlgorithm: z.enum(['ed25519', 'rsa']).nullable()
+        publicKeys: z.array(z.object({
+          valueBase64: z.string(),
+          name: z.string(),
+          algorithm: z.enum(['ed25519', 'rsa'])
+        })),
       }),
       401: c.type<{ message: string }>(),
       404: c.type<{ message: string }>()
@@ -322,9 +326,6 @@ const environments = c.router({
         wrappedEncryptionKey: z.string(),
         ephemeralPublicKey: z.string()
       })),
-
-      userWrappedAesKey: z.string(),
-      userEphemeralPublicKey: z.string()
     }),
     responses: {
       201: z.object({ message: z.string() }),
@@ -342,6 +343,8 @@ const environments = c.router({
       idOrPath: z.string()
     }),
     body: z.object({
+
+      // The public key used to encrypt the content
       content: z.object({
         keys: z.array(z.string()),
         ciphertext: z.string(),
@@ -408,7 +411,7 @@ const environments = c.router({
       })),
       
       // PKE protocol - we validate that the caller matches his public key on record
-      // Message = base64 public keys concatenated, no spaces
+      // Message = base64 public keys concatenated, no spaces (in same order as in `decryptionData`)
       signature: signatureSchema
     }),
     responses: {
@@ -439,8 +442,6 @@ const environments = c.router({
     },
     summary: 'Set access for a user in an environment'
   },
-
-
 
   deleteEnvironmentAccess: {
     method: 'DELETE',

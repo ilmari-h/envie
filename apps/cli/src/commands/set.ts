@@ -19,6 +19,7 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
     const opts = this.opts<SetOptions>();
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
+    const userKeyPair = await UserKeyPair.getInstance();
     const client = createTsrClient(instanceUrl);
     
     try {
@@ -43,7 +44,10 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
 
       // First get the environment to get the decryption data
       const envResponse = await client.environments.getEnvironments({
-        query: { path: environmentPath.toString() }
+        query: {
+          path: environmentPath.toString(),
+          pubkey: userKeyPair.publicKey.toBase64()
+        }
       });
 
       if (envResponse.status !== 200 || envResponse.body.length === 0) {
@@ -56,10 +60,6 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
         console.error('Error: No decryption data found for environment');
         process.exit(1);
       }
-
-      // Get user's private key for decryption
-      const userKeyPair = await UserKeyPair.getInstance();
-
 
       try {
         // Unwrap the environment's encryption key
