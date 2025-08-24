@@ -266,25 +266,45 @@ passport.use(new GitHubStrategy({
     clientSecret: env.GITHUB_CLIENT_SECRET,
     callbackURL: env.GITHUB_CALLBACK_URL
   },
-  async (accessToken, refreshToken, profile, done) => {
-    // Create user if they don't exist
+  async (_accessToken, _refreshToken, profile, done) => {
+    // Create user if they don't exist and a personal organization
     const githubUserId = `github:${profile.id}`;
-    await db.insert(Schema.users).values({
-      id: githubUserId,
-      name: profile.username || profile.displayName,
-      email: profile.emails?.[0]?.value
-    }).onConflictDoUpdate({
-      target: Schema.users.id,
-      set: {
-        name: profile.username || profile.displayName,
-        email: profile.emails?.[0]?.value
-      }
+    const user = await db.query.users.findFirst({
+      where: eq(Schema.users.id, githubUserId)
     });
 
-    return done(null, {
-      id: githubUserId,
-      username: profile.username || profile.displayName
-    });
+    if(!user) {
+      db.transaction(async (tx) => {
+        await db.insert(Schema.users).values({
+          id: githubUserId,
+          name: profile.username || profile.displayName,
+          email: profile.emails?.[0]?.value
+        });
+        const [organization] = await tx.insert(Schema.organizations).values({
+          createdById: githubUserId,
+          description: 'Personal organization for ' + (profile.username ?? profile.displayName)
+        }).returning();
+        if(!organization) {
+          throw new Error('Failed to create organization');
+        }
+
+        await tx.insert(Schema.organizationRoles).values({
+          organizationId: organization.id,
+          userId: githubUserId,
+          canAddMembers: true,
+          canCreateEnvironments: true,
+          canCreateProjects: true,
+          canEditProject: true,
+          canEditOrganization: true
+        });
+
+      });
+
+      return done(null, {
+        id: githubUserId,
+        username: profile.username || profile.displayName
+      });
+    }
   }
 ));
 

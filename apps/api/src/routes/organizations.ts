@@ -49,7 +49,20 @@ export const createOrganization = async ({
   if (!isUserRequester(req.requester)) {
     return {
       status: 403 as const,
-      body: { message: 'Organization creation only via CLI' }
+      body: { message: 'Must be authenticated as a user' }
+    };
+  }
+  const user = await getUserByNameOrId(req.requester.userId);
+  if(!user) {
+    return {
+      status: 400 as const,
+      body: { message: 'User not found' }
+    };
+  }
+  if(user.createdOrganizations.length >= user.maxOrganizations) {
+    return {
+      status: 403 as const,
+      body: { message: 'You have reached the maximum number of organizations you can create' }
     };
   }
 

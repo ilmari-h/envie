@@ -13,7 +13,8 @@ export async function getUserByNameOrId(nameOrId: string | null) {
         with: {
           publicKey: true
         }
-      }
+      },
+      createdOrganizations: true,
     }
   });
 }

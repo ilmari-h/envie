@@ -1,14 +1,14 @@
 import { pgTable, uuid, text, boolean, timestamp, pgEnum, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { environments } from './environments';
-import { bytea, timestamps } from './utils';
+import { bytea, nanoid, timestamps } from './utils';
 import { relations, sql } from 'drizzle-orm';
 import { accessTokens } from './access-tokens';
 import { publicKeys } from './public-keys';
 
 export const environmentAccess = pgTable('environment_access', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  environmentId: uuid('environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
+  id: nanoid('id').primaryKey(),
+  environmentId: nanoid('environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
 
   // One or the other
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
@@ -23,8 +23,8 @@ export const environmentAccess = pgTable('environment_access', {
 ]);
 
 export const environmentDecryptionData = pgTable('environment_decryption_data', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  environmentAccessId: uuid('environment_access_id').references(() => environmentAccess.id, { onDelete: 'cascade' }).notNull(),
+  id: nanoid('id').primaryKey(),
+  environmentAccessId: nanoid('environment_access_id').references(() => environmentAccess.id, { onDelete: 'cascade' }).notNull(),
   publicKeyId: text('public_key_id').references(() => publicKeys.id, { onDelete: 'cascade' }).notNull(),
 
   // X25519

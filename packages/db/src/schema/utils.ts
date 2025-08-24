@@ -1,4 +1,5 @@
-import { timestamp, customType, pgEnum } from "drizzle-orm/pg-core";
+import { timestamp, customType } from "drizzle-orm/pg-core";
+import { customAlphabet } from 'nanoid';
 
 export const timestamps = {
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -28,3 +29,22 @@ export const bytea = customType<{ data: Buffer; driverData: Buffer }>({
     return Buffer.from(value as any);
   },
 }); 
+
+const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+export const generateNanoid = customAlphabet(alphabet, 16);
+
+export const nanoidType = customType<{ data: string; driverData: string; default: true }>({
+  dataType() {
+    return "text";
+  },
+  toDriver(value: string): string {
+    return value;
+  },
+  fromDriver(value: string): string {
+    return value;
+  },
+});
+
+export const nanoid = (name: string) => 
+  nanoidType(name).notNull().$defaultFn(() => generateNanoid());
+

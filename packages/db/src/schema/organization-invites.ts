@@ -1,12 +1,12 @@
 import { pgTable, uuid, text, boolean, timestamp } from 'drizzle-orm/pg-core';
-import { timestamps } from './utils';
+import { nanoid, nanoidType, timestamps } from './utils';
 import { organizations } from './organizations';
 import { users } from './users';
 import { relations } from 'drizzle-orm';
 
 export const organizationInvites = pgTable('organization_invites', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+  id: nanoid('id').primaryKey(),
+  organizationId: nanoidType('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
   token: text('token').notNull().unique(),
   oneTimeUse: boolean('one_time_use').notNull().default(true),
   expiresAt: timestamp('expires_at').notNull(),

@@ -1,12 +1,12 @@
 import { pgTable, text, uuid, index, uniqueIndex } from 'drizzle-orm/pg-core';
-import { timestamps } from './utils';
+import { nanoid, generateNanoid, timestamps } from './utils';
 import { users } from './users';
 import { organizationRoles } from './organization-roles';
 import { relations } from 'drizzle-orm';
 
 export const organizations = pgTable('organizations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
+  id: nanoid('id').primaryKey(),
+  name: text('name').notNull().default(generateNanoid()),
   description: text('description'),
   createdById: text('created_by_id').references(() => users.id),
   ...timestamps
@@ -17,6 +17,10 @@ export const organizations = pgTable('organizations', {
 
 export type Organization = typeof organizations.$inferSelect;
 
-export const organizationRelations = relations(organizations, ({ many }) => ({
+export const organizationRelations = relations(organizations, ({ many, one }) => ({
   roles: many(organizationRoles),
+  createdBy: one(users, {
+    fields: [organizations.createdById],
+    references: [users.id]
+  }),
 }));

@@ -1,11 +1,11 @@
 import { pgTable, text, timestamp, unique, index } from "drizzle-orm/pg-core";
-import { bytea, timestamps } from "./utils";
+import { bytea, nanoid, timestamps } from "./utils";
 import { users } from "./users";
 import { publicKeys } from "./public-keys";
 import { relations } from "drizzle-orm";
 
 export const accessTokens = pgTable('access_tokens', {
-  id: text('id').primaryKey(),
+  id: nanoid('id').primaryKey(),
   value: text('value').notNull(),
   name: text('name').notNull(),
   createdBy: text('created_by').references(() => users.id).notNull(),

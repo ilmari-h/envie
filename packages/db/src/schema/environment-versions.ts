@@ -1,12 +1,12 @@
 import { pgTable, text, uuid, primaryKey } from 'drizzle-orm/pg-core';
-import { bytea, timestamps } from './utils';
+import { bytea, nanoid, nanoidType, timestamps } from './utils';
 import { environments } from './environments';
 import { relations } from 'drizzle-orm';
 import { users } from './users';
 
 export const environmentVersions = pgTable('environment_versions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  environmentId: uuid('environment_id').references(() => environments.id, { onDelete: 'cascade' }),
+  id: nanoid('id').primaryKey(),
+  environmentId: nanoidType('environment_id').references(() => environments.id, { onDelete: 'cascade' }),
   encryptedContent: bytea('encrypted_content').notNull(),
   savedBy: text('saved_by').references(() => users.id).notNull(),
   ...timestamps
@@ -14,7 +14,7 @@ export const environmentVersions = pgTable('environment_versions', {
 
 export const environmentVersionKeys = pgTable('environment_version_keys', {
   key: text('key').notNull(),
-  environmentVersionId: uuid('environment_version_id').references(() => environmentVersions.id, { onDelete: 'cascade' }),
+  environmentVersionId: nanoid('environment_version_id').references(() => environmentVersions.id, { onDelete: 'cascade' }),
   ...timestamps
 }, (t) => ([{
   pk: primaryKey({ columns: [t.key, t.environmentVersionId] })

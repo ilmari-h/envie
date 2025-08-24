@@ -1,12 +1,12 @@
 import { pgTable, uuid, text, boolean } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 import { users } from "./users";
-import { timestamps } from "./utils";
+import { nanoid, nanoidType, timestamps } from "./utils";
 import { relations } from "drizzle-orm";
 
 export const organizationRoles = pgTable('organization_roles', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  id: nanoid('id').primaryKey(),
+  organizationId: nanoidType('organization_id').references(() => organizations.id).notNull(),
 
   userId: text('user_id').references(() => users.id).notNull(),
 
