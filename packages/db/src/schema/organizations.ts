@@ -8,7 +8,7 @@ export const organizations = pgTable('organizations', {
   id: nanoid('id').primaryKey(),
   name: text('name').notNull().default(generateNanoid()),
   description: text('description'),
-  createdById: text('created_by_id').references(() => users.id),
+  createdById: text('created_by_id').references(() => users.id).notNull(),
   ...timestamps
 }, (t) => ([{
   createdByIdIdx: index('created_by_id_idx').on(t.createdById),

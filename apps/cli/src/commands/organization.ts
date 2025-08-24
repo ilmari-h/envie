@@ -138,7 +138,7 @@ organizationCommand
       });
 
       if (response.status !== 201){
-        console.error(`Failed to create organization invite: ${response.status} ${response.body}`);
+        console.error(`Failed to create organization invite: ${ (response.body as { message: string }).message}`);
         process.exit(1);
       }
 

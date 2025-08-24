@@ -1,5 +1,5 @@
 import { db, Schema } from '@repo/db';
-import { count, eq, and, or } from 'drizzle-orm';
+import { count, eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import { getOrganization as getOrganizationByPath, isValidUUID } from '../queries/by-path';
@@ -239,11 +239,33 @@ export const createOrganizationInvite = async ({
     requester: req.requester,
     addMembers: true
   });
-
   if (!organization) {
     return {
       status: 404 as const,
       body: { message: 'Organization not found or insufficient permissions' }
+    };
+  }
+
+  const organizationCreator = await db.query.users.findFirst({
+    where: eq(Schema.users.id, organization.createdById),
+
+  });
+  if(!organizationCreator) {
+    return {
+      status: 500 as const,
+      body: { message: 'Organization creator not found' }
+    };
+  }
+
+  const [organizationMembersCount] = await db.select({
+    count: count()
+  }).from(Schema.organizationRoles)
+    .where(eq(Schema.organizationRoles.organizationId, organization.id));
+  
+  if((organizationMembersCount?.count ?? 0) >= organizationCreator.maxUsersPerOrganization) {
+    return {
+      status: 403 as const,
+      body: { message: `This organization has reached maximum amount of ${organizationCreator.maxUsersPerOrganization} members` }
     };
   }
 
@@ -294,13 +316,35 @@ export const acceptOrganizationInvite = async ({
     };
   }
 
+
   return db.transaction(async (tx) => {
     const invite = await tx.query.organizationInvites.findFirst({
       where: eq(Schema.organizationInvites.token, token),
       with: {
-        organization: true
+        organization: {
+          with: {
+            roles: true,
+            createdBy: true
+          }
+        }
       }
     });
+
+    // Check how many users are in the organization and if user can add more members
+    const organizationCreator = invite?.organization?.createdBy
+    if(!organizationCreator) {
+      return {
+        status: 500 as const,
+        body: { message: 'Organization creator not found' }
+      };
+    }
+    const maxAllowedMembers = organizationCreator.maxUsersPerOrganization;
+    if((invite.organization?.roles?.length ?? 0) >= maxAllowedMembers) {
+      return {
+        status: 403 as const,
+        body: { message: `This organization has reached maximum amount of ${maxAllowedMembers} members` }
+      };
+    }
 
     if (!invite || !invite.organization) {
       return {

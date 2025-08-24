@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 import { users } from "./users";
 import { nanoid, nanoidType, timestamps } from "./utils";

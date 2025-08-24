@@ -552,7 +552,8 @@ export const organizations = c.router({
       }),
       400: z.object({ message: z.string() }),
       403: z.object({ message: z.string() }),
-      404: z.object({ message: z.string() })
+      404: z.object({ message: z.string() }),
+      500: z.object({ message: z.string() })
     },
     summary: 'Create an organization invite'
   },
@@ -565,8 +566,10 @@ export const organizations = c.router({
     }),
     responses: {
       200: z.object({ message: z.string() }),
+      400: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
       404: z.object({ message: z.string() }),
-      400: z.object({ message: z.string() })
+      500: z.object({ message: z.string() })
     },
     summary: 'Accept an organization invite'
   },
