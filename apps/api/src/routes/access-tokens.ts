@@ -116,9 +116,8 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
   db.transaction(async (tx) => {
 
     // Create public key - same name as access token
-    const publicKeyId = nanoid();
     const publicKeyInsertRows = await tx.insert(Schema.publicKeys).values({
-      id: publicKeyId,
+      id: publicKey,
       name: name,
       content: pubKeyBytes,
       algorithm: 'ed25519' as const
@@ -134,13 +133,13 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
       value: tokenValue,
       createdBy: userId,
       expires: expiresAt ? new Date(expiresAt) : null,
-      publicKeyId
+      publicKeyId: publicKey
     }).onConflictDoNothing().returning();
 
     if (accessTokenInsertRows.length === 0) {
       return {
         status: 400 as const,
-        body: { message: 'Access token with this name already exists' }
+        body: { message: 'Could not create access token' }
       }
     }
   });

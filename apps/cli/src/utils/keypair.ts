@@ -66,6 +66,7 @@ export function decodeEd25519Base64BlobOpenSshFormat(buffer: Uint8Array) {
 // Take base64 or OpenSSH format and return 32 byte key
 export function normalizeEd25519PublicKey(base64Pubkey: string | Uint8Array): Uint8Array {
   const buffer = typeof base64Pubkey === 'string' ? Buffer.from(base64Pubkey, 'base64') : base64Pubkey;
+  console.log(buffer.length);
   
   // Assume correct format
   if(buffer.length === 32) {

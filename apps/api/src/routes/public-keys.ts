@@ -39,7 +39,7 @@ export const getPublicKeys = async ({
       status: 200 as const,
       body: {
         publicKeys: [{
-          valueBase64: Buffer.from(targetToken.publicKey.id).toString('base64'),
+          valueBase64: targetToken.publicKey.id,
           algorithm: targetToken.publicKey.algorithm
         }]
       }

@@ -438,7 +438,7 @@ environmentCommand
       
       // Get environment access key and wrap it with the user's public keys
       const userKeyPair = await UserKeyPair.getInstance();
-      const [accessKeys, userPublicKeys] = await Promise.all([
+      const [myAccess, targetPublicKeys] = await Promise.all([
         client.publicKeys.getDecryptionKeys({
           params: {
             // Request decryption data for the user's public key
@@ -452,26 +452,26 @@ environmentCommand
           params: { userOrTokenNameOrId: userIdOrName }
         })
       ]);
-      if (accessKeys.status !== 200 ) {
-        console.error(`Failed to get environment access keys: ${(accessKeys.body as { message: string }).message}`);
+      if (myAccess.status !== 200 ) {
+        console.error(`Failed to get environment access keys: ${(myAccess.body as { message: string }).message}`);
         process.exit(1);
       }
-      if (userPublicKeys.status !== 200) {
-        console.error(`Failed to get user public keys: ${(userPublicKeys.body as { message: string }).message}`);
+      if (targetPublicKeys.status !== 200) {
+        console.error(`Failed to get user public keys: ${(targetPublicKeys.body as { message: string }).message}`);
         process.exit(1);
       }
 
-      if(accessKeys.body.deks.length === 0) {
+      if(myAccess.body.deks.length === 0) {
         console.error('No decryption data found for environment');
         process.exit(1);
       }
-      const [decryptionData] = accessKeys.body.deks;
+      const [decryptionData] = myAccess.body.deks;
 
       const dek = userKeyPair.unwrapKey({
         wrappedKey: decryptionData.wrappedDek,
         ephemeralPublicKey: decryptionData.ephemeralPublicKey,
       });
-      const wrappedDeks = userPublicKeys.body.publicKeys.map(pk => dek.wrap(new Ed25519PublicKey(pk.valueBase64)));
+      const wrappedDeks = targetPublicKeys.body.publicKeys.map(pk => dek.wrap(new Ed25519PublicKey(pk.valueBase64)));
       const response = await client.environments.setEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() },
         body: {
