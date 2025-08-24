@@ -439,12 +439,13 @@ environmentCommand
       // Get environment access key and wrap it with the user's public keys
       const userKeyPair = await UserKeyPair.getInstance();
       const [accessKeys, userPublicKeys] = await Promise.all([
-        client.environments.getDecryptionKeys({
+        client.publicKeys.getDecryptionKeys({
           params: {
-            idOrPath: environmentPath.toString(),
-
             // Request decryption data for the user's public key
-            pubkey: userKeyPair.publicKey.toBase64()
+            pubkeyBase64Url: userKeyPair.publicKey.toBase64Url()
+          },
+          query: {
+            environment: environmentPath.toString()
           }
         }),
         client.publicKeys.getPublicKeys({
@@ -460,9 +461,15 @@ environmentCommand
         process.exit(1);
       }
 
+      if(accessKeys.body.deks.length === 0) {
+        console.error('No decryption data found for environment');
+        process.exit(1);
+      }
+      const [decryptionData] = accessKeys.body.deks;
+
       const dek = userKeyPair.unwrapKey({
-        wrappedKey: accessKeys.body.x25519DecryptionData.wrappedDek,
-        ephemeralPublicKey: accessKeys.body.x25519DecryptionData.ephemeralPublicKey,
+        wrappedKey: decryptionData.wrappedDek,
+        ephemeralPublicKey: decryptionData.ephemeralPublicKey,
       });
       const wrappedDeks = userPublicKeys.body.publicKeys.map(pk => dek.wrap(new Ed25519PublicKey(pk.valueBase64)));
       const response = await client.environments.setEnvironmentAccess({

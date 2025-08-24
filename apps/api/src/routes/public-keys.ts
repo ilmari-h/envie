@@ -4,9 +4,10 @@ import { ed25519 } from '@noble/curves/ed25519';
 import { contract } from "@repo/rest";
 import { Schema } from "@repo/db";
 import { db } from "@repo/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { isUserRequester } from "../types/cast";
 import { getAccessTokenByNameOrId, getUserByNameOrId } from "../queries/user";
+import { getEnvironmentByPath } from "../queries/by-path";
 
 const MAX_USER_PUBLIC_KEYS = 5;
 
@@ -121,21 +122,17 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
 
     // Create new public key
     await db.transaction(async (tx) => {
-      const newPublicKey = await tx.insert(Schema.publicKeys).values({
+       await tx.insert(Schema.publicKeys).values({
         id: publicKey,
         name,
         algorithm: 'ed25519',
         content: pubKeyBytes
-      }).returning();
+      }).onConflictDoNothing()
 
-      const id = newPublicKey[0]?.id;
-      if (!id) {
-        throw new Error('Failed to create new public key');
-      }
       await tx.insert(Schema.userPublicKeys).values({
         userId,
-        publicKeyId: id
-      });
+        publicKeyId: publicKey
+      }).onConflictDoNothing();
     });
 
     // Add decryption data for existing environment access entries
@@ -197,24 +194,19 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     }
     await db.transaction(async (tx) => {
       // Create new public key
-      const newPublicKey = await tx.insert(Schema.publicKeys).values({
+       await tx.insert(Schema.publicKeys).values({
         id: publicKey,
         name,
         algorithm: 'ed25519',
         content: pubKeyBytes
-      }).returning();
+      }).onConflictDoNothing()
       
-      const id = newPublicKey[0]?.id;
-      if (!id) {
-        throw new Error('Failed to create new public key');
-      }
-
       // Remove old public key
       await tx.delete(Schema.publicKeys).where(eq(Schema.publicKeys.id, existingAccessToken.publicKey.id));
 
       // Set public key
       await tx.update(Schema.accessTokens).set({
-        publicKeyId: id
+        publicKeyId: publicKey
       }).where(eq(Schema.accessTokens.id, accessTokenId));
 
       // Delete all environment access entries for old key
@@ -227,4 +219,70 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     status: 200 as const,
     body: { message: 'Public key set' }
   }
+}
+
+export const getDecryptionKeys = async ({
+  req,
+  params: { pubkeyBase64Url },
+  query: { environment: environmentId }
+}: {
+  req: TsRestRequest<typeof contract.publicKeys.getDecryptionKeys>
+  params: TsRestRequest<typeof contract.publicKeys.getDecryptionKeys>['params']
+  query: TsRestRequest<typeof contract.publicKeys.getDecryptionKeys>['query']
+}) => {
+
+  const pubkeyBytes = Buffer.from(pubkeyBase64Url, 'base64url');
+  const pubkey = Buffer.from(pubkeyBytes).toString('base64');
+
+  // Get environment - only view permission (the default) needed
+  const [_organization, _project, environment] = environmentId ? await getEnvironmentByPath(environmentId, {
+    requester: req.requester
+  }) : [null, null, null];
+
+  if (!environment && environmentId) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Get the user's own access entry
+  const accessEntries = await db.query.environmentAccess.findMany({
+    where: and(
+      environment ? eq(Schema.environmentAccess.environmentId, environment.id) : undefined,
+      isUserRequester(req.requester)
+        ? eq(Schema.environmentAccess.userId, req.requester.userId)
+        : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
+    ),
+    with: {
+      decryptionData: true
+    }
+  });
+
+  if (!accessEntries || accessEntries.length === 0) {
+    return {
+      status: 404 as const,
+      body: { message: 'No access found for current user' }
+    };
+  }
+
+  const decryptionData = accessEntries.map(
+      ea => ea.decryptionData.map(d => ({
+      publicKeyId: d.publicKeyId,
+      algorithm: "x25519" as const,
+      wrappedDek: d.encryptedSymmetricKey.toString('base64'),
+      ephemeralPublicKey: d.ephemeralPublicKey.toString('base64'),
+      environmentId: ea.environmentId
+    }))
+  ).flat().filter(d => d.publicKeyId === pubkey);
+
+  console.log(pubkey);
+  console.log(decryptionData);
+
+  return {
+    status: 200 as const,
+    body: {
+      deks: decryptionData
+    }
+  };
 }

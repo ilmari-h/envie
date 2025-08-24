@@ -63,17 +63,23 @@ export function decodeEd25519Base64BlobOpenSshFormat(buffer: Uint8Array) {
   };
 }
 
-export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
-  // Convert ed25519 public key to X25519 for ECDH
-  // if length is 32 bytes, assume just the public key
-  if (ed25519PublicKey.length === 32) { 
-    const x25519PublicKey = edwardsToMontgomeryPub(ed25519PublicKey);
-    return Buffer.from(x25519PublicKey).toString('base64');
+// Take base64 or OpenSSH format and return 32 byte key
+export function normalizeEd25519PublicKey(base64Pubkey: string | Uint8Array): Uint8Array {
+  const buffer = typeof base64Pubkey === 'string' ? Buffer.from(base64Pubkey, 'base64') : base64Pubkey;
+  
+  // Assume correct format
+  if(buffer.length === 32) {
+    return buffer;
   }
-  // if more, assume OpenSSH format
-  const decoded = decodeEd25519Base64BlobOpenSshFormat(ed25519PublicKey);
-  const x25519key = edwardsToMontgomeryPub(Buffer.from(decoded.rawBytes));
-  return Buffer.from(x25519key).toString('base64');
+  // Assume OpenSSH format
+  const decoded = decodeEd25519Base64BlobOpenSshFormat(buffer);
+  return Buffer.from(decoded.rawBytes);
+}
+
+export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
+  const normalized = normalizeEd25519PublicKey(ed25519PublicKey);
+  const x25519PublicKey = edwardsToMontgomeryPub(normalized);
+  return Buffer.from(x25519PublicKey).toString('base64');
 }
 
 

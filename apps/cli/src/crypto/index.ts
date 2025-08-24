@@ -64,6 +64,10 @@ export class Ed25519PublicKey {
   public toBase64(): string {
     return Buffer.from(this.content).toString('base64');
   }
+
+  public toBase64Url(): string {
+    return Buffer.from(this.content).toString('base64url')
+  }
 }
 
 export class UserKeyPair {

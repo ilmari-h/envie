@@ -145,6 +145,27 @@ const publicKeys = c.router({
       400: c.type<{ message: string }>()
     }
   },
+  getDecryptionKeys: {
+    method: 'GET',
+    summary: 'Get environment decryption keys for the given public key',
+    path: '/public-keys/:pubkeyBase64Url/dek',
+    pathParams: z.object({
+      pubkeyBase64Url: z.string(),
+    }),
+    query: z.object({
+      environment: z.string().optional(),
+    }),
+    responses: {
+      200: z.object({
+        deks: z.array(z.object({
+          environmentId: z.string(),
+          wrappedDek: z.string(),
+          ephemeralPublicKey: z.string(),
+          algorithm: z.enum(['x25519', 'rsa'])
+        }))
+      })
+    }
+  }
   // removePublicKey: {
   //   method: 'DELETE',
   //   path: '/public-keys/:pubKeyBase64',
@@ -459,24 +480,6 @@ const environments = c.router({
     },
     summary: 'Remove user access from an environment'
   },
-
-  getDecryptionKeys: {
-    method: 'GET',
-    summary: 'Get calling user\'s decryption keys for an environment',
-    path: '/environments/:idOrPath/access/decryption/:pubkey',
-    pathParams: z.object({
-      idOrPath: z.string(),
-      pubkey: z.string()
-    }),
-    responses: {
-      200: z.object({
-        x25519DecryptionData: z.object({
-          wrappedDek: z.string(),
-          ephemeralPublicKey: z.string()
-        })
-      })
-    }
-  }
 })
 
 export const organizations = c.router({

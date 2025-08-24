@@ -2,9 +2,8 @@ import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '
 import { existsSync } from 'fs';
 import { RootCommand, BaseOptions } from './root';
 import { createTsrClient } from '../utils/tsr-client';
-import { ed25519PublicKeyToX25519, readEd25519KeyPair } from '../utils/keypair';
-import chalk from 'chalk';
-import { UserKeyPair } from '../crypto';
+import { normalizeEd25519PublicKey, readEd25519KeyPair } from '../utils/keypair';
+import { UserKeyPair, Ed25519PublicKey } from '../crypto';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
 
 const rootCmd = new RootCommand();
@@ -16,7 +15,8 @@ const keypairCommand = configCommand
   .description('Manage keypair configuration');
 
 keypairCommand
-  .command('set <keypair-path>')
+  .command('set')
+  .argument('<keypair-path>', 'Path to the keypair file')
   .description('Set your keypair path on the local machine')
   .action(function(keypairPath: string) {
     const opts = this.opts<BaseOptions>();
@@ -37,14 +37,63 @@ keypairCommand
 
 keypairCommand
   .command('add-pubkey')
+  .argument('<pubkey>', 'Base64-encoded public key (Ed25519, OpenSSH format or just the key)')
   .description('Add a new public key to the server')
-  .action(async function() {
+  .action(async function(pubkey: string) {
+    const client = createTsrClient();
+    const base64Pubkey = Buffer.from(normalizeEd25519PublicKey(pubkey)).toString('base64');
+    const userKeyPair = await UserKeyPair.getInstance();
 
-    // TODO: 
-    // 1. get all access entries for user from server
-    // 2. unwrap all DEKs
-    // 3. wrap all DEKs with new pubkey
-    console.log('Not implemented');
+    const currentPubKey = userKeyPair.publicKey.toBase64Url();
+    const allDeks = await client.publicKeys.getDecryptionKeys({
+      params: {
+        pubkeyBase64Url: currentPubKey
+      }
+    });
+
+    console.log(allDeks);
+    if(allDeks.status !== 200) {
+      console.error('Failed to get decryption keys:', (allDeks.body as { message: string }).message);
+      process.exit(1);
+    }
+    const deksWrapped = allDeks.body.deks;
+    const deksUnwrapped = deksWrapped.map(dek => {
+      return {
+        environmentId: dek.environmentId,
+        dek: userKeyPair.unwrapKey({
+          wrappedKey: dek.wrappedDek,
+          ephemeralPublicKey: dek.ephemeralPublicKey,
+        }),
+      };
+    });
+
+    const existingEnvironmentAccessForNewKey = deksUnwrapped.map(dek => {
+      const wrappedDek = dek.dek.wrap(new Ed25519PublicKey(base64Pubkey));
+      return {
+        environmentId: dek.environmentId,
+        ephemeralPublicKey: wrappedDek.ephemeralPublicKey,
+        encryptedSymmetricKey: wrappedDek.wrappedKey,
+      };
+    });
+
+    const response = await client.publicKeys.setPublicKey({
+      body: {
+        publicKey: {
+          valueBase64: base64Pubkey,
+          algorithm: 'ed25519',
+          name: base64Pubkey
+        },
+        existingEnvironmentAccessForNewKey
+      }
+    });
+
+    if(response.status !== 200) {
+      console.error('Failed to set public key:', (response.body as { message: string }).message);
+      process.exit(1);
+    }
+
+    console.log('Public key set successfully');
+    process.exit(0);
   });
 
 keypairCommand
@@ -75,9 +124,9 @@ keypairCommand
         if (meResponse.status !== 200) {
           process.exit(0);
         }
-        if('publicKey' in meResponse.body) {
+        if('publicKeys' in meResponse.body) {
           // Check if there is a mismatch and warn if so
-          if(meResponse.body.publicKey !== publicKeyBase64) {
+          if(!meResponse.body.publicKeys.some(pk => pk.valueBase64 === publicKeyBase64)) {
             showPublicKeyWarning(
               meResponse.body.publicKeys.map(pk => pk.valueBase64),
               publicKeyBase64

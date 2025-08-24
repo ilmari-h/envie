@@ -14,7 +14,6 @@ import {
   updateEnvironmentContent, 
   updateEnvironmentSettings,
   setEnvironmentAccess,
-  getDecryptionKeys,
   deleteEnvironmentAccess,
   listEnvironmentAccess,
   deleteEnvironment,
@@ -24,7 +23,7 @@ import { getOrganizations, createOrganization, updateOrganization, getOrganizati
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { getMe, updateName } from './routes/users';
-import { getPublicKeys, setPublicKey } from './routes/public-keys';
+import { getPublicKeys, setPublicKey, getDecryptionKeys } from './routes/public-keys';
 import { createClient } from "redis";
 import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
 
@@ -158,10 +157,6 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: listEnvironmentAccess
     },
-    getDecryptionKeys: {
-      middleware: [requireAuth],
-      handler: getDecryptionKeys
-    },
     deleteEnvironment: {
       middleware: [requireAuth],
       handler: deleteEnvironment
@@ -213,6 +208,10 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: setPublicKey
     },
+    getDecryptionKeys: {
+      middleware: [requireAuth],
+      handler: getDecryptionKeys
+    }
   }),
   user: s.router(contract.user, {
     getUser: {

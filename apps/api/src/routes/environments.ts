@@ -1,8 +1,8 @@
 import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, Schema, AccessToken } from '@repo/db';
-import { eq, and, count, desc, inArray, sql } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import type { EnvironmentVersion, EnvironmentVersionWithWrappedEncryptionKey, EnvironmentWithVersion } from '@repo/rest';
+import type { EnvironmentVersion, EnvironmentWithVersion } from '@repo/rest';
 import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
 import { getEnvironmentVersionByIndex } from '../queries/environment-version';
@@ -688,64 +688,5 @@ export const deleteEnvironmentAccess = async ({
   return {
     status: 200 as const,
     body: { message: 'Environment access removed successfully' }
-  };
-};
-
-export const getDecryptionKeys = async ({
-  req,
-  params: { idOrPath, pubkey }
-}: {
-  req: TsRestRequest<typeof contract.environments.getDecryptionKeys>;
-  params: TsRestRequest<typeof contract.environments.getDecryptionKeys>['params'];
-}) => {
-
-  // Get environment - no special permissions needed since we're only getting our own access
-  const [_organization, _project, environment] = await getEnvironmentByPath(idOrPath, {
-    requester: req.requester
-  });
-
-  if (!environment) {
-    return {
-      status: 404 as const,
-      body: { message: 'Environment not found' }
-    };
-  }
-
-  // Get the user's own access entry
-  const accessEntry = await db.query.environmentAccess.findFirst({
-    where: and(
-      eq(Schema.environmentAccess.environmentId, environment.id),
-      isUserRequester(req.requester)
-        ? eq(Schema.environmentAccess.userId, req.requester.userId)
-        : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
-    ),
-    with: {
-      decryptionData: true
-    }
-  });
-
-  if (!accessEntry) {
-    return {
-      status: 404 as const,
-      body: { message: 'No access found for current user' }
-    };
-  }
-
-  const decryptionData = accessEntry.decryptionData.find(d => d.publicKeyId === pubkey);
-  if (!decryptionData) {
-    return {
-      status: 404 as const,
-      body: { message: 'No decryption data found for public key' }
-    };
-  }
-
-  return {
-    status: 200 as const,
-    body: {
-      x25519DecryptionData: {
-        wrappedDek: decryptionData.encryptedSymmetricKey.toString('base64'),
-        ephemeralPublicKey: decryptionData.ephemeralPublicKey.toString('base64')
-      }
-    }
   };
 };

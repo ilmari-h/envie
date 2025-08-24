@@ -4,7 +4,7 @@ import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
-import { ed25519PublicKeyToX25519 } from '../utils/keypair';
+import { normalizeEd25519PublicKey } from '../utils/keypair';
 
 type AccessTokenOptions = BaseOptions
 
@@ -108,7 +108,7 @@ accessTokenCommand
         body: {
           name,
           publicKey: {
-            valueBase64: ed25519PublicKeyToX25519(Buffer.from(publicKey, 'base64')),
+            valueBase64: Buffer.from(normalizeEd25519PublicKey(publicKey)).toString('base64'),
             algorithm: 'ed25519'
           },
           expiresAt: opts.expiresAt
