@@ -1,0 +1,2 @@
+#!/bin/sh
+node /home/sal/Workspace/envie/git/apps/cli/dist/index.js "$@"

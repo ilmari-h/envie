@@ -3,7 +3,7 @@ import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
-import { BaseOptions } from './root';
+import { BaseOptions, RootCommand } from './root';
 import { ExpiryFromNow } from './utils';
 import { confirm } from '../ui/confirm';
 
@@ -24,7 +24,7 @@ type SetAccessOptions = BaseOptions & {
   editOrganization?: string;
 };
 
-export const organizationCommand = new Command('organization')
+export const organizationCommand = new RootCommand().createCommand('organization')
   .alias('o')
   .description('Manage organizations');
 

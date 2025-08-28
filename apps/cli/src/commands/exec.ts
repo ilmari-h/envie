@@ -51,9 +51,15 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
 
       // Decrypt environment variables
       try {
+        const decryptionData = environment.decryptionData;
+        if (!decryptionData) {
+          console.error('Decryption data not found');
+          process.exit(1);
+        }
+
         const dek = (await UserKeyPair.getInstance()).unwrapKey({
-            wrappedKey: environment.decryptionData.wrappedEncryptionKey,
-            ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
+            wrappedKey: decryptionData.wrappedEncryptionKey,
+            ephemeralPublicKey: decryptionData.ephemeralPublicKey
           });
 
         const decryptedContent = dek.decryptContent(environment.version.content);

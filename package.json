@@ -20,5 +20,9 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@types/omelette": "^0.4.5",
+    "omelette": "^0.4.17"
+  }
 }

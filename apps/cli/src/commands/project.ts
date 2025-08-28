@@ -3,7 +3,7 @@ import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
-import { BaseOptions } from './root';
+import { BaseOptions, RootCommand } from './root';
 import { confirm } from '../ui/confirm';
 
 type ProjectOptions = BaseOptions & {
@@ -14,7 +14,7 @@ type CreateProjectOptions = ProjectOptions & {
   description?: string;
 };
 
-export const projectCommand = new Command('project')
+export const projectCommand = new RootCommand().createCommand('project')
   .alias('p')
   .description('Manage projects');
 
