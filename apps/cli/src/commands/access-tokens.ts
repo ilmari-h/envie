@@ -5,6 +5,7 @@ import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { normalizeEd25519PublicKey } from '../utils/keypair';
+import { confirm } from '../ui/confirm';
 
 type AccessTokenOptions = BaseOptions
 
@@ -60,16 +61,12 @@ accessTokenCommand
     try {
 
       // Ask for confirmation
-      process.stdout.write(chalk.red(`Are you sure you want to delete access token "${name}"? This action cannot be undone. [y/N] `));
-      
-      const response = await new Promise<string>(resolve => {
-        process.stdin.once('data', data => {
-          resolve(data.toString().trim().toLowerCase());
-        });
+      const confirmed = await confirm({
+        prompt: `Are you sure you want to delete access token "${name}"? This action cannot be undone.`,
+        dangerColor: true
       });
 
-      if (response !== 'y') {
-        console.log('Operation cancelled.');
+      if (!confirmed) {
         process.exit(0);
       }
 

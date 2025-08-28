@@ -4,6 +4,7 @@ import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { BaseOptions } from './root';
+import { confirm } from '../ui/confirm';
 
 type ProjectOptions = BaseOptions & {
   organization?: string;
@@ -70,16 +71,12 @@ projectCommand
       }
 
       // Ask for confirmation
-      process.stdout.write(chalk.red(`Are you sure you want to delete project "${projectPath}"? This action cannot be undone. [y/N] `));
-      
-      const response = await new Promise<string>(resolve => {
-        process.stdin.once('data', data => {
-          resolve(data.toString().trim().toLowerCase());
-        });
+      const confirmed = await confirm({
+        prompt: `Are you sure you want to delete project "${projectPath}"? This action cannot be undone.`,
+        dangerColor: true
       });
 
-      if (response !== 'y') {
-        console.log('Operation cancelled.');
+      if (!confirmed) {
         process.exit(0);
       }
 

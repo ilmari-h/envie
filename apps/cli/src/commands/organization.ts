@@ -2,9 +2,10 @@ import { Command } from 'commander';
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
-import { parseExpiryDate } from '../utils/time';
 import chalk from 'chalk';
 import { BaseOptions } from './root';
+import { ExpiryFromNow } from './utils';
+import { confirm } from '../ui/confirm';
 
 type CreateOrganizationOptions = BaseOptions & {
   description?: string;
@@ -109,41 +110,50 @@ organizationCommand
     }
   });
 
+const formatNiceDate = (date: Date) => {
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 organizationCommand
   .command('invite')
   .description('Create an organization invite link')
   .argument('<organization-name>', 'Name of the organization')
-  .requiredOption('--expiry <date>', 'Invite expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
+  .requiredOption('--expiry <date>', 'Invite expiry date in duration format (e.g., "1h", "1h30m", "1d", "1w", "1m", "1y")')
   .option('--one-time', 'Make this a one-time use invite (default: false)')
   .action(async function(organizationPath: string) {
     const opts = this.opts<InviteOrganizationOptions>();
     const instanceUrl = getInstanceUrl();
     
     try {
-      // Parse expiry date
-      try {
-        parseExpiryDate(opts.expiry);
-      } catch (error) {
-        console.error(`Error: ${error instanceof Error ? error.message : error}`);
-        process.exit(1);
-      }
+      const expiryDate = new ExpiryFromNow(opts.expiry);
 
       const client = createTsrClient(instanceUrl);
+      // Ask for confirmation
+      const confirmed = await confirm({
+        prompt: `Create an invite link that expires ${formatNiceDate(expiryDate.toDate())}?`,
+      });
+
+      if (!confirmed) {
+        process.exit(0);
+      }
+
       const response = await client.organizations.createOrganizationInvite({
         params: { idOrPath: organizationPath },
         body: {
-          expiresAt: opts.expiry,
+          expiresAt: expiryDate.toDate().toISOString(),
           oneTimeUse: opts.oneTime ?? false
         }
       });
 
       if (response.status !== 201){
+        console.log(response.body);
         console.error(`Failed to create organization invite: ${ (response.body as { message: string }).message}`);
         process.exit(1);
       }
 
-      console.log("Invite link:")
+      console.log(chalk.green("Invite created! Anyone with this link can join the organization:"));
       console.log(response.body.inviteUrl);
+      process.exit(0);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);
@@ -263,6 +273,83 @@ organizationCommand
         console.error(`Failed to update permissions: ${errorMsg.message}`);
         process.exit(1);
       }
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+organizationCommand
+  .command('delete-invite')
+  .description('Delete an organization invite')
+  .argument('<organization-name>', 'Name of the organization')
+  .argument('<invite-token>', 'Token or full invite URL')
+  .action(async function(organizationPath: string, token: string) {
+    const instanceUrl = getInstanceUrl();
+    
+    try {
+      // Extract token from URL if full URL is provided
+      const actualToken = token.includes('?inviteId=') 
+        ? token.split('?inviteId=')[1] 
+        : token;
+
+      const client = createTsrClient(instanceUrl);
+      const response = await client.organizations.deleteOrganizationInvite({
+        params: { 
+          idOrPath: organizationPath,
+          token: actualToken
+        }
+      });
+
+      if (response.status !== 200) {
+        console.error(chalk.red(`Failed to delete invite: ${(response.body as { message: string }).message}`));
+        process.exit(1);
+      }
+
+      console.log(chalk.green(response.body.message));
+      process.exit(0);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+organizationCommand
+  .command('list-invites')
+  .description('List all invites for an organization')
+  .argument('<organization-name>', 'Name of the organization')
+  .action(async function(organizationPath: string) {
+    const instanceUrl = getInstanceUrl();
+    
+    try {
+      const client = createTsrClient(instanceUrl);
+      const response = await client.organizations.listOrganizationInvites({
+        params: { idOrPath: organizationPath }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to fetch organization invites: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+
+      printTable(
+        [
+          { header: 'Link', key: 'link' },
+          { header: 'Token', key: 'token' },
+          { header: 'Created By', key: 'createdBy' },
+          { header: 'Created At', key: 'createdAt' },
+          { header: 'Expires At', key: 'expiresAt' },
+          { header: 'One Time Use', key: 'oneTimeUse' }
+        ],
+        response.body.map(invite => ({
+          link: invite.link,
+          token: invite.token,
+          createdBy: invite.createdBy,
+          createdAt: new Date(invite.createdAt).toLocaleString(),
+          expiresAt: new Date(invite.expiresAt).toLocaleString(),
+          oneTimeUse: invite.oneTimeUse ? '✓' : '✗'
+        }))
+      );
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);

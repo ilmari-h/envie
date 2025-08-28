@@ -7,8 +7,8 @@ import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
-import { parseExpiryDate } from '../utils/time';
-import { EnvironmentPath } from './utils';
+import { EnvironmentPath, ExpiryFromNow } from './utils';
+import { confirm } from '../ui/confirm';
 
 type EnvironmentOptions = BaseOptions;
 
@@ -417,7 +417,7 @@ environmentCommand
       return true;
     }
   })
-  .option('--expiry <date>', 'Access expiry date in YYYY-MM-DD format (e.g., "2024-12-31")')
+  .option('--expiry <date>', 'Access expiry date in duration format (e.g., "1h", "1h30m", "1d", "1w", "1m", "1y")')
   .action(async function(path: string, userIdOrName: string) {
     const opts = this.opts<EnvironmentOptions & { write?: boolean, expiry?: string }>();
     const instanceUrl = getInstanceUrl();
@@ -425,14 +425,7 @@ environmentCommand
     
     try {
       // Parse expiry date if provided
-      if (opts.expiry) {
-        try {
-          parseExpiryDate(opts.expiry);
-        } catch (error) {
-          console.error(`Error: ${error instanceof Error ? error.message : error}`);
-          process.exit(1);
-        }
-      }
+      const expiryDate = opts.expiry ? new ExpiryFromNow(opts.expiry) : undefined;
 
       const client = createTsrClient(instanceUrl);
       
@@ -477,7 +470,7 @@ environmentCommand
         body: {
           userOrAccessToken: userIdOrName,
           write: opts.write,
-          expiresAt: opts.expiry,
+          expiresAt: expiryDate?.toDate().toISOString(),
           decryptionData: wrappedDeks.map(key => ({
             publicKeyBase64: key.publicKeyBase64,
             wrappedEncryptionKey: key.wrappedKey,
@@ -572,7 +565,14 @@ environmentCommand
     
     try {
       // Ask for confirmation
-      process.stdout.write(chalk.red(`Are you sure you want to delete environment "${environmentPath.toString()}"? This action cannot be undone. [y/N] `));
+      const confirmed = await confirm({
+        prompt: `Are you sure you want to delete environment "${environmentPath.toString()}"? This action cannot be undone.`,
+        dangerColor: true
+      });
+
+      if (!confirmed) {
+        process.exit(0);
+      }
       
       const response = await new Promise<string>(resolve => {
         process.stdin.once('data', data => {

@@ -1,4 +1,4 @@
-import { db, Schema } from '@repo/db';
+import { db, generateNanoid, Schema } from '@repo/db';
 import { count, eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
@@ -227,7 +227,6 @@ export const createOrganizationInvite = async ({
   params: TsRestRequest<typeof contract.organizations.createOrganizationInvite>['params'];
   body: TsRestRequest<typeof contract.organizations.createOrganizationInvite>['body'];
 }) => {
-  console.log('createOrganizationInvite', req.requester);
   if (!isUserRequester(req.requester)) {
     return {
       status: 403 as const,
@@ -269,15 +268,13 @@ export const createOrganizationInvite = async ({
     };
   }
 
-  const token = randomBytes(32).toString('base64url');
-  const expirationDate = new Date(expiresAt + 'T23:59:59.999Z');
-
+  const token = generateNanoid(24)
   const [invite] = await db.insert(Schema.organizationInvites)
     .values({
       organizationId: organization.id,
       token,
       oneTimeUse: oneTimeUse ?? true,
-      expiresAt: expirationDate,
+      expiresAt,
       createdBy: req.requester.userId
     })
     .returning();
@@ -429,6 +426,132 @@ export const getOrganizationByInvite = async ({
       name: invite.organization.name,
       id: invite.organization.id
     }
+  };
+};
+
+export const listOrganizationInvites = async ({
+  req,
+  params: { idOrPath }
+}: {
+  req: TsRestRequest<typeof contract.organizations.listOrganizationInvites>;
+  params: TsRestRequest<typeof contract.organizations.listOrganizationInvites>['params'];
+}) => {
+  console.log('listOrganizationInvites', req.requester);
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Method not available for API keys' }
+    };
+  }
+
+  const organization = await getOrganizationByPath(idOrPath, {
+    requester: req.requester
+  });
+
+  if (!organization) {
+    return {
+      status: 404 as const,
+      body: { message: 'Organization not found' }
+    };
+  }
+
+  // Check if user is organization owner
+  const isOwner = organization.createdById === req.requester.userId;
+
+  // Build the where clause based on user role
+  const whereClause = isOwner 
+    ? eq(Schema.organizationInvites.organizationId, organization.id)
+    : and(
+        eq(Schema.organizationInvites.organizationId, organization.id),
+        eq(Schema.organizationInvites.createdBy, req.requester.userId)
+      );
+
+  const invites = await db.query.organizationInvites.findMany({
+    where: whereClause,
+    with: {
+      creator: {
+        columns: {
+          name: true
+        }
+      }
+    },
+    orderBy: (invites, { desc }) => [desc(invites.createdAt)]
+  });
+
+  return {
+    status: 200 as const,
+    body: invites.map(invite => ({
+      link: `${process.env.FRONTEND_URL}/invite?inviteId=${invite.token}`,
+      token: invite.token,
+      createdBy: invite.creator?.name ?? 'Unknown',
+      createdAt: invite.createdAt,
+      expiresAt: invite.expiresAt,
+      oneTimeUse: invite.oneTimeUse
+    }))
+  };
+};
+
+export const deleteOrganizationInvite = async ({
+  req,
+  params: { idOrPath, token }
+}: {
+  req: TsRestRequest<typeof contract.organizations.deleteOrganizationInvite>;
+  params: TsRestRequest<typeof contract.organizations.deleteOrganizationInvite>['params'];
+}) => {
+  if (!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Method not available for API keys' }
+    };
+  }
+
+  const organization = await getOrganizationByPath(idOrPath, {
+    requester: req.requester
+  });
+
+  if (!organization) {
+    return {
+      status: 404 as const,
+      body: { message: 'Organization not found' }
+    };
+  }
+
+  // Find the invite
+  const invite = await db.query.organizationInvites.findFirst({
+    where: and(
+      eq(Schema.organizationInvites.organizationId, organization.id),
+      eq(Schema.organizationInvites.token, token)
+    )
+  });
+
+  if (!invite) {
+    return {
+      status: 404 as const,
+      body: { message: 'Invite not found' }
+    };
+  }
+
+  // Check if user is org owner or invite creator
+  const isOwner = organization.createdById === req.requester.userId;
+  const isCreator = invite.createdBy === req.requester.userId;
+
+  if (!isOwner && !isCreator) {
+    return {
+      status: 403 as const,
+      body: { message: 'Only organization owners or invite creators can delete invites' }
+    };
+  }
+
+  // Delete the invite
+  await db.delete(Schema.organizationInvites)
+    .where(and(
+      eq(Schema.organizationInvites.organizationId, organization.id),
+      eq(Schema.organizationInvites.token, token)
+    ));
+
+  return {
+    status: 200 as const,
+    body: { message: 'Invite deleted successfully' }
   };
 };
 

@@ -1,6 +1,21 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 
+
+const parseDate = (date: string) => {
+  const parsed = new Date(date);
+  try {
+    if (isNaN(parsed.getTime())) {
+      throw new Error('Invalid date');
+    }
+  } catch (error) {
+    throw new Error('Invalid date');
+  }
+
+  return parsed;
+}
+
+const stringToDateSchema = z.string().refine(parseDate, { message: 'Invalid date' }).transform(parseDate);
 const nameRegex = /^[a-zA-Z0-9_-]+$/;
 const nameSchema = z.string()
   .min(1)
@@ -422,7 +437,7 @@ const environments = c.router({
     }),
     body: z.object({
       userOrAccessToken: z.string(),
-      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
+      expiresAt: stringToDateSchema.optional(),
       write: z.boolean().optional(),
 
       decryptionData: z.array(z.object({
@@ -542,7 +557,7 @@ export const organizations = c.router({
     }),
     body: z.object({
       oneTimeUse: z.boolean().optional().default(true),
-      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+      expiresAt: stringToDateSchema
     }),
     responses: {
       201: z.object({
@@ -632,6 +647,42 @@ export const organizations = c.router({
       404: z.object({ message: z.string() })
     },
     summary: 'Get organization info from invite token'
+  },
+
+  listOrganizationInvites: {
+    method: 'GET',
+    path: '/organizations/:idOrPath/invites',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    responses: {
+      200: z.array(z.object({
+        link: z.string(),
+        token: z.string(),
+        createdBy: z.string(),
+        createdAt: z.date(),
+        expiresAt: z.date(),
+        oneTimeUse: z.boolean()
+      })),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'List all invites for an organization'
+  },
+
+  deleteOrganizationInvite: {
+    method: 'DELETE',
+    path: '/organizations/:idOrPath/invites/:token',
+    pathParams: z.object({
+      idOrPath: z.string(),
+      token: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Delete an organization invite'
   }
 })
 
@@ -662,7 +713,7 @@ export const accessTokens = c.router({
     path: '/access-tokens',
     body: z.object({
       name: nameSchema,
-      expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
+      expiresAt: stringToDateSchema.optional(),
       publicKey: z.object({
         valueBase64: z.string(),
         algorithm: z.enum(['ed25519', 'rsa'])

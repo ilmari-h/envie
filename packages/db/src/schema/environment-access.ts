@@ -1,8 +1,8 @@
-import { pgTable, uuid, text, boolean, timestamp, pgEnum, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { environments } from './environments';
 import { bytea, nanoid, timestamps } from './utils';
-import { relations, sql } from 'drizzle-orm';
+import { relations } from 'drizzle-orm';
 import { accessTokens } from './access-tokens';
 import { publicKeys } from './public-keys';
 
