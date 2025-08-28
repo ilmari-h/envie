@@ -17,10 +17,11 @@ async function setupProgram(program: Command, commands: AutocompleteCommand[]) {
 
   // Setup autocomplete tree
   const tree = commands.reduce((acc, command) => {
-    acc[command.name()] = command?.getTree()[command.name()] ?? [];
+    acc[command.name()] = command?.getTree()[command.name()] ?? {};
     return acc;
-  }, {} as { [key: string]: string[] });
+  }, {} as omelette.TreeValue);
 
+  console.log(tree);
 
   const complete = omelette("envie").tree(tree);
 

@@ -1,11 +1,12 @@
 import { Command, CommandOptions } from "commander";
+import omelette from "omelette";
 
 export interface BaseOptions {
   verbose?: boolean;
 }
 
 export class AutocompleteCommand extends Command {
-  private tree: { [key: string]: string[] } = {};
+  private tree: omelette.TreeValue = {};
   
   constructor(name: string) {
     super(name);
@@ -17,14 +18,25 @@ export class AutocompleteCommand extends Command {
   command(nameAndArgs: string, opts?: CommandOptions): ReturnType<this['createCommand']>;
   command(nameAndArgs: string, description: string, opts?: any): this;
   command(nameAndArgs: string, descriptionOrOpts?: string | CommandOptions, opts?: any): any {
-    this.tree[this.name()].push(nameAndArgs);
+    const commands = this.tree[this.name()];
+    if (Array.isArray(commands)) {
+      commands.push(nameAndArgs);
+    }
     if (typeof descriptionOrOpts === 'string') {
       return super.command(nameAndArgs, descriptionOrOpts, opts);
     }
     return super.command(nameAndArgs, descriptionOrOpts) as ReturnType<this['createCommand']>;
   }
 
-  getTree(): { [key: string]: string[] } {
+  addCommandWithCompletion(command: AutocompleteCommand) {
+    this.tree[this.name()] = {
+      ...this.tree[this.name()],
+      ...command.getTree()
+    }
+    this.addCommand(command);
+  }
+
+  getTree(): omelette.TreeValue {
     return this.tree;
   }
 }

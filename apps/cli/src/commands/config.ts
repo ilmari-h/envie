@@ -1,6 +1,6 @@
 import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '../utils/config';
 import { existsSync } from 'fs';
-import { RootCommand, BaseOptions } from './root';
+import { RootCommand, BaseOptions, AutocompleteCommand } from './root';
 import { createTsrClient } from '../utils/tsr-client';
 import { normalizeEd25519PublicKey, readEd25519KeyPair } from '../utils/keypair';
 import { UserKeyPair, Ed25519PublicKey } from '../crypto';
@@ -10,8 +10,7 @@ const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
   .description('Manage configuration');
 
-const keypairCommand = configCommand
-  .command('keypair')
+const keypairCommand = new AutocompleteCommand('keypair')
   .description('Manage keypair configuration');
 
 keypairCommand
@@ -153,6 +152,8 @@ keypairCommand
       process.exit(1);
     }
   });
+
+configCommand.addCommandWithCompletion(keypairCommand);
 
 const instanceUrlCommand = configCommand
   .command('instance-url')
