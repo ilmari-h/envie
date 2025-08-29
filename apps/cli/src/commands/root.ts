@@ -1,43 +1,50 @@
 import { Command, CommandOptions } from "commander";
-import omelette from "omelette";
 
 export interface BaseOptions {
   verbose?: boolean;
 }
 
+export type ArgumentSuggestions = string[] | ((input: string) => Promise<string[]>);
+
 export class AutocompleteCommand extends Command {
-  private tree: omelette.TreeValue = {};
+  argumentSuggestions: ArgumentSuggestions[] = [];
+  
   
   constructor(name: string) {
     super(name);
-    this.tree = {
-      [this.name()]: []
-    }
   }
 
-  command(nameAndArgs: string, opts?: CommandOptions): ReturnType<this['createCommand']>;
-  command(nameAndArgs: string, description: string, opts?: any): this;
-  command(nameAndArgs: string, descriptionOrOpts?: string | CommandOptions, opts?: any): any {
-    const commands = this.tree[this.name()];
-    if (Array.isArray(commands)) {
-      commands.push(nameAndArgs);
+  argumentWithSuggestions<T>(
+    arg: string,
+    description: string,
+    parseArg: (value: string, previous: T) => T,
+    suggestions: ArgumentSuggestions,
+    defaultValue?: T,
+  ): this;
+  argumentWithSuggestions(name: string, description: string, suggestions: ArgumentSuggestions, defaultValue?: string): this;
+  argumentWithSuggestions<T>(
+    arg: string,
+    description: string,
+    parseArgOrSuggestions: ((value: string, previous: T) => T) | ArgumentSuggestions,
+    suggestionsOrDefaultValue?: ArgumentSuggestions | string,
+    defaultValue?: T,
+  ): this {
+    if (typeof parseArgOrSuggestions === 'function' && parseArgOrSuggestions.length === 2) {
+      // First overload: with parseArg
+      this.argument(arg, description, parseArgOrSuggestions as (value: string, previous: T) => T, defaultValue);
+      this.argumentSuggestions.push(suggestionsOrDefaultValue as ArgumentSuggestions);
+    } else {
+      // Second overload: without parseArg
+      this.argument(arg, description, suggestionsOrDefaultValue as string);
+      this.argumentSuggestions.push(parseArgOrSuggestions as ArgumentSuggestions);
     }
-    if (typeof descriptionOrOpts === 'string') {
-      return super.command(nameAndArgs, descriptionOrOpts, opts);
-    }
-    return super.command(nameAndArgs, descriptionOrOpts) as ReturnType<this['createCommand']>;
+    return this;
   }
 
-  addCommandWithCompletion(command: AutocompleteCommand) {
-    this.tree[this.name()] = {
-      ...this.tree[this.name()],
-      ...command.getTree()
-    }
-    this.addCommand(command);
-  }
-
-  getTree(): omelette.TreeValue {
-    return this.tree;
+  commandWithSuggestions(nameAndArgs: string, opts?: CommandOptions): AutocompleteCommand {
+    const cmd = new AutocompleteCommand(nameAndArgs);
+    this.addCommand(cmd, opts);
+    return cmd;
   }
 }
 

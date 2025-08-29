@@ -10,12 +10,15 @@ const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
   .description('Manage configuration');
 
-const keypairCommand = new AutocompleteCommand('keypair')
+const keypairCommand = configCommand
+  .commandWithSuggestions('keypair')
   .description('Manage keypair configuration');
 
 keypairCommand
-  .command('set')
-  .argument('<keypair-path>', 'Path to the keypair file')
+  .commandWithSuggestions('set')
+  .argumentWithSuggestions('<keypair-path>', 'Path to the keypair file', async (input) => {
+    return ["gisgidgas", "thisisalongargument", "shorterwargument"]
+  })
   .description('Set your keypair path on the local machine')
   .action(function(keypairPath: string) {
     const opts = this.opts<BaseOptions>();
@@ -152,8 +155,6 @@ keypairCommand
       process.exit(1);
     }
   });
-
-configCommand.addCommandWithCompletion(keypairCommand);
 
 const instanceUrlCommand = configCommand
   .command('instance-url')

@@ -12,18 +12,76 @@ import { execCommand } from './commands/exec';
 import { accessTokenCommand } from './commands/access-tokens';
 import { AutocompleteCommand } from './commands/root';
 
+async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 
-async function setupProgram(program: Command, commands: AutocompleteCommand[]) {
+  const complete = omelette(`envie`);
 
-  // Setup autocomplete tree
-  const tree = commands.reduce((acc, command) => {
-    acc[command.name()] = command?.getTree()[command.name()] ?? {};
-    return acc;
-  }, {} as omelette.TreeValue);
+  const autocompleteCallback = (fragment: string, {reply, before, line}: omelette.CallbackAsyncValue) => {
+    const lineWithTyping = line.split(/\s+/);
+    const typing = lineWithTyping[lineWithTyping.length - 1] !== ""
+    const typingInput = typing ? lineWithTyping[lineWithTyping.length - 1] : null
 
-  console.log(tree);
+    const lineSegments = lineWithTyping.slice(0, -1)
 
-  const complete = omelette("envie").tree(tree);
+    // If no before, suggest first level commands
+    if (lineSegments.length === 1) {
+      const commandNames = commands.map(command => command.name());
+      reply(Promise.resolve(commandNames));
+      return
+    }
+
+    // Find the current subcommand by traversing down the command tree
+    let currentCommand: AutocompleteCommand | undefined = undefined;
+    let segmentIndex = 1; // Start from index 1, skip 'envie'
+    
+    // Find the initial command
+    if (segmentIndex < lineSegments.length) {
+      const commandName = lineSegments[segmentIndex];
+      currentCommand = commands.find(cmd => cmd.name() === commandName);
+      segmentIndex++;
+    }
+    
+    // Traverse down the tree through subcommands
+    while (currentCommand && segmentIndex < lineSegments.length) {
+      const subCommandName = lineSegments[segmentIndex];
+      const subCommands = currentCommand.commands as AutocompleteCommand[];
+      const foundSubCommand = subCommands.find(cmd => cmd.name() === subCommandName);
+      
+      if (foundSubCommand) {
+        currentCommand = foundSubCommand;
+        segmentIndex++;
+      } else {
+        break;
+      }
+    }
+
+    // If current command has subcommands, suggest them
+    if (currentCommand && currentCommand.commands.length > 0) {
+      reply(Promise.resolve(currentCommand.commands.map(cmd => cmd.name())));
+      return
+    }
+
+    const argumentIndex = lineSegments.length - segmentIndex;
+    const argumentSuggestions = currentCommand?.argumentSuggestions[argumentIndex]
+    if(!argumentSuggestions) {
+      return
+    }
+
+    const suggestions = typeof argumentSuggestions === 'function'
+      ? argumentSuggestions(line)
+      : argumentSuggestions
+    reply(Promise.resolve(suggestions))
+  }
+  complete.onAsync('complete', autocompleteCallback as unknown as omelette.CallbackAsync)
+
+  complete.next( () => {
+    for (const command of commands) {
+      program.addCommand(command);
+    }
+
+    // Parse command line arguments
+    program.parse(process.argv);
+  });
 
   complete.init();
 
@@ -37,10 +95,6 @@ async function setupProgram(program: Command, commands: AutocompleteCommand[]) {
     complete.cleanupShellInitFile();
     process.exit(0);
   }
-
-  for (const command of commands) {
-    program.addCommand(command);
-  }
 }
 
 async function main() {
@@ -48,7 +102,7 @@ async function main() {
     .name('envie')
     .description('CLI for managing .env files securely and conveniently')
 
-  await setupProgram(program, [
+  await startProgram(program, [
     loginCommand,
     execCommand,
     setCommand,
@@ -60,8 +114,6 @@ async function main() {
     accessTokenCommand,
   ]);
 
-  // Parse command line arguments
-  await program.parseAsync(process.argv);
 }
 
 main().catch((error) => {
