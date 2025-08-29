@@ -107,6 +107,46 @@ export class ExpiryFromNow {
 }
 
 /**
+ * Reads directory contents two levels deep with proper path formatting
+ */
+function readDirectoryTwoLevelsDeep(directoryPath: string, isAbsolute: boolean, basePrefix: string = ''): string[] {
+  const allPaths: string[] = [];
+  
+  try {
+    const contents = readdirSync(directoryPath);
+    
+    for (const item of contents) {
+      const itemPath = join(directoryPath, item);
+      const itemIsDir = statSync(itemPath).isDirectory();
+      
+      // Add the item itself
+      const formattedPath = isAbsolute ? itemPath : `${basePrefix}${item}`;
+      allPaths.push(itemIsDir ? `${formattedPath}/` : formattedPath);
+      
+      // If it's a directory, add its contents too
+      if (itemIsDir) {
+        try {
+          const subContents = readdirSync(itemPath);
+          for (const subItem of subContents) {
+            const subItemPath = join(itemPath, subItem);
+            const subItemIsDir = statSync(subItemPath).isDirectory();
+            
+            const subFormattedPath = isAbsolute ? subItemPath : `${basePrefix}${item}/${subItem}`;
+            allPaths.push(subItemIsDir ? `${subFormattedPath}/` : subFormattedPath);
+          }
+        } catch (error) {
+          // Skip if can't read subdirectory
+        }
+      }
+    }
+  } catch (error) {
+    // Return empty array on error
+  }
+  
+  return allPaths;
+}
+
+/**
  * Takes a partial path input, finds the last complete directory, and lists its contents
  * @param input - The partial path input (e.g., "/home/user/wor")
  * @returns Array of directory contents as strings
@@ -115,8 +155,7 @@ export async function getPathCompletions(input: string): Promise<string[]> {
   try {
     // If input is empty, return cwd contents with ./ prefix
     if (input === "") {
-      const contents = readdirSync(process.cwd());
-      return contents.map(item => `./${item}`);
+      return readDirectoryTwoLevelsDeep(process.cwd(), false, './');
     }
 
     // Check if path is absolute using resolve === normalize trick
@@ -133,23 +172,21 @@ export async function getPathCompletions(input: string): Promise<string[]> {
       return [];
     }
     
-    // List directory contents
-    const contents = readdirSync(directoryToList);
-    
     if (isAbsolute) {
-      // Return absolute paths
-      return contents.map(item => join(directoryToList, item));
+      return readDirectoryTwoLevelsDeep(directoryToList, true);
     } else {
       // Return relative paths - figure out the correct prefix
       const inputIsDir = existsSync(resolvedPath) && statSync(resolvedPath).isDirectory();
       const baseDir = inputIsDir ? input : dirname(input);
       
-      // Always prefix relative paths with ./
+      let prefix: string;
       if (baseDir === '.' || baseDir === '') {
-        return contents.map(item => `./${item}`);
+        prefix = './';
       } else {
-        return contents.map(item => `./${join(baseDir, item)}`);
+        prefix = `./${baseDir}/`;
       }
+      
+      return readDirectoryTwoLevelsDeep(directoryToList, false, prefix);
     }
   } catch (error) {
     // Return empty array on any error
