@@ -1,3 +1,5 @@
+import { existsSync, readdirSync, statSync } from "fs";
+import { resolve, dirname, normalize, join } from 'path';
 import { getWorkspaceProjectPath } from "../utils/config";
 
 export class EnvironmentPath {
@@ -101,5 +103,56 @@ export class ExpiryFromNow {
 
   public toDate(): Date {
     return this.expiryDate;
+  }
+}
+
+/**
+ * Takes a partial path input, finds the last complete directory, and lists its contents
+ * @param input - The partial path input (e.g., "/home/user/wor")
+ * @returns Array of directory contents as strings
+ */
+export async function getPathCompletions(input: string): Promise<string[]> {
+  try {
+    // If input is empty, return cwd contents with ./ prefix
+    if (input === "") {
+      const contents = readdirSync(process.cwd());
+      return contents.map(item => `./${item}`);
+    }
+
+    // Check if path is absolute using resolve === normalize trick
+    const isAbsolute = resolve(input) === normalize(input);
+    
+    // Get the directory to list
+    const resolvedPath = resolve(input);
+    const directoryToList = existsSync(resolvedPath) && statSync(resolvedPath).isDirectory() 
+      ? resolvedPath 
+      : dirname(resolvedPath);
+    
+    // Check if directory exists
+    if (!existsSync(directoryToList)) {
+      return [];
+    }
+    
+    // List directory contents
+    const contents = readdirSync(directoryToList);
+    
+    if (isAbsolute) {
+      // Return absolute paths
+      return contents.map(item => join(directoryToList, item));
+    } else {
+      // Return relative paths - figure out the correct prefix
+      const inputIsDir = existsSync(resolvedPath) && statSync(resolvedPath).isDirectory();
+      const baseDir = inputIsDir ? input : dirname(input);
+      
+      // Always prefix relative paths with ./
+      if (baseDir === '.' || baseDir === '') {
+        return contents.map(item => `./${item}`);
+      } else {
+        return contents.map(item => `./${join(baseDir, item)}`);
+      }
+    }
+  } catch (error) {
+    // Return empty array on any error
+    return [];
   }
 }

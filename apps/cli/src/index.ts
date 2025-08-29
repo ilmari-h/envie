@@ -68,7 +68,7 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
     }
 
     const suggestions = typeof argumentSuggestions === 'function'
-      ? argumentSuggestions(line)
+      ? argumentSuggestions(typingInput ?? "")
       : argumentSuggestions
     reply(Promise.resolve(suggestions))
   }

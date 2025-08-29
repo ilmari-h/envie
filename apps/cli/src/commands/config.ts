@@ -1,10 +1,12 @@
 import { setKeypairPath, setInstanceUrl, getKeypairPath, getInstanceUrl } from '../utils/config';
 import { existsSync } from 'fs';
-import { RootCommand, BaseOptions, AutocompleteCommand } from './root';
+import { resolve } from 'path';
+import { RootCommand, BaseOptions } from './root';
 import { createTsrClient } from '../utils/tsr-client';
 import { normalizeEd25519PublicKey, readEd25519KeyPair } from '../utils/keypair';
 import { UserKeyPair, Ed25519PublicKey } from '../crypto';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
+import { getPathCompletions } from './utils';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
@@ -16,25 +18,32 @@ const keypairCommand = configCommand
 
 keypairCommand
   .commandWithSuggestions('set')
-  .argumentWithSuggestions('<keypair-path>', 'Path to the keypair file', async (input) => {
-    return ["gisgidgas", "thisisalongargument", "shorterwargument"]
-  })
+  .argumentWithSuggestions('<keypair-path>', 'Path to the keypair file', getPathCompletions)
   .description('Set your keypair path on the local machine')
   .action(function(keypairPath: string) {
     const opts = this.opts<BaseOptions>();
+    
+    // Convert relative path to absolute
+    const absoluteKeypairPath = resolve(keypairPath);
 
     if (opts.verbose) {
-      console.log(`Setting keypair path to: ${keypairPath}`);
+      console.log(`Setting keypair path to: ${absoluteKeypairPath}`);
     }
     
-    if (!existsSync(keypairPath)) {
-      console.error(`Error: Keypair file not found at: ${keypairPath}`);
+    if (!existsSync(absoluteKeypairPath)) {
+      console.error(`Error: Keypair file not found at: ${absoluteKeypairPath}`);
       console.error('Please ensure the file exists before setting the path.');
       process.exit(1);
     }
+    try {
+      readEd25519KeyPair(absoluteKeypairPath);
+    } catch (error) {
+      console.error(`Error: Keypair file is not a valid Ed25519 key pair: ${absoluteKeypairPath}`);
+      process.exit(1);
+    }
 
-    setKeypairPath(keypairPath);
-    console.log(`Keypair path set to: ${keypairPath}`);
+    setKeypairPath(absoluteKeypairPath);
+    console.log(`Keypair path set to: ${absoluteKeypairPath}`);
   });
 
 keypairCommand
