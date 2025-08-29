@@ -7,7 +7,7 @@ import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
-import { EnvironmentPath, ExpiryFromNow } from './utils';
+import { EnvironmentPath, ExpiryFromNow, getPathCompletions } from './utils';
 import { confirm } from '../ui/confirm';
 
 type EnvironmentOptions = BaseOptions;
@@ -84,9 +84,20 @@ environmentCommand
   });
 
 environmentCommand
-  .command('create')
+  .commandWithSuggestions('create')
   .description('Create a new environment')
-  .argument('<path>', 'Environment path')
+  .argumentWithSuggestions('<path>', 'Environment path', async (input) => {
+    try {
+      const client = createTsrClient(getInstanceUrl());
+      const response = await client.projects.getProjects({});
+      if (response.status !== 200) {
+        return [];
+      }
+      return response.body.map(project => `${project.organization.name}:${project.name}:`);
+    } catch {
+      return [];
+    }
+  })
   .argument('[file]', 'A file containing the initial content')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(pathParam: string, filePath?: string) {
@@ -214,9 +225,20 @@ environmentCommand
   });
 
 environmentCommand
-  .command('show')
+  .commandWithSuggestions('show')
   .description('Show an environment')
-  .argument('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)')
+  .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', async (input) => {
+    try {
+    const client = createTsrClient(getInstanceUrl());
+    const response = await client.environments.getEnvironments({});
+    if (response.status !== 200) {
+      return [];
+      }
+      return response.body.map(env => `${env.project.organization.name}:${env.project.name}:${env.name}`);
+    } catch {
+      return [];
+    }
+  })
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
@@ -298,10 +320,21 @@ environmentCommand
 
 
 environmentCommand
-  .command('update')
+  .commandWithSuggestions('update')
   .description('Update an environment\'s content from a file')
-  .argument('<path>', 'Environment path')
-  .argument('<file>', 'Path to .env file')
+  .argumentWithSuggestions('<path>', 'Environment path', async (input) => {
+    try {
+      const client = createTsrClient(getInstanceUrl());
+      const response = await client.environments.getEnvironments({});
+      if (response.status !== 200) {
+        return [];
+      }
+      return response.body.map(env => `${env.project.organization.name}:${env.project.name}:${env.name}`);
+    } catch {
+      return [];
+    }
+  })
+  .argumentWithSuggestions('<file>', 'Path to .env file', getPathCompletions)
   .action(async function(pathParam: string, filePath: string) {
     const opts = this.opts<EnvironmentOptions>();
     const instanceUrl = getInstanceUrl();
