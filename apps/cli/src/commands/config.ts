@@ -6,7 +6,7 @@ import { createTsrClient } from '../utils/tsr-client';
 import { normalizeEd25519PublicKey, readEd25519KeyPair } from '../utils/keypair';
 import { UserKeyPair, Ed25519PublicKey } from '../crypto';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
-import { getPathCompletions } from './utils';
+import { filepathCompletions } from '../utils/suggestions';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
@@ -18,7 +18,7 @@ const keypairCommand = configCommand
 
 keypairCommand
   .commandWithSuggestions('set')
-  .argumentWithSuggestions('<keypair-path>', 'Path to the keypair file', getPathCompletions)
+  .argumentWithSuggestions('<keypair-path>', 'Path to the keypair file', filepathCompletions)
   .description('Set your keypair path on the local machine')
   .action(function(keypairPath: string) {
     const opts = this.opts<BaseOptions>();

@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
 import { ExpiryFromNow } from './utils';
 import { confirm } from '../ui/confirm';
+import { getOrganizationCompletions } from '../utils/suggestions';
 
 type CreateOrganizationOptions = BaseOptions & {
   description?: string;
@@ -65,9 +66,9 @@ organizationCommand
   });
 
 organizationCommand
-  .command('members')
+  .commandWithSuggestions('members')
   .description('Get members of an organization')
-  .argument('<organization-name>', 'Name of the organization')
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', getOrganizationCompletions)
   .action(async function(organizationPath: string) {
     const instanceUrl = getInstanceUrl();
     
@@ -115,9 +116,9 @@ const formatNiceDate = (date: Date) => {
 }
 
 organizationCommand
-  .command('invite')
+  .commandWithSuggestions('invite')
   .description('Create an organization invite link')
-  .argument('<organization-name>', 'Name of the organization')
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', getOrganizationCompletions)
   .requiredOption('--expiry <date>', 'Invite expiry date in duration format (e.g., "1h", "1h30m", "1d", "1w", "1m", "1y")')
   .option('--one-time', 'Make this a one-time use invite (default: false)')
   .action(async function(organizationPath: string) {

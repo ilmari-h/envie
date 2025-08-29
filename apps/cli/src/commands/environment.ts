@@ -7,7 +7,8 @@ import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
-import { EnvironmentPath, ExpiryFromNow, getPathCompletions } from './utils';
+import { EnvironmentPath, ExpiryFromNow } from './utils';
+import { filepathCompletions, projectCompletions, environmentSuggestions } from '../utils/suggestions';
 import { confirm } from '../ui/confirm';
 
 type EnvironmentOptions = BaseOptions;
@@ -86,18 +87,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('create')
   .description('Create a new environment')
-  .argumentWithSuggestions('<path>', 'Environment path', async (input) => {
-    try {
-      const client = createTsrClient(getInstanceUrl());
-      const response = await client.projects.getProjects({});
-      if (response.status !== 200) {
-        return [];
-      }
-      return response.body.map(project => `${project.organization.name}:${project.name}:`);
-    } catch {
-      return [];
-    }
-  })
+  .argumentWithSuggestions('<path>', 'Environment path', projectCompletions)
   .argument('[file]', 'A file containing the initial content')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(pathParam: string, filePath?: string) {
@@ -227,18 +217,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('show')
   .description('Show an environment')
-  .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', async (input) => {
-    try {
-    const client = createTsrClient(getInstanceUrl());
-    const response = await client.environments.getEnvironments({});
-    if (response.status !== 200) {
-      return [];
-      }
-      return response.body.map(env => `${env.project.organization.name}:${env.project.name}:${env.name}`);
-    } catch {
-      return [];
-    }
-  })
+  .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentSuggestions)
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
@@ -322,19 +301,8 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('update')
   .description('Update an environment\'s content from a file')
-  .argumentWithSuggestions('<path>', 'Environment path', async (input) => {
-    try {
-      const client = createTsrClient(getInstanceUrl());
-      const response = await client.environments.getEnvironments({});
-      if (response.status !== 200) {
-        return [];
-      }
-      return response.body.map(env => `${env.project.organization.name}:${env.project.name}:${env.name}`);
-    } catch {
-      return [];
-    }
-  })
-  .argumentWithSuggestions('<file>', 'Path to .env file', getPathCompletions)
+  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
+  .argumentWithSuggestions('<file>', 'Path to .env file', filepathCompletions)
   .action(async function(pathParam: string, filePath: string) {
     const opts = this.opts<EnvironmentOptions>();
     const instanceUrl = getInstanceUrl();
@@ -439,9 +407,9 @@ environmentCommand
   });
 
 environmentCommand
-  .command('set-access')
+  .commandWithSuggestions('set-access')
   .description('Grant or update access to an environment for a user')
-  .argument('<path>', 'Environment path')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
   .argument('<user-or-token>', 'User name, token name, or ID to grant access to')
   .option('--write [true|false]', 'Grant write access (default: false)', (value) => {
     if (value && value === 'false') {
@@ -524,9 +492,9 @@ environmentCommand
   });
 
 environmentCommand
-  .command('remove-access')
+  .commandWithSuggestions('remove-access')
   .description('Remove a user\'s access to an environment')
-  .argument('<path>', 'Environment path')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
   .argument('<user-or-token>', 'User name, token name, or ID to remove access from')
   .action(async function(path: string, userIdOrName: string) {
     const instanceUrl = getInstanceUrl();
@@ -550,9 +518,9 @@ environmentCommand
   });
 
 environmentCommand
-  .command('list-access')
+  .commandWithSuggestions('list-access')
   .description('List users and tokens with access to an environment')
-  .argument('<path>', 'Environment path')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
   .action(async function(path: string) {
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
@@ -589,9 +557,9 @@ environmentCommand
   });
 
 environmentCommand
-  .command('delete')
+  .commandWithSuggestions('delete')
   .description('Delete an environment and all its data')
-  .argument('<path>', 'Environment path')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
   .action(async function(path: string) {
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
