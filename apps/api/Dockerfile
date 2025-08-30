@@ -5,7 +5,7 @@ FROM oven/bun:1.2.11-alpine AS builder
 WORKDIR /app
 
 # Copy workspace configuration and lockfile first
-COPY package.json bun.lock ./
+COPY package.json bun.lock turbo.json ./
 
 # Copy all workspace source code
 COPY packages/ ./packages/
@@ -14,8 +14,8 @@ COPY apps/ ./apps/
 # Install dependencies from workspace root
 RUN bun install --frozen-lockfile
 
-# Build the API
-RUN cd apps/api && bun run build
+# Build the API and its dependencies using Turbo
+RUN bunx turbo build --filter=api
 
 # Production stage
 FROM oven/bun:1.2.11-alpine AS runner
@@ -24,7 +24,7 @@ FROM oven/bun:1.2.11-alpine AS runner
 RUN apk add --no-cache dumb-init
 
 # Create nodejs group
-RUN addgroup -g 1001 -S nodejs || true
+RUN addgroup -g 1001 -S nodejs || tru
 
 # Set working directory
 WORKDIR /app
