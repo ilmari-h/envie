@@ -21,6 +21,7 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
   .action(async function(path: string, commandArgs: string[]) {
     const opts = this.opts<ShellOptions>();
     const instanceUrl = getInstanceUrl();
+    const userKeyPair = await UserKeyPair.getInstance();
     
     try {
       // Validate environment path format (must have exactly 3 parts)
@@ -30,7 +31,11 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
       
       // Get the specific environment using the path
       const response = await client.environments.getEnvironments({
-        query: { path: environmentPath.toString(), version: opts.ver }
+        query: {
+          path: environmentPath.toString(),
+          version: opts.ver,
+          pubkey: userKeyPair.publicKey.toBase64()
+        }
       });
 
       if (response.status !== 200) {
@@ -54,7 +59,6 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
       try {
         const decryptionData = environment.decryptionData;
         if (!decryptionData) {
-          // TODO: some trivial issue here, fix!
           console.error('Decryption data not found');
           process.exit(1);
         }
