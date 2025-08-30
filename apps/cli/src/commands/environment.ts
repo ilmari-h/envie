@@ -88,7 +88,7 @@ environmentCommand
   .commandWithSuggestions('create')
   .description('Create a new environment')
   .argumentWithSuggestions('<path>', 'Environment path', projectCompletionsWithTrailingColon)
-  .argument('[file]', 'A file containing the initial content')
+  .argumentWithSuggestions('[file]', 'A file containing the initial content', filepathCompletions)
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(pathParam: string, filePath?: string) {
     const opts = this.opts<CreateEnvironmentOptions>();
@@ -495,7 +495,7 @@ environmentCommand
   .commandWithSuggestions('remove-access')
   .description('Remove a user\'s access to an environment')
   .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
-  .argument('<user-or-token>', 'User name, token name, or ID to remove access from')
+  .argumentWithSuggestions('<user-or-token>', 'User or token to remove access from', userAndTokenCompletions)
   .action(async function(path: string, userIdOrName: string) {
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
@@ -572,17 +572,6 @@ environmentCommand
       });
 
       if (!confirmed) {
-        process.exit(0);
-      }
-      
-      const response = await new Promise<string>(resolve => {
-        process.stdin.once('data', data => {
-          resolve(data.toString().trim().toLowerCase());
-        });
-      });
-
-      if (response !== 'y') {
-        console.log('Operation cancelled.');
         process.exit(0);
       }
 

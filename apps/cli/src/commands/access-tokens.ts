@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { normalizeEd25519PublicKey } from '../utils/keypair';
 import { confirm } from '../ui/confirm';
+import { tokenCompletions } from '../utils/completions';
 
 type AccessTokenOptions = BaseOptions
 
@@ -52,9 +53,9 @@ accessTokenCommand
   });
 
 accessTokenCommand
-  .command('delete')
+  .commandWithSuggestions('delete')
   .description('Delete an access token')
-  .argument('<name>', 'Name of the access token to delete')
+  .argumentWithSuggestions('<name>', 'Name of the access token to delete', tokenCompletions)
   .action(async function(name: string) {
     const instanceUrl = getInstanceUrl();
     

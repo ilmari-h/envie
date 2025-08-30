@@ -91,7 +91,7 @@ export async function filepathCompletions({input, before}: {input: string, befor
   }
 }
 
-export async function getOrganizationCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
+export async function organizationCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
   try {
     const client = createTsrClient(getInstanceUrl());
     const response = await client.organizations.getOrganizations({});
@@ -104,9 +104,9 @@ export async function getOrganizationCompletions({input, before}: {input: string
   }
 }
 
-export async function projectCompletionsWithTrailingColon({input, before}: {input: string, before: string}): Promise<string[]> {
-  const projects = await projectCompletions({input, before});
-  return projects.map(project => `${project}:`);
+export async function organizationCompletionsWithTrailingColon({input, before}: {input: string, before: string}): Promise<string[]> {
+  const organizations = await organizationCompletions({input, before});
+  return organizations.map(organization => `${organization}:`);
 }
 
 export async function projectCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
@@ -120,6 +120,11 @@ export async function projectCompletions({input, before}: {input: string, before
     } catch {
       return [];
     }
+}
+
+export async function projectCompletionsWithTrailingColon({input, before}: {input: string, before: string}): Promise<string[]> {
+  const projects = await projectCompletions({input, before});
+  return projects.map(project => `${project}:`);
 }
 
 export async function environmentCompletions({input, before}: {input: string, before: string}): Promise<string[]> {

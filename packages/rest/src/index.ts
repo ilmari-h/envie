@@ -679,9 +679,8 @@ export const organizations = c.router({
 
   deleteOrganizationInvite: {
     method: 'DELETE',
-    path: '/organizations/:idOrPath/invites/:token',
+    path: '/organizations/invites/:token',
     pathParams: z.object({
-      idOrPath: z.string(),
       token: z.string()
     }),
     responses: {

@@ -333,7 +333,8 @@ export const acceptOrganizationInvite = async ({
     if(!organizationCreator) {
       return {
         status: 500 as const,
-        body: { message: 'Organization creator not found' }
+        body: { message: 
+          !invite?.organization ? 'Invite not found' : 'Organization creator not found' }
       };
     }
     const maxAllowedMembers = organizationCreator.maxUsersPerOrganization;
@@ -494,7 +495,7 @@ export const listOrganizationInvites = async ({
 
 export const deleteOrganizationInvite = async ({
   req,
-  params: { idOrPath, token }
+  params: { token }
 }: {
   req: TsRestRequest<typeof contract.organizations.deleteOrganizationInvite>;
   params: TsRestRequest<typeof contract.organizations.deleteOrganizationInvite>['params'];
@@ -506,26 +507,16 @@ export const deleteOrganizationInvite = async ({
     };
   }
 
-  const organization = await getOrganizationByPath(idOrPath, {
-    requester: req.requester
-  });
-
-  if (!organization) {
-    return {
-      status: 404 as const,
-      body: { message: 'Organization not found' }
-    };
-  }
 
   // Find the invite
   const invite = await db.query.organizationInvites.findFirst({
-    where: and(
-      eq(Schema.organizationInvites.organizationId, organization.id),
-      eq(Schema.organizationInvites.token, token)
-    )
+    where: eq(Schema.organizationInvites.token, token),
+    with: {
+      organization: true
+    }
   });
 
-  if (!invite) {
+  if (!invite || !invite.organization) {
     return {
       status: 404 as const,
       body: { message: 'Invite not found' }
@@ -533,7 +524,7 @@ export const deleteOrganizationInvite = async ({
   }
 
   // Check if user is org owner or invite creator
-  const isOwner = organization.createdById === req.requester.userId;
+  const isOwner = invite.organization.createdById === req.requester.userId;
   const isCreator = invite.createdBy === req.requester.userId;
 
   if (!isOwner && !isCreator) {
@@ -545,10 +536,9 @@ export const deleteOrganizationInvite = async ({
 
   // Delete the invite
   await db.delete(Schema.organizationInvites)
-    .where(and(
-      eq(Schema.organizationInvites.organizationId, organization.id),
+    .where(
       eq(Schema.organizationInvites.token, token)
-    ));
+    );
 
   return {
     status: 200 as const,

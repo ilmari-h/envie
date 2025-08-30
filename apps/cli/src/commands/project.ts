@@ -5,6 +5,7 @@ import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
 import { confirm } from '../ui/confirm';
+import { organizationCompletionsWithTrailingColon, projectCompletions, projectCompletionsWithTrailingColon } from '../utils/completions';
 
 type ProjectOptions = BaseOptions & {
   organization?: string;
@@ -21,6 +22,7 @@ export const projectCommand = new RootCommand().createCommand('project')
 projectCommand
   .command('list')
   .description('List projects optionally filter by some organization (name or ID)')
+  // TODO: use an argument heere instead
   .option('-o, --organization <organization>', 'Filter by organization name or ID')
   .action(async function() {
     const opts = this.opts<ProjectOptions>();
@@ -56,9 +58,9 @@ projectCommand
   });
 
 projectCommand
-  .command('delete')
+  .commandWithSuggestions('delete')
   .description('Delete a project')
-  .argument('<path>', 'Project path in format "organization-name:project-name"')
+  .argumentWithSuggestions('<path>', 'Project path in format "organization-name:project-name"', projectCompletions)
   .action(async function(projectPath: string) {
     const instanceUrl = getInstanceUrl();
     
@@ -99,9 +101,9 @@ projectCommand
   });
 
 projectCommand
-  .command('create')
+  .commandWithSuggestions('create')
   .description('Create a new project')
-  .argument('<project-path>', 'Project path in format "organization-name:project-name"')
+  .argumentWithSuggestions('<project-path>', 'Project path in format "organization-name:project-name"', organizationCompletionsWithTrailingColon)
   .option('-d, --description <description>', 'Project description')
   .action(async function(projectPath: string) {
     const opts = this.opts<CreateProjectOptions>();

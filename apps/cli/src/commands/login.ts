@@ -12,7 +12,6 @@ import logger from '../logging';
 
 const execAsync = promisify(exec);
 
-
 export const loginCommand = new RootCommand().createCommand('login')
   .description('Start browser login flow')
   .action(async function() {

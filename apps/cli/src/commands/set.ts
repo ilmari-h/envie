@@ -1,9 +1,9 @@
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
-import { getUserPrivateKey } from '../utils/keypair';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair } from '../crypto';
 import { EnvironmentPath } from './utils';
+import { environmentCompletions } from '../utils/completions';
 
 type SetOptions = BaseOptions & {
   instanceUrl?: string;
@@ -12,7 +12,7 @@ type SetOptions = BaseOptions & {
 const rootCmd = new RootCommand();
 export const setCommand = rootCmd.createCommand<SetOptions>('set')
   .description('Set an environment variable')
-  .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
+  .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', environmentCompletions)
   .argument('<key-value>', 'Key-value pair in format "key=value" or as separate arguments')
   .argument('[value]', 'Value if provided separately from key')
   .action(async function(path: string, keyValue: string, separateValue?: string) {
@@ -124,7 +124,8 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
 
 export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
   .description('Unset an environment variable')
-  .argument('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"')
+  .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', environmentCompletions)
+  // TODO: completions
   .argument('<key>', 'Key to unset')
   .action(async function(path: string, key: string) {
     const opts = this.opts<SetOptions>();

@@ -563,6 +563,7 @@ export const deleteEnvironment = async ({
   req: TsRestRequest<typeof contract.environments.deleteEnvironment>;
   params: TsRestRequest<typeof contract.environments.deleteEnvironment>['params'];
 }) => {
+
   if (!isUserRequester(req.requester)) {
     return {
       status: 403 as const,
@@ -583,33 +584,12 @@ export const deleteEnvironment = async ({
     };
   }
 
-  // Delete environment and all related data in transaction
-  await db.transaction(async (tx) => {
-    // Delete all environment access entries
-    await tx.delete(Schema.environmentAccess)
-      .where(eq(Schema.environmentAccess.environmentId, environment.id));
-
-    // Delete all environment versions and their keys
-    const versions = await tx.select()
-      .from(Schema.environmentVersions)
-      .where(eq(Schema.environmentVersions.environmentId, environment.id));
-
-    for (const version of versions) {
-      await tx.delete(Schema.environmentVersionKeys)
-        .where(eq(Schema.environmentVersionKeys.environmentVersionId, version.id));
-    }
-    
-    await tx.delete(Schema.environmentVersions)
-      .where(eq(Schema.environmentVersions.environmentId, environment.id));
-
-    // Finally delete the environment itself
-    await tx.delete(Schema.environments)
-      .where(eq(Schema.environments.id, environment.id));
-  });
+  // Finally delete the environment itself
+  await db.delete(Schema.environments).where(eq(Schema.environments.id, environment.id));
 
   return {
     status: 200 as const,
-    body: {}
+    body: { message: 'Environment deleted successfully' }
   };
 };
 

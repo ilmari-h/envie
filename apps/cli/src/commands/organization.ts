@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
 import { ExpiryFromNow } from './utils';
 import { confirm } from '../ui/confirm';
-import { getOrganizationCompletions, userCompletions } from '../utils/completions';
+import { organizationCompletions, userAndTokenCompletions, userCompletions } from '../utils/completions';
 
 type CreateOrganizationOptions = BaseOptions & {
   description?: string;
@@ -30,7 +30,7 @@ export const organizationCommand = new RootCommand().createCommand('organization
 
 
 organizationCommand
-  .commandWithSuggestions('list')
+  .command('list')
   .description('List organizations you have access to')
   .action(async function() {
     const instanceUrl = getInstanceUrl();
@@ -67,7 +67,7 @@ organizationCommand
 organizationCommand
   .commandWithSuggestions('members')
   .description('Get members of an organization')
-  .argumentWithSuggestions('<organization-name>', 'Name of the organization', getOrganizationCompletions)
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', organizationCompletions)
   .action(async function(organizationPath: string) {
     const instanceUrl = getInstanceUrl();
     
@@ -117,7 +117,7 @@ const formatNiceDate = (date: Date) => {
 organizationCommand
   .commandWithSuggestions('invite')
   .description('Create an organization invite link')
-  .argumentWithSuggestions('<organization-name>', 'Name of the organization', getOrganizationCompletions)
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', organizationCompletions)
   .requiredOption('--expiry <date>', 'Invite expiry date in duration format (e.g., "1h", "1h30m", "1d", "1w", "1m", "1y")')
   .option('--one-time', 'Make this a one-time use invite (default: false)')
   .action(async function(organizationPath: string) {
@@ -193,7 +193,7 @@ organizationCommand
 
 organizationCommand
   .commandWithSuggestions('join')
-  .argumentWithSuggestions('<name>', 'Name of the organization', getOrganizationCompletions)
+  .argumentWithSuggestions('<name>', 'Name of the organization', organizationCompletions)
   .argument('<code>', 'Invite code')
   .description('Join an organization using an invite code')
   .action(async function(name: string, code: string) {
@@ -227,8 +227,8 @@ const validBoolStr = (str?: string): boolean | undefined => {
 organizationCommand
   .commandWithSuggestions('set-access')
   .description('Update access permissions for a user in an organization')
-  .argumentWithSuggestions('<organization-name>', 'Name of the organization', getOrganizationCompletions)
-  .argumentWithSuggestions('<user-or-token>', 'User name, token name, or ID to update permissions for', userCompletions)
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', organizationCompletions)
+  .argumentWithSuggestions('<user-or-token>', 'User name, token name, or ID to update permissions for', userAndTokenCompletions)
   .option('--add-members <true|false>', 'Set permission to add members')
   .option('--create-environments <true|false>', 'Set permission to create environments')
   .option('--create-projects <true|false>', 'Set permission to create projects')
@@ -282,24 +282,20 @@ organizationCommand
   });
 
 organizationCommand
-  .command('delete-invite')
+  .commandWithSuggestions('delete-invite')
   .description('Delete an organization invite')
-  .argument('<organization-name>', 'Name of the organization')
-  .argument('<invite-token>', 'Token or full invite URL')
-  .action(async function(organizationPath: string, token: string) {
+  // TODO: completions
+  .argument('<invite-token>', 'Invite token') 
+  .action(async function(token: string) {
     const instanceUrl = getInstanceUrl();
     
     try {
-      // Extract token from URL if full URL is provided
-      const actualToken = token.includes('?inviteId=') 
-        ? token.split('?inviteId=')[1] 
-        : token;
+
 
       const client = createTsrClient(instanceUrl);
       const response = await client.organizations.deleteOrganizationInvite({
         params: { 
-          idOrPath: organizationPath,
-          token: actualToken
+          token: token
         }
       });
 
@@ -317,9 +313,9 @@ organizationCommand
   });
 
 organizationCommand
-  .command('list-invites')
+  .commandWithSuggestions('list-invites')
   .description('List all invites for an organization')
-  .argument('<organization-name>', 'Name of the organization')
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', organizationCompletions)
   .action(async function(organizationPath: string) {
     const instanceUrl = getInstanceUrl();
     
@@ -336,6 +332,7 @@ organizationCommand
 
       printTable(
         [
+          // TODO: list also organization name
           { header: 'Link', key: 'link' },
           { header: 'Token', key: 'token' },
           { header: 'Created By', key: 'createdBy' },

@@ -5,6 +5,7 @@ import { DataEncryptionKey, UserKeyPair } from '../crypto';
 import { EnvironmentPath } from './utils';
 import { spawn } from 'child_process';
 import { parseEnv } from 'node:util';
+import { environmentCompletions } from '../utils/completions';
 
 type ShellOptions = BaseOptions & {
   ver?: string;
@@ -13,7 +14,7 @@ type ShellOptions = BaseOptions & {
 const rootCmd = new RootCommand();
 export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
   .description('Execute a command in a shell with environment variables loaded')
-  .argument('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json)')
+  .argumentWithSuggestions('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentCompletions)
   .argument('[command...]', 'Command to run (use -- to separate command arguments)')
   .option('-V, --version <version>', 'Version of the environment to load')
   .allowUnknownOption()
@@ -53,6 +54,7 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
       try {
         const decryptionData = environment.decryptionData;
         if (!decryptionData) {
+          // TODO: some trivial issue here, fix!
           console.error('Decryption data not found');
           process.exit(1);
         }
