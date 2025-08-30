@@ -11,12 +11,14 @@ import { setCommand, unsetCommand } from './commands/set';
 import { execCommand } from './commands/exec';
 import { accessTokenCommand } from './commands/access-tokens';
 import { AutocompleteCommand } from './commands/root';
+import logger from './logging';
 
 async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 
   const complete = omelette(`envie`);
 
   const autocompleteCallback = (fragment: string, {reply, before, line}: omelette.CallbackAsyncValue) => {
+    logger.info(`Autocomplete callback: ${fragment}, ${before}, ${line}`);
     const lineWithTyping = line.split(/\s+/);
     const typing = lineWithTyping[lineWithTyping.length - 1] !== ""
     const typingInput = typing ? lineWithTyping[lineWithTyping.length - 1] : null
@@ -44,10 +46,16 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
     // Traverse down the tree through subcommands
     while (currentCommand && segmentIndex < lineSegments.length) {
       const subCommandName = lineSegments[segmentIndex];
-      const subCommands = currentCommand.commands as AutocompleteCommand[];
+      const subCommands = currentCommand.commands as (AutocompleteCommand[]);
       const foundSubCommand = subCommands.find(cmd => cmd.name() === subCommandName);
       
-      if (foundSubCommand) {
+      if (foundSubCommand ) {
+
+        // Regular `commander.Command` instance
+        if(!(foundSubCommand instanceof AutocompleteCommand)) {
+          return
+        }
+
         currentCommand = foundSubCommand;
         segmentIndex++;
       } else {
@@ -68,7 +76,7 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
     }
 
     const suggestions = typeof argumentSuggestions === 'function'
-      ? argumentSuggestions(typingInput ?? "")
+      ? argumentSuggestions({input: typingInput ?? "", before})
       : argumentSuggestions
     reply(Promise.resolve(suggestions))
   }
@@ -98,6 +106,7 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 }
 
 async function main() {
+  logger.info('Starting program');
   program
     .name('envie')
     .description('CLI for managing .env files securely and conveniently')

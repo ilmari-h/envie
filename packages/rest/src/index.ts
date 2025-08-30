@@ -226,6 +226,13 @@ const user = c.router({
       403: c.type<{ message: string }>(),
       400: c.type<{ message: string }>()
     }
+  },
+  listUsers: {
+    method: 'GET',
+    path: '/users',
+    responses: {
+      200: userSchema.array()
+    }
   }
 });
 
@@ -508,9 +515,9 @@ export const organizations = c.router({
   },
   getOrganizationMembers: {
     method: 'GET',
-    path: '/organizations/:idOrPath/members',
+    path: '/organizations/:idOrName/members',
     pathParams: z.object({
-      idOrPath: z.string()
+      idOrName: z.string()
     }),
     responses: {
       200: z.array(z.object({

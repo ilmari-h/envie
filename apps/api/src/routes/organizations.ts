@@ -126,12 +126,13 @@ export const getOrganization = async ({
 
 export const getOrganizationMembers = async ({
   req,
-  params: { idOrPath }
+  params: { idOrName }
 }: {
   req: TsRestRequest<typeof contract.organizations.getOrganizationMembers>;
   params: TsRestRequest<typeof contract.organizations.getOrganizationMembers>['params'];
 }) => {
-  const organization = await getOrganizationByPath(idOrPath, {
+  console.log('getOrganizationMembers', idOrName, req.requester);
+  const organization = await getOrganizationByPath(idOrName, {
     requester: req.requester
   });
 

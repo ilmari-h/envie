@@ -1,4 +1,3 @@
-import { Command } from 'commander';
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
@@ -6,7 +5,7 @@ import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
 import { ExpiryFromNow } from './utils';
 import { confirm } from '../ui/confirm';
-import { getOrganizationCompletions } from '../utils/suggestions';
+import { getOrganizationCompletions, userCompletions } from '../utils/completions';
 
 type CreateOrganizationOptions = BaseOptions & {
   description?: string;
@@ -31,7 +30,7 @@ export const organizationCommand = new RootCommand().createCommand('organization
 
 
 organizationCommand
-  .command('list')
+  .commandWithSuggestions('list')
   .description('List organizations you have access to')
   .action(async function() {
     const instanceUrl = getInstanceUrl();
@@ -75,7 +74,7 @@ organizationCommand
     try {
       const client = createTsrClient(instanceUrl);
       const response = await client.organizations.getOrganizationMembers({
-        params: { idOrPath: organizationPath }
+        params: { idOrName: organizationPath }
       });
 
       if (response.status !== 200) {
@@ -162,7 +161,7 @@ organizationCommand
   });
 
 organizationCommand
-  .command('create')
+  .commandWithSuggestions('create')
   .description('Create a new organization')
   .argument('<name>', 'Organization name')
   .option('-d, --description <description>', 'Organization description')
@@ -193,7 +192,9 @@ organizationCommand
   });
 
 organizationCommand
-  .command('join <name> <code>')
+  .commandWithSuggestions('join')
+  .argumentWithSuggestions('<name>', 'Name of the organization', getOrganizationCompletions)
+  .argument('<code>', 'Invite code')
   .description('Join an organization using an invite code')
   .action(async function(name: string, code: string) {
     const instanceUrl = getInstanceUrl();
@@ -224,10 +225,10 @@ const validBoolStr = (str?: string): boolean | undefined => {
 };
 
 organizationCommand
-  .command('set-access')
+  .commandWithSuggestions('set-access')
   .description('Update access permissions for a user in an organization')
-  .argument('<organization-name>', 'Name of the organization')
-  .argument('<user>', 'User name or ID to update permissions for')
+  .argumentWithSuggestions('<organization-name>', 'Name of the organization', getOrganizationCompletions)
+  .argumentWithSuggestions('<user-or-token>', 'User name, token name, or ID to update permissions for', userCompletions)
   .option('--add-members <true|false>', 'Set permission to add members')
   .option('--create-environments <true|false>', 'Set permission to create environments')
   .option('--create-projects <true|false>', 'Set permission to create projects')

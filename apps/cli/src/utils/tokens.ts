@@ -1,31 +1,14 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { homedir } from 'os';
+import { getAppDataDirectory } from './directories';
 
 interface TokenStore {
   [instanceUrl: string]: string;
 }
 
 function getTokensPath(): string {
-  const platform = process.platform;
-  let baseDir: string;
-
-  switch (platform) {
-    case 'win32':
-      // Windows: %LOCALAPPDATA%
-      baseDir = process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local');
-      break;
-    case 'darwin':
-      // macOS: ~/Library/Application Support
-      baseDir = join(homedir(), 'Library', 'Application Support');
-      break;
-    default:
-      // Linux and others: ~/.local/share
-      baseDir = join(homedir(), '.local', 'share');
-      break;
-  }
-
-  return join(baseDir, 'envie', 'tokens.json');
+  const appDataPath = getAppDataDirectory();
+  return join(appDataPath, 'tokens.json');
 }
 
 function ensureTokensDir(): void {

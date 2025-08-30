@@ -48,7 +48,7 @@ function readDirectoryTwoLevelsDeep(directoryPath: string, isAbsolute: boolean, 
  * @param input - The partial path input (e.g., "/home/user/wor")
  * @returns Array of directory contents as strings
  */
-export async function filepathCompletions(input: string): Promise<string[]> {
+export async function filepathCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
   try {
     // If input is empty, return cwd contents with ./ prefix
     if (input === "") {
@@ -91,7 +91,7 @@ export async function filepathCompletions(input: string): Promise<string[]> {
   }
 }
 
-export async function getOrganizationCompletions(input: string): Promise<string[]> {
+export async function getOrganizationCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
   try {
     const client = createTsrClient(getInstanceUrl());
     const response = await client.organizations.getOrganizations({});
@@ -104,20 +104,25 @@ export async function getOrganizationCompletions(input: string): Promise<string[
   }
 }
 
-export async function projectCompletions(input: string): Promise<string[]> {
+export async function projectCompletionsWithTrailingColon({input, before}: {input: string, before: string}): Promise<string[]> {
+  const projects = await projectCompletions({input, before});
+  return projects.map(project => `${project}:`);
+}
+
+export async function projectCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
     try {
       const client = createTsrClient(getInstanceUrl());
       const response = await client.projects.getProjects({});
       if (response.status !== 200) {
         return [];
       }
-      return response.body.map(project => `${project.organization.name}:${project.name}:`);
+      return response.body.map(project => `${project.organization.name}:${project.name}`);
     } catch {
       return [];
     }
 }
 
-export async function environmentSuggestions(input: string): Promise<string[]> {
+export async function environmentCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
   try {
     const client = createTsrClient(getInstanceUrl());
     const response = await client.environments.getEnvironments({});
@@ -125,6 +130,44 @@ export async function environmentSuggestions(input: string): Promise<string[]> {
       return [];
     }
     return response.body.map(environment => `${environment.project.organization.name}:${environment.project.name}:${environment.name}`);
+  } catch {
+    return [];
+  }
+}
+
+export async function userCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
+  try {
+    const client = createTsrClient(getInstanceUrl());
+
+    // Get all users that share an organization with the current user
+    const response = await client.user.listUsers({});
+    if (response.status !== 200) {
+      return [];
+    }
+    return response.body.map(user => user.name);
+  } catch {
+    return [];
+  }
+}
+
+export async function tokenCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
+  try {
+    const client = createTsrClient(getInstanceUrl());
+    const response = await client.accessTokens.getAccessTokens({});
+    if (response.status !== 200) {
+      return [];
+    }
+    return response.body.map(token => token.name);
+  } catch {
+    return [];
+  }
+}
+
+export async function userAndTokenCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
+  try {
+    const users = await userCompletions({input, before});
+    const tokens = await tokenCompletions({input, before});
+    return [...users, ...tokens];
   } catch {
     return [];
   }

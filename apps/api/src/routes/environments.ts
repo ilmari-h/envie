@@ -476,7 +476,10 @@ export const setEnvironmentAccess = async ({
       write: write ?? false,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     }).onConflictDoUpdate({
-      target: [Schema.environmentAccess.environmentId, Schema.environmentAccess.userId],
+      target: [
+        Schema.environmentAccess.environmentId,
+        targetToken ? Schema.environmentAccess.accessTokenId : Schema.environmentAccess.userId
+      ],
       set: {
         write: write ?? false,
         ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {})

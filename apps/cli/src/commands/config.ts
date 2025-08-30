@@ -6,7 +6,7 @@ import { createTsrClient } from '../utils/tsr-client';
 import { normalizeEd25519PublicKey, readEd25519KeyPair } from '../utils/keypair';
 import { UserKeyPair, Ed25519PublicKey } from '../crypto';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
-import { filepathCompletions } from '../utils/suggestions';
+import { filepathCompletions } from '../utils/completions';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')

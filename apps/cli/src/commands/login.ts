@@ -8,6 +8,7 @@ import { BaseOptions, RootCommand } from './root';
 import chalk from 'chalk';
 import os from 'os';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
+import logger from '../logging';
 
 const execAsync = promisify(exec);
 
@@ -17,6 +18,7 @@ export const loginCommand = new RootCommand().createCommand('login')
   .action(async function() {
     const opts = this.opts<BaseOptions>();
     const instanceUrl = getInstanceUrl();
+    logger.info(`Starting login flow for instance URL: ${instanceUrl}`);
     
     try {
       // Check if keypair is configured

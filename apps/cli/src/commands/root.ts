@@ -4,7 +4,7 @@ export interface BaseOptions {
   verbose?: boolean;
 }
 
-export type ArgumentSuggestions = string[] | ((input: string) => Promise<string[]>);
+export type ArgumentSuggestions = string[] | ((props: {input: string, before: string}) => Promise<string[]>);
 
 export class AutocompleteCommand extends Command {
   argumentSuggestions: ArgumentSuggestions[] = [];

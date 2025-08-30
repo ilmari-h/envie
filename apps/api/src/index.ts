@@ -22,7 +22,7 @@ import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
-import { getMe, updateName } from './routes/users';
+import { getMe, updateName, listUsers } from './routes/users';
 import { getPublicKeys, setPublicKey, getDecryptionKeys } from './routes/public-keys';
 import { createClient } from "redis";
 import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
@@ -229,6 +229,10 @@ const router = s.router(contract, {
     updateName: {
       middleware: [requireAuth],
       handler: updateName
+    },
+    listUsers: {
+      middleware: [requireAuth],
+      handler: listUsers
     }
   }),
   projects: s.router(contract.projects, {

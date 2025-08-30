@@ -17,8 +17,10 @@
     "@noble/curves": "^1.9.2",
     "@repo/rest": "*",
     "@ts-rest/core": "^3.52.1",
+    "@types/winston": "^2.4.4",
     "commander": "^14.0.0",
-    "sshpk": "^1.18.0"
+    "sshpk": "^1.18.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { getConfigDirectory } from './directories';
 
 const DEFAULT_INSTANCE_URL = 'https://api.envie.cloud';
 
@@ -85,31 +85,6 @@ const EnvieConfigSchema = z.object({
 
 type WorkspaceConfig = z.infer<typeof WorkspaceConfigSchema>;
 type EnvieConfig = z.infer<typeof EnvieConfigSchema>;
-
-const getConfigDirectory = (): string => {
-  if (process.env.ENVIE_CONFIG_DIRECTORY) {
-    return process.env.ENVIE_CONFIG_DIRECTORY;
-  }
-
-  const platform = os.platform();
-  const homeDir = os.homedir();
-
-  switch (platform) {
-    case 'win32':
-      // Windows: Use APPDATA or fallback to %USERPROFILE%\AppData\Roaming
-      return process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming', 'envie');
-    
-    case 'darwin':
-      // macOS: Use ~/Library/Application Support
-      return path.join(homeDir, 'Library', 'Application Support', 'envie');
-    
-    default:
-      // Linux and others: Use XDG_CONFIG_HOME or ~/.config
-      return process.env.XDG_CONFIG_HOME 
-        ? path.join(process.env.XDG_CONFIG_HOME, 'envie')
-        : path.join(homeDir, '.config', 'envie');
-  }
-};
 
 const config = new ZodConf<EnvieConfig>(
   EnvieConfigSchema,

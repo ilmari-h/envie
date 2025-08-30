@@ -3,7 +3,7 @@ import { TsRestRequest } from "@ts-rest/express";
 import { contract } from "@repo/rest";
 import { Schema } from "@repo/db";
 import { db } from "@repo/db";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { isUserRequester } from "../types/cast";
 
 export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.getUser> }) => {
@@ -84,3 +84,26 @@ export const updateName = async ({ req }: { req: TsRestRequest<typeof contract.u
   }
 }
 
+export const listUsers = async ({ req }: { req: TsRestRequest<typeof contract.user.listUsers> }) => {
+  const calingUser = isUserRequester(req.requester) ? req.requester.userId : req.requester.accessTokenOwnerId;
+
+
+  // Get organizations where user has a role in
+  const organizations = await db.query.organizationRoles.findMany({
+    where: eq(Schema.organizationRoles.userId, calingUser)
+  });
+
+  // Get users in same organizations
+  const usersInSameOrganizations = await db.selectDistinct({
+    id: Schema.organizationRoles.userId,
+    name: Schema.users.name
+  }).from(Schema.organizationRoles)
+    .innerJoin(Schema.users, eq(Schema.organizationRoles.userId, Schema.users.id))
+    .where(and(inArray(Schema.organizationRoles.organizationId, organizations.map(o => o.organizationId)),
+      ne(Schema.organizationRoles.userId, calingUser)))
+
+  return {
+    status: 200 as const,
+    body: [...usersInSameOrganizations]
+  }
+}

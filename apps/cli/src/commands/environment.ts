@@ -8,7 +8,7 @@ import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
 import { EnvironmentPath, ExpiryFromNow } from './utils';
-import { filepathCompletions, projectCompletions, environmentSuggestions } from '../utils/suggestions';
+import { filepathCompletions, projectCompletions, userCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions } from '../utils/completions';
 import { confirm } from '../ui/confirm';
 
 type EnvironmentOptions = BaseOptions;
@@ -28,9 +28,9 @@ export const environmentCommand = rootCmd.createCommand<EnvironmentOptions>('env
   .description('Manage environments');
 
 environmentCommand
-  .command('list')
+  .commandWithSuggestions('list')
   .description('List environments, optionally filtering by path')
-  .argument('[path]', 'Path to filter by (organization name or organization:project)')
+  .argumentWithSuggestions('[path]', 'Path to filter by (organization name or organization:project)', projectCompletions)
   .action(async function(filterPath?: string) {
     const opts = this.opts<EnvironmentOptions>();
     const instanceUrl = getInstanceUrl();
@@ -87,7 +87,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('create')
   .description('Create a new environment')
-  .argumentWithSuggestions('<path>', 'Environment path', projectCompletions)
+  .argumentWithSuggestions('<path>', 'Environment path', projectCompletionsWithTrailingColon)
   .argument('[file]', 'A file containing the initial content')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .action(async function(pathParam: string, filePath?: string) {
@@ -217,7 +217,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('show')
   .description('Show an environment')
-  .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentSuggestions)
+  .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentCompletions)
   .option('-V, --version <version>', 'Version of the environment to load')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
@@ -301,7 +301,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('update')
   .description('Update an environment\'s content from a file')
-  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
   .argumentWithSuggestions('<file>', 'Path to .env file', filepathCompletions)
   .action(async function(pathParam: string, filePath: string) {
     const opts = this.opts<EnvironmentOptions>();
@@ -409,8 +409,8 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('set-access')
   .description('Grant or update access to an environment for a user')
-  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
-  .argument('<user-or-token>', 'User name, token name, or ID to grant access to')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
+  .argumentWithSuggestions('<user-or-token>', 'User name, token name, or ID to grant access to', userAndTokenCompletions)
   .option('--write [true|false]', 'Grant write access (default: false)', (value) => {
     if (value && value === 'false') {
       return false;
@@ -494,7 +494,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('remove-access')
   .description('Remove a user\'s access to an environment')
-  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
   .argument('<user-or-token>', 'User name, token name, or ID to remove access from')
   .action(async function(path: string, userIdOrName: string) {
     const instanceUrl = getInstanceUrl();
@@ -520,7 +520,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('list-access')
   .description('List users and tokens with access to an environment')
-  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
   .action(async function(path: string) {
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
@@ -559,7 +559,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('delete')
   .description('Delete an environment and all its data')
-  .argumentWithSuggestions('<path>', 'Environment path', environmentSuggestions)
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
   .action(async function(path: string) {
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);

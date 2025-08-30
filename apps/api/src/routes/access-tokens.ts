@@ -113,7 +113,7 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
   const tokenValue = nanoid(32);
 
   // Create access token and public key
-  db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
 
     // Create public key - same name as access token
     const publicKeyInsertRows = await tx.insert(Schema.publicKeys).values({
@@ -124,7 +124,11 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
     }).onConflictDoNothing().returning();
 
     if (publicKeyInsertRows.length === 0) {
-      throw new Error('Failed to create public key, same key might already exist');
+      console.error('Failed to create public key, same key might already exist');
+      return {
+        status: 400 as const,
+        body: { message: 'Failed to create public key, same key might already exist' }
+      }
     }
 
     const accessTokenInsertRows = await tx.insert(Schema.accessTokens).values({
@@ -142,10 +146,11 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
         body: { message: 'Could not create access token' }
       }
     }
-  });
 
-  return {
-    status: 201 as const,
-    body: { tokenValue }
-  };
+    return {
+      status: 201 as const,
+      body: { tokenValue }
+    };
+  });
+  return result;
 };
