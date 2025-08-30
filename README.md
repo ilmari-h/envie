@@ -7,9 +7,9 @@ A secure environment variable management system designed to replace `.env` files
 Envie provides a complete platform for managing environment variables across teams and projects with:
 
 - **Always encrypted** - Environment variables are encrypted before transit and never visible to the server
-- **Fine-grained access control** - Grant access to specific environments on a per-user basis
+- **Fine-grained access control** - Grant access to specific environments on a per-user basis, optionally with time limits
 - **Multi-tenant organizations** - Support for teams with role-based permissions
-- **Version history** - Track changes to environment configurations over time
+- **Version history** - Track changes to environment configurations over time. Rollback to previous and see an audit trail of changes
 
 ## Architecture
 
@@ -33,12 +33,12 @@ Envie uses public key encryption to ensure your environment variables stay priva
 - **Fine-grained permissions** - Grant access to individual environments, not just entire projects
 - **Role-based access** - Organization admins can manage who can create projects and environments
 - **Explicit access only** - Users must be explicitly granted access to each environment they need
-- **Time-limited tokens** - API tokens can expire automatically for enhanced security
+- **Time-limited access** - Automatically revoke access after a given period of time
 
 ### Public Key Encryption
 - **Privacy by design** - Your secrets are encrypted before they leave your computer
 - **Selective sharing** - Only decrypt data for users you specifically authorize
-- **No server access** - Even if the server is compromised, your environment variables remain encrypted
+- **No server access** - Even if the server is compromised, your environment variables remain secure
 
 ### Prerequisites
 - Bun >= 1.2.11
