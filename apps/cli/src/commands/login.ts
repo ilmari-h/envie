@@ -9,6 +9,7 @@ import chalk from 'chalk';
 import os from 'os';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
 import logger from '../logging';
+import { confirm } from '../ui/confirm';
 
 const execAsync = promisify(exec);
 
@@ -38,17 +39,17 @@ export const loginCommand = new RootCommand().createCommand('login')
       if (!nonceResponse.ok) {
         throw new Error(`Failed to get login nonce: ${nonceResponse.status}`);
       }
-      
       const { nonce } = await nonceResponse.json() as { nonce: string };
+      console.log("nonce", nonce);
       if (opts.verbose) {
         console.log('Got login nonce, opening browser...');
       }
       
       // Step 2: Open browser with GitHub OAuth + CLI token
       const authUrl = `${instanceUrl}/auth/github?cliToken=${nonce}`;
-      await openBrowser(authUrl);
       
-      console.log('Please complete the login in your browser...');
+      console.log('Open the following URL in your browser to complete the login:');
+      console.log(authUrl);
       console.log('Waiting for authentication...');
       
       // Step 3: Poll for token

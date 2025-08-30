@@ -317,6 +317,11 @@ passport.use(new GitHubStrategy({
         username: profile.username || profile.displayName
       });
     }
+
+    return done(null, {
+      id: githubUserId,
+      username: profile.username || profile.displayName
+    });
   }
 ));
 
@@ -333,7 +338,6 @@ app.get('/auth/cli/nonce', async (req, res, next) => {
 
 // Finish CLI login by getting the token from Redis
 app.get('/auth/cli/login', async (req, res, next) => {
-  console.log('CLI login', req.query);
   const nonce = req.query.nonce as string | undefined;
   if (!nonce) {
     console.error('No nonce provided', req.query);

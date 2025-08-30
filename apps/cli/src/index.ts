@@ -12,6 +12,7 @@ import { execCommand } from './commands/exec';
 import { accessTokenCommand } from './commands/access-tokens';
 import { AutocompleteCommand } from './commands/root';
 import logger from './logging';
+import { checkIfFirstTime, wizard } from './wizard';
 
 async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 
@@ -106,22 +107,29 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 }
 
 async function main() {
+
   logger.info('Starting program');
   program
     .name('envie')
     .description('CLI for managing .env files securely and conveniently')
-
-  await startProgram(program, [
-    loginCommand,
-    execCommand,
-    setCommand,
-    unsetCommand,
-    environmentCommand,
-    projectCommand,
-    organizationCommand,
-    configCommand,
-    accessTokenCommand,
-  ]);
+  
+  const firstTime = checkIfFirstTime()
+  if (firstTime && process.argv.length <= 2) {
+    await wizard()
+    process.exit(0)
+  } else {
+    await startProgram(program, [
+      loginCommand,
+      execCommand,
+      setCommand,
+      unsetCommand,
+      environmentCommand,
+      projectCommand,
+      organizationCommand,
+      configCommand,
+      accessTokenCommand,
+    ]);
+  }
 
 }
 

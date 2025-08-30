@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getConfigDirectory } from './directories';
 
-const DEFAULT_INSTANCE_URL = 'https://api.envie.cloud';
+export const DEFAULT_INSTANCE_URL = 'https://api.envie.cloud';
 
 class ZodConf<T> {
   private schema: z.ZodSchema<T>;
@@ -182,6 +182,12 @@ export function getInstanceUrl(): string {
 }
 
 export function setInstanceUrl(url: string): void {
+  // Validate URL
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new Error(`Invalid instance URL ${url}. Please use a valid URL`);
+  }
   config.set('instanceUrl', url);
 }
 
