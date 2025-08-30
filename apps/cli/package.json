@@ -1,12 +1,18 @@
 {
   "name": "@envie/cli",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.0.2",
+  "private": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
     "envie": "./dist/index.js"
   },
+  "keywords": [
+    "cli",
+    "env",
+    "environment",
+    "variables"
+  ],
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves",
     "dev": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves --watch",
@@ -15,7 +21,6 @@
   },
   "dependencies": {
     "@noble/curves": "^1.9.2",
-    "@repo/rest": "*",
     "@ts-rest/core": "^3.52.1",
     "@types/winston": "^2.4.4",
     "commander": "^14.0.0",
@@ -23,6 +28,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@repo/rest": "*",
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
     "@types/node": "^22.15.3",

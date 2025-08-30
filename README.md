@@ -45,6 +45,12 @@ Example of an `envierc.json`
 
 When running commands inside a directory with an `envierc.json` file, like `envie exec`, you don't need to specify the full path to the environment (e.g. instead of _acme:acme-web-application:dev_ you can just specify _dev_).
 
+## Configuration
+
+Envie configuration can be managed via the CLI (see `envie config` subcommands).
+
+Local configuration can also be managed via a `config.json` file, stored under the standard configuration directory if your operating system (`XDG_CONFIG_HOME/envie` for Linux and `~/Library/Application Support/envie` for macOS.) You can override this with the environment variable `ENVIE_CONFIG_DIRECTORY`.
+
 ## Security Practices
 
 Envie uses public key encryption to ensure your environment variables stay private and secure:
