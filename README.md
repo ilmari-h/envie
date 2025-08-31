@@ -23,7 +23,12 @@ $ npm install -g @envie/cli
 
 ## Usage
 
-Once installed, run the command `envie` without arguments to bring up a setup wizard.
+**Requirements to use**:
+- Node.js installed on your computer (v22.0 or newer)
+- Linux or macOS operating system
+- Ed25519 keypair (Envie uses Public Key Encryption and a Diffie-Hellman style protocol to secure your environments)
+
+When using Envie for the first time, run the command `envie` without arguments to bring up a setup wizard.
 This wizard will help you with the initial configuration.
 
 To start managing your environments, run `envie login`
@@ -98,7 +103,7 @@ When you have multiple developers working on the same project, each one of them 
 
 Place the `.envie` file at the root of your project and add it to your `.gitignore`
 
-Inside the file add just your environment name e.g. `acme-corp:project-name:joshs-dev-env`.
+Inside the file specify your dev environment e.g. `acme-corp:project-name:joshs-dev-env`.
 
 Now when using `envie exec` with `default` argument for the environment e.g. `envie exec default ./some-command.sh`
 
