@@ -30,6 +30,53 @@ To start managing your environments, run `envie login`
 
 For more help, run `envie -h` or for command specific instructions run `envie <command> -h`
 
+### Basic commands
+
+For a comprehensive list run `envie -h`.
+
+#### Creating and updating environments
+
+Create a new environment from a .env file:
+```bash
+envie environment create org:project:env-name .env
+```
+
+Update an existing environment from a .env file:
+```bash
+envie environment update org:project:env-name .env
+```
+
+#### Managing individual environment variables
+
+Set a single environment variable:
+```bash
+envie set org:project:env-name KEY=value
+# or
+envie set org:project:env-name KEY value
+```
+
+Remove an environment variable:
+```bash
+envie unset org:project:env-name KEY
+```
+
+#### Running commands with environment variables
+
+Execute a command with environment variables loaded:
+```bash
+envie exec org:project:env-name your-command
+```
+
+Start an interactive shell with environment variables:
+```bash
+envie exec org:project:env-name
+```
+
+Run a command with arguments (use `--` to separate):
+```bash
+envie exec org:project:env-name npm -- run dev
+```
+
 ### Workspace configurations with `envierc.json`
 
 You can create a project specific configuration for Envie by adding an `envierc.json` file inside your project directory.
@@ -64,9 +111,9 @@ For example, here's how to use envie in a web development project together with 
 
 1. Create an `envierc.json` file in your project root
 
-2. Specify your default environment in `.envie` file with your personal development environment
+2. Specify your personal default dev environment in `.envie` file.
 
-3. Start your `package.json` development scripts with `envie exec` like so:
+3. Prefix your `package.json` development scripts with `envie exec` like so:
 
 ```json
 {
@@ -85,6 +132,8 @@ For example, here's how to use envie in a web development project together with 
   }
 }
 ```
+
+Now when running e.g. `npm run dev` the command will run with your specified environment.
 
 ## Configuration
 
