@@ -50,9 +50,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Set environment variables for server binding
-ENV HOSTNAME=0.0.0.0
+ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
-# Use dumb-init and start the application
-ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "apps/web/server.js"]
