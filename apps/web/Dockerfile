@@ -24,8 +24,7 @@ RUN bunx turbo build --filter=web
 # Production stage
 FROM node:24-alpine AS runner
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache curl
 
 # Create nodejs group and user
 RUN addgroup -g 1001 -S nodejs && \
@@ -47,7 +46,7 @@ EXPOSE 3000
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+  CMD curl -f http://localhost:3000/ || exit 1
 
 # Set environment variables for server binding
 ENV HOSTNAME="0.0.0.0"
