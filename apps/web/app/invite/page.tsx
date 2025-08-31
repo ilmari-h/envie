@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import { tsr } from '../tsr';
 import { Loader2, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 
 function isValid32ByteHex(str: string | null): boolean {
   if (!str) return false;
@@ -12,7 +12,7 @@ function isValid32ByteHex(str: string | null): boolean {
   return base64Regex.test(str);
 }
 
-export default function InvitePage() {
+function InvitePageContent() {
   const searchParams = useSearchParams();
   const inviteId = searchParams.get('inviteId');
   const [copied, setCopied] = useState(false);
@@ -78,5 +78,23 @@ export default function InvitePage() {
         © {new Date().getFullYear()} envie
       </footer>
     </div>
+  );
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col h-screen h-full">
+        <main className="flex flex-col items-center justify-center gap-3 h-full">
+          <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+          <p className="text-neutral-400 text-xs">Loading...</p>
+        </main>
+        <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium">
+          © {new Date().getFullYear()} envie
+        </footer>
+      </div>
+    }>
+      <InvitePageContent />
+    </Suspense>
   );
 }
