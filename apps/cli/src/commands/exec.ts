@@ -14,7 +14,7 @@ type ShellOptions = BaseOptions & {
 const rootCmd = new RootCommand();
 export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
   .description('Execute a command in a shell with environment variables loaded')
-  .argumentWithSuggestions('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentCompletions)
+  .argumentWithSuggestions('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json) or "default" to use user default configured in .envie', environmentCompletions)
   .argument('[command...]', 'Command to run (use -- to separate command arguments)')
   .option('-V, --version <version>', 'Version of the environment to load')
   .allowUnknownOption()
@@ -24,7 +24,7 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
     const userKeyPair = await UserKeyPair.getInstance();
     
     try {
-      // Validate environment path format (must have exactly 3 parts)
+      // Validate environment path format
       const environmentPath = new EnvironmentPath(path);
 
       const client = createTsrClient(instanceUrl);

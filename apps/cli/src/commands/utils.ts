@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from "fs";
 import { resolve, dirname, normalize, join } from 'path';
-import { getWorkspaceProjectPath } from "../utils/config";
+import { getDotfileEnvironment, getWorkspaceProjectPath } from "../utils/config";
 
 export class EnvironmentPath {
   organizationName: string;
@@ -8,8 +8,17 @@ export class EnvironmentPath {
   environmentName: string;
 
   constructor(path: string) {
+    let normalizedPath = path;
+    if (path === 'default') {
+      const dotfileEnvironment = getDotfileEnvironment();
+      if (!dotfileEnvironment) {
+        throw new Error('Specified "default" as environment path, but no .envie file found');
+      }
+      normalizedPath = dotfileEnvironment;
+    }
+
     const workspaceProjectPath = getWorkspaceProjectPath();
-    let pathParts = path.split(':');
+    let pathParts = normalizedPath.split(':');
     
     // User has provided just the environment name, so we get rest of the path from the workspace config
     if (workspaceProjectPath && pathParts.length === 1) {

@@ -92,7 +92,7 @@ const config = new ZodConf<EnvieConfig>(
   getConfigDirectory()
 );
 
-const findWorkspaceConfigDirectory = (): string => {
+const findFileDirectoryInWorkspace = (filename: string): string => {
   let currentDir = process.cwd();
   
   // First, check if we're in a git repository
@@ -114,7 +114,7 @@ const findWorkspaceConfigDirectory = (): string => {
 
   // Search from current directory up to git root for envierc.json
   while (currentDir !== path.dirname(gitRoot)) { // Don't go above git root
-    if (fs.existsSync(path.join(currentDir, 'envierc.json'))) {
+    if (fs.existsSync(path.join(currentDir, filename))) {
       return currentDir;
     }
     if (currentDir === gitRoot) {
@@ -130,7 +130,7 @@ const findWorkspaceConfigDirectory = (): string => {
 const workspaceConfig = new ZodConf<WorkspaceConfig>(
   WorkspaceConfigSchema,
   'envierc.json',
-  findWorkspaceConfigDirectory()
+  findFileDirectoryInWorkspace('envierc.json')
 );
 
 export function getKeypairPath(): string | null {
@@ -202,4 +202,15 @@ export function getWorkspaceProjectPath(): string | null {
 
 export function getWorkspaceOrganizationName(): string | null {
   return workspaceConfig.get('organizationName');
+}
+
+export function getDotfileEnvironment(): string | null {
+  const directory = findFileDirectoryInWorkspace('.envie');
+  const file = path.join(directory, '.envie');
+  if (!fs.existsSync(file)) {
+    return null;
+  }
+  // Read file and return it's content as a string
+  const content = fs.readFileSync(file, 'utf-8');
+  return content.trim();
 }

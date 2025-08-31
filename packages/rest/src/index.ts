@@ -21,6 +21,7 @@ const nameSchema = z.string()
   .min(1)
   .max(32)
   .regex(nameRegex, 'Name can only contain latin letters, numbers, underscores and hyphens')
+  .refine(name => name !== 'default', 'Reserved name')
 
 export const invitedUserSchema = z.object({
   userId: z.string(),
