@@ -375,6 +375,62 @@ environmentCommand
           wrappedKey: environment.decryptionData.wrappedEncryptionKey,
           ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey,
         });
+
+        // Decrypt current environment to compare
+        const currentEnvVars: Record<string, string | number> = environment.version
+          ? parseEnv(dek.decryptContent(environment.version.content)) as Record<string, string | number>
+          : {};
+
+        // Compare old and new environment variables
+        const currentKeys = new Set(Object.keys(currentEnvVars));
+        const newKeys = new Set(Object.keys(envVars));
+        
+        const addedKeys = [...newKeys].filter(key => !currentKeys.has(key));
+        const deletedKeys = [...currentKeys].filter(key => !newKeys.has(key));
+        const modifiedKeys = [...newKeys].filter(key => 
+          currentKeys.has(key) && currentEnvVars[key] !== envVars[key as keyof typeof envVars]
+        );
+
+        // Show diff
+        console.log('\nChanges to be made:');
+        
+        if (addedKeys.length === 0 && deletedKeys.length === 0 && modifiedKeys.length === 0) {
+          console.log(chalk.gray('No changes detected.'));
+          process.exit(0);
+        }
+
+        // Show added keys (green with +)
+        addedKeys.forEach(key => {
+          console.log(chalk.green(`+ ${key}`));
+        });
+
+        // Show modified keys (yellow with M)
+        modifiedKeys.forEach(key => {
+          console.log(chalk.yellow(`M ${key}`));
+        });
+
+        // Show deleted keys (red with -)
+        deletedKeys.forEach(key => {
+          console.log(chalk.red(`- ${key}`));
+        });
+
+        // Show summary and confirm
+        const summary = [];
+        if (addedKeys.length > 0) summary.push(`${addedKeys.length} new`);
+        if (modifiedKeys.length > 0) summary.push(`${modifiedKeys.length} modified`);
+        if (deletedKeys.length > 0) summary.push(`${deletedKeys.length} deleted`);
+
+        console.log(`\Summary: ${summary.join(', ')}. Update environment with these changes? (y/N)`);
+        
+        const confirmed = await confirm({
+          prompt: '',
+          defaultNo: true
+        });
+
+        if (!confirmed) {
+          process.exit(0);
+        }
+
         const encryptedEnvironment = dek.encryptContent(parsedEnvFileContent);
 
         // Update environment content
@@ -395,6 +451,9 @@ environmentCommand
           console.error(`Failed to update environment: ${response.status}`);
           process.exit(1);
         }
+
+        console.log(chalk.green('Environment updated successfully!'));
+        process.exit(0);
       } catch (error) {
         console.error('Error during encryption:', error instanceof Error ? error.message : error);
         process.exit(1);
