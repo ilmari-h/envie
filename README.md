@@ -146,6 +146,15 @@ Envie configuration can be managed via the CLI (see `envie config` subcommands).
 
 Local configuration can also be managed via a `config.json` file, stored under the standard configuration directory if your operating system (`XDG_CONFIG_HOME/envie` for Linux and `~/Library/Application Support/envie` for macOS.) You can override this with the environment variable `ENVIE_CONFIG_DIRECTORY`.
 
+## Self Hosting
+
+Envie can be self-hosted using Docker. Two images are required:
+
+- **API**: `salhdev/envie-api`
+- **Web client**: `salhdev/envie-web`
+
+Image usage documented on Docker hub.
+
 ## Security Practices
 
 Envie uses public key encryption to ensure your environment variables stay private and secure:
