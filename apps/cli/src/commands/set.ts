@@ -4,6 +4,7 @@ import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair } from '../crypto';
 import { EnvironmentPath } from './utils';
 import { environmentCompletions } from '../utils/completions';
+import { parseEnv } from 'node:util';
 
 type SetOptions = BaseOptions & {
   instanceUrl?: string;
@@ -13,8 +14,8 @@ const rootCmd = new RootCommand();
 export const setCommand = rootCmd.createCommand<SetOptions>('set')
   .description('Set an environment variable')
   .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', environmentCompletions)
-  .argument('<key-value>', 'Key-value pair in format "key=value" or as separate arguments')
-  .argument('[value]', 'Value if provided separately from key')
+  .argumentWithSuggestions('<key-value>', 'Key-value pair in format "key=value" or as separate arguments', () => Promise.resolve([]))
+  .argumentWithSuggestions('[value]', 'Value if provided separately from key OR the path of another environment to copy the key from there', environmentCompletions)
   .action(async function(path: string, keyValue: string, separateValue?: string) {
     const opts = this.opts<SetOptions>();
     const instanceUrl = getInstanceUrl();
@@ -26,8 +27,49 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
       // Parse key-value pair
       let key: string, value: string;
       if (separateValue !== undefined) {
+
+        const tryCopyValueFromOtherEnvironment = async () => {
+          try {
+            const otherValueEnvironment = new EnvironmentPath(separateValue)
+            const otherEnvironmentResponse = await client.environments.getEnvironments({
+              query: {
+                path: otherValueEnvironment.toString(),
+                pubkey: userKeyPair.publicKey.toBase64()
+              }
+            })
+            if (otherEnvironmentResponse.status !== 200 || otherEnvironmentResponse.body.length === 0) {
+              return null;
+            }
+
+            const environment = otherEnvironmentResponse.body[0];
+            if (!environment.decryptionData) {
+              console.error('Error: No decryption data found for environment');
+              process.exit(1);
+            }
+
+            // Unwrap the environment's encryption key
+            const dek = (await UserKeyPair.getInstance()).unwrapKey({
+              wrappedKey: environment.decryptionData.wrappedEncryptionKey,
+              ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
+            });
+            if(!environment.version) {
+              console.error(`Tried to copy value from \`${otherValueEnvironment.toString()}\`, but no version found`);
+              process.exit(1);
+            }
+            const decryptedContent = dek.decryptContent(environment.version.content);
+            const parsedEnv = parseEnv(decryptedContent) as Record<string, string | number>;
+            if(!parsedEnv[key]) {
+              console.error(`Tried to copy value from \`${otherValueEnvironment.toString()}\`, but key \`${key}\` not found`);
+              process.exit(1);
+            }
+            return String(parsedEnv[key]);
+          } catch (error) {
+            return null;
+          }
+        }
+
         key = keyValue;
-        value = separateValue;
+        value = await tryCopyValueFromOtherEnvironment() ?? separateValue;
       } else {
         const parts = keyValue.split('=');
         if (parts.length !== 2) {

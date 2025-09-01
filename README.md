@@ -58,6 +58,8 @@ Set a single environment variable:
 envie set org:project:env-name KEY=value
 # or
 envie set org:project:env-name KEY value
+# or copy from another environment
+envie set org:project:env-name KEY org:project:other-env
 ```
 
 Remove an environment variable:
