@@ -150,8 +150,8 @@ Local configuration can also be managed via a `config.json` file, stored under t
 
 Envie can be self-hosted using Docker. Two images are required:
 
-- **API**: `salhdev/envie-api`
-- **Web client**: `salhdev/envie-web`
+- **API**: [salhdev/envie-api](https://hub.docker.com/r/salhdev/envie-api)
+- **Web client**: [salhdev/envie-web](https://hub.docker.com/r/salhdev/envie-web)
 
 Image usage documented on Docker hub.
 
