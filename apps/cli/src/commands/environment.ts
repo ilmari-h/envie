@@ -8,7 +8,7 @@ import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
 import { EnvironmentPath, ExpiryFromNow } from './utils';
-import { filepathCompletions, projectCompletions, userCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions } from '../utils/completions';
+import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions } from '../utils/completions';
 import { confirm } from '../ui/confirm';
 
 type EnvironmentOptions = BaseOptions;
@@ -17,7 +17,6 @@ type CreateEnvironmentOptions = EnvironmentOptions & {
   secretKeyFile?: string;
 };
 type ShowOptions = BaseOptions & {
-  ver?: string;
   backupKey?: string;
   unsafeDecrypt?: boolean;
 };
@@ -218,7 +217,6 @@ environmentCommand
   .commandWithSuggestions('show')
   .description('Show an environment')
   .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentCompletions)
-  .option('-V, --version <version>', 'Version of the environment to load')
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
   .action(async function(path: string) {
@@ -236,7 +234,7 @@ environmentCommand
       const response = await client.environments.getEnvironments({
         query: {
           path: environmentPath.toString(),
-          version: opts.ver,
+          version: environmentPath.version?.toString(),
           pubkey: userKeyPair.publicKey.toBase64()
         }
       });
@@ -609,6 +607,69 @@ environmentCommand
           write: user.write ? '✓' : '✗'
         }))
       );
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .commandWithSuggestions('audit')
+  .description('Show version history of an environment')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
+  .action(async function(path: string) {
+    const opts = this.opts<EnvironmentOptions>();
+    const instanceUrl = getInstanceUrl();
+    const environmentPath = new EnvironmentPath(path);
+    
+    try {
+      if (opts.verbose) {
+        console.log(`Fetching version history for: ${environmentPath.toString()}`);
+        console.log(`Instance URL: ${instanceUrl}`);
+      }
+
+      const client = createTsrClient(instanceUrl);
+      const response = await client.environments.getEnvironmentVersions({
+        params: { idOrPath: environmentPath.toString() }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to fetch environment versions: ${response.status} ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+
+      const versions = response.body;
+
+      if (versions.length === 0) {
+        console.log(chalk.yellow('No versions found for this environment.'));
+        return;
+      }
+
+      console.log(chalk.bold.blue(`\nVersion history for ${environmentPath.toString()}:`));
+      console.log(chalk.gray('─'.repeat(60)));
+
+      versions.forEach((version, index) => {
+        const versionNumber = chalk.bold.cyan(`v${version.versionNumber}`);
+        const date = chalk.gray(version.createdAt.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }));
+        const author = chalk.green(version.author.name);
+        const isLatest = index === 0 ? chalk.yellow(' (latest)') : '';
+        
+        console.log(`${versionNumber} ${date} by ${author}${isLatest}`);
+        
+        if (opts.verbose && version.keys.length > 0) {
+          console.log(chalk.gray(`    Keys: ${version.keys.join(', ')}`));
+        }
+      });
+
+      console.log(chalk.gray('─'.repeat(60)));
+      console.log(chalk.dim(`Total versions: ${versions.length}`));
+
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);

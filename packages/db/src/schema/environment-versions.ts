@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, primaryKey } from 'drizzle-orm/pg-core';
 import { bytea, nanoid, nanoidType, timestamps } from './utils';
 import { environments } from './environments';
 import { relations } from 'drizzle-orm';
@@ -36,5 +36,9 @@ export const environmentVersionRelations = relations(environmentVersions, ({ man
     fields: [environmentVersions.environmentId],
     references: [environments.id],
     relationName: 'environment_versions'
+  }),
+  author: one(users, {
+    fields: [environmentVersions.savedBy],
+    references: [users.id]
   })
 }));

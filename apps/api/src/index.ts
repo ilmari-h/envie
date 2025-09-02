@@ -17,6 +17,7 @@ import {
   deleteEnvironmentAccess,
   listEnvironmentAccess,
   deleteEnvironment,
+  getEnvironmentVersions,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite } from './routes/organizations';
@@ -160,6 +161,10 @@ const router = s.router(contract, {
     deleteEnvironment: {
       middleware: [requireAuth],
       handler: deleteEnvironment
+    },
+    getEnvironmentVersions: {
+      middleware: [requireAuth],
+      handler: getEnvironmentVersions
     }
   }),
   organizations: s.router(contract.organizations, {

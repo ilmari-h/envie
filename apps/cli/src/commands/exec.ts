@@ -7,19 +7,14 @@ import { spawn } from 'child_process';
 import { parseEnv } from 'node:util';
 import { environmentCompletions } from '../utils/completions';
 
-type ShellOptions = BaseOptions & {
-  ver?: string;
-};
-
 const rootCmd = new RootCommand();
-export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
+export const execCommand = rootCmd.createCommand<BaseOptions>('exec')
   .description('Execute a command in a shell with environment variables loaded')
   .argumentWithSuggestions('<environment-path>', 'Environment path (or name if rest of the path is specified in envierc.json) or "default" to use user default configured in .envie', environmentCompletions)
   .argument('[command...]', 'Command to run (use -- to separate command arguments)')
-  .option('-V, --version <version>', 'Version of the environment to load')
   .allowUnknownOption()
   .action(async function(path: string, commandArgs: string[]) {
-    const opts = this.opts<ShellOptions>();
+    const opts = this.opts<BaseOptions>();
     const instanceUrl = getInstanceUrl();
     const userKeyPair = await UserKeyPair.getInstance();
     
@@ -33,7 +28,7 @@ export const execCommand = rootCmd.createCommand<ShellOptions>('exec')
       const response = await client.environments.getEnvironments({
         query: {
           path: environmentPath.toString(),
-          version: opts.ver,
+          version: environmentPath.version?.toString(),
           pubkey: userKeyPair.publicKey.toBase64()
         }
       });

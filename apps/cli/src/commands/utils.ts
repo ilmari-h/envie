@@ -1,14 +1,21 @@
-import { existsSync, readdirSync, statSync } from "fs";
-import { resolve, dirname, normalize, join } from 'path';
 import { getDotfileEnvironment, getWorkspaceProjectPath } from "../utils/config";
 
 export class EnvironmentPath {
   organizationName: string;
   projectName: string;
   environmentName: string;
+  version?: number
 
   constructor(path: string) {
     let normalizedPath = path;
+    
+    // Parse version suffix (@version) before processing path further
+    const versionMatch = normalizedPath.match(/@(\d+)$/);
+    if (versionMatch) {
+      this.version = parseInt(versionMatch[1], 10);
+      normalizedPath = normalizedPath.replace(/@\d+$/, '');
+    }
+    
     if (path === 'default') {
       const dotfileEnvironment = getDotfileEnvironment();
       if (!dotfileEnvironment) {
