@@ -645,12 +645,9 @@ environmentCommand
         return;
       }
 
-      console.log(chalk.bold.blue(`\nVersion history for ${environmentPath.toString()}:`));
-      console.log(chalk.gray('─'.repeat(60)));
-
       versions.forEach((version, index) => {
         const versionNumber = chalk.bold.cyan(`v${version.versionNumber}`);
-        const date = chalk.gray(version.createdAt.toLocaleDateString('en-US', {
+        const date = chalk.gray(new Date(version.createdAt).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
           day: 'numeric',
