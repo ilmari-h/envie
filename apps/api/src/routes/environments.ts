@@ -1,5 +1,5 @@
 import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, Schema, AccessToken } from '@repo/db';
-import { eq, and, count } from 'drizzle-orm';
+import { eq, and, count, desc } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentWithVersion } from '@repo/rest';
@@ -671,5 +671,58 @@ export const deleteEnvironmentAccess = async ({
   return {
     status: 200 as const,
     body: { message: 'Environment access removed successfully' }
+  };
+};
+
+export const getEnvironmentVersions = async ({
+  req,
+  params: { idOrPath }
+}: {
+  req: TsRestRequest<typeof contract.environments.getEnvironmentVersions>;
+  params: TsRestRequest<typeof contract.environments.getEnvironmentVersions>['params'];
+}) => {
+  // Check user access to the environment
+  const [_organization, _project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Get all versions for this environment
+  const versions = await db.query.environmentVersions.findMany({
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
+    orderBy: desc(Schema.environmentVersions.createdAt),
+    with: {
+      keys: true,
+      author: true
+    }
+  });
+
+  // Get total count for version numbering (latest version = total count)
+  const totalVersions = await db.select({ count: count() })
+    .from(Schema.environmentVersions)
+    .where(eq(Schema.environmentVersions.environmentId, environment.id));
+
+  const totalCount = totalVersions[0]?.count ?? 0;
+
+  // Transform versions to match the expected schema (omit content)
+  const versionsResponse = versions.map((version, index) => ({
+    id: version.id,
+    environmentId: version.environmentId,
+    author: version.author,
+    createdAt: version.createdAt,
+    updatedAt: version.updatedAt,
+    keys: version.keys.map(k => k.key),
+    versionNumber: totalCount - index // Latest version gets highest number
+  }));
+
+  return {
+    status: 200 as const,
+    body: versionsResponse
   };
 };

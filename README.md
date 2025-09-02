@@ -71,17 +71,17 @@ envie unset org:project:env-name KEY
 
 Execute a command with environment variables loaded:
 ```bash
-envie exec org:project:env-name your-command
+envie exec org:project:env-name@version your-command
 ```
 
 Start an interactive shell with environment variables:
 ```bash
-envie exec org:project:env-name
+envie exec org:project:env-name@version
 ```
 
 Run a command with arguments (use `--` to separate):
 ```bash
-envie exec org:project:env-name npm -- run dev
+envie exec org:project:env-name@version npm -- run dev
 ```
 
 ### Workspace configurations with `envierc.json`

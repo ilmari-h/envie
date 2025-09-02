@@ -350,6 +350,7 @@ const environments = c.router({
     },
     summary: 'Get environments for current user, optionally filtered by project or environment id'
   },
+
   createEnvironment: {
     method: 'POST',
     path: '/environments',
@@ -378,6 +379,20 @@ const environments = c.router({
       404: z.object({ message: z.string() })
     },
     summary: 'Create a new environment'
+  },
+
+  getEnvironmentVersions: {
+    method: 'GET',
+    path: '/environments/:idOrPath/versions',
+    pathParams: z.object({
+      idOrPath: z.string()
+    }),
+    responses: {
+      200: environmentVersionSchema
+        .omit({ content: true, savedBy: true })
+        .extend({ author: userSchema }).array(),
+      404: z.object({ message: z.string() })
+    }
   },
 
   updateEnvironmentContent: {
