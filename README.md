@@ -39,7 +39,9 @@ For more help, run `envie -h` or for command specific instructions run `envie <c
 
 For a comprehensive list run `envie -h`.
 
-#### Creating and updating environments
+#### Migrating from `.env` files to Envie
+
+Still using `.env` files? You can move them to Envie with the following commands.
 
 Create a new environment from a .env file:
 ```bash
@@ -51,7 +53,7 @@ Update an existing environment from a .env file:
 envie environment update org:project:env-name .env
 ```
 
-#### Managing individual environment variables
+#### Updating your environments
 
 Set a single environment variable:
 ```bash
