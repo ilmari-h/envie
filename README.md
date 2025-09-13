@@ -1,17 +1,21 @@
+<div align="center">
+
 # Envie
 
-A secure environment variable management system designed to replace `.env` files.
+*Keep your secrets and environment variables secure and organized.*
 
-## Overview
+</div>
 
-Envie provides a complete platform for managing environment variables across teams and projects with:
+Envie is both a secret manager for production use and a developer tool for better management of environment variables. Declutter and secure your developer machine by eliminating the need for local `.env` files.
+
+#### ✨ Features
 
 - **Always encrypted** - Environment variables are encrypted before transit and never visible to the server
 - **Fine-grained access control** - Grant access to specific environments on a per-user basis, optionally with time limits
 - **Multi-tenant organizations** - Support for teams with role-based permissions
 - **Version history** - Track changes to environment configurations over time. Rollback to previous and see an audit trail of changes
 
-## Installation
+## 📦 Installation
 
 Envie is available as a CLI tool on npm.
 
@@ -21,69 +25,116 @@ To install it globally on your machine, run:
 $ npm install -g @envie/cli
 ```
 
-## Usage
+Requirements: Node.js (v22.0 and up) and Linux or macOS operating system
 
-**Requirements to use**:
-- Node.js installed on your computer (v22.0 or newer)
-- Linux or macOS operating system
-- Ed25519 keypair (Envie uses Public Key Encryption and a Diffie-Hellman style protocol to secure your environments)
+## 🚀 Quick start guide
+
+> [!IMPORTANT]  
+> To use Envie, you need an Ed25519 keypair on your machine. This is because Envie uses client-side encryption to secure your environment variables.
+> 
+> You can generate a new one using OpenSSH with the following command:
+> 
+> ```
+> ssh-keygen -t ed25519
+> ```
 
 When using Envie for the first time, run the command `envie` without arguments to bring up a setup wizard.
-This wizard will help you with the initial configuration.
 
-To start managing your environments, run `envie login`
+This wizard will help you with the initial configuration: setting up your keypair path and terminal auto complete.
 
-For more help, run `envie -h` or for command specific instructions run `envie <command> -h`
+Once you have run the setup wizard you can login by running:
 
-### Basic commands
-
-For a comprehensive list run `envie -h`.
-
-#### Migrating from `.env` files to Envie
-
-Still using `.env` files? You can move them to Envie with the following commands.
-
-Create a new environment from a .env file:
-```bash
-envie environment create org:project:env-name .env
+```
+envie login
 ```
 
-Update an existing environment from a .env file:
-```bash
-envie environment update org:project:env-name .env
+Now you are ready to use Envie!
+
+### Creating a project
+
+Envie organises different environments under projects.
+
+**Example:** Acme corporation has 2 projects: web dashboard and a REST API.
+
+First, Acme corporation developer creates an organization called *acme* using the command:
+
+```
+envie organization create acme
 ```
 
-#### Updating your environments
+> [!TIP]  
+> When using the free plan of Envie cloud, you can use your personal organization instead of creating one.
+> 
+> Find the name of your personal organization by running
+> 
+> ```
+> envie organization list
+> ```
 
-Set a single environment variable:
+Then, time to create projects for the web dashboard and API:
+
+```
+envie project create acme:web-dashboard && \
+envie project create acme:rest-api
+```
+
+You can list the projects under the Acme organization by running:
+
+```
+envie project list --organization acme
+```
+
+### Replacing your local .env files with Envie environments
+
+Instead of local *.env* files you can manage your environment variables with Envie environments.
+
+Under the same project, you can have as many environments as you want. For example, one called `prod` for production use, `staging` for staging and one called `josh-dev` for the personal dev environment of a developer called Josh.
+All of these can have different access control rules (more on that later).
+
+You can create an environment from an existing *.env* file on your disk with:
+
+```bash
+envie environment create organization:project:rest-api <path-to-env-file>
+```
+
+Or if you already have an environment and want to update it from a *.env* file on your disk
+```bash
+envie environment update organization:project:rest-api <path-to-env-file>
+```
+
+You can also update a single environment variable at a time with:
+
 ```bash
 envie set org:project:env-name KEY=value
+
 # or
 envie set org:project:env-name KEY value
+
 # or copy from another environment
 envie set org:project:env-name KEY org:project:other-env
 ```
 
-Remove an environment variable:
+To remove an environment variable, run:
 ```bash
 envie unset org:project:env-name KEY
 ```
 
-#### Running commands with environment variables
+### Using your environments
+
+Instead of sourcing a local .env file you can run any command with Envie using your chosen environment.
 
 Execute a command with environment variables loaded:
 ```bash
-envie exec org:project:env-name@version your-command
-```
+envie exec organization:project:environment ./your-command.sh
 
-Start an interactive shell with environment variables:
-```bash
-envie exec org:project:env-name@version
-```
+# or specify a version
+envie exec organization:project:environment@version ./your-command.sh
 
-Run a command with arguments (use `--` to separate):
-```bash
-envie exec org:project:env-name@version npm -- run dev
+# or no command to run an interactive shell
+envie exec organization:project:environment
+
+# use -- to pass arguments to the command
+envie exec organization:project:environment@version npm -- run dev
 ```
 
 ### Workspace configurations with `envierc.json`
