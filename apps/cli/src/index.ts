@@ -13,6 +13,8 @@ import { accessTokenCommand } from './commands/access-tokens';
 import { AutocompleteCommand } from './commands/root';
 import logger from './logging';
 import { checkIfFirstTime, wizard } from './wizard';
+import { getDotfileEnvironment, getWorkspaceProjectPath } from './utils/config';
+import chalk from 'chalk';
 
 async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 
@@ -108,10 +110,15 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 
 async function main() {
 
+  const workspaceProjectPath = getWorkspaceProjectPath()
+  const defaultEnvironment = getDotfileEnvironment()
+  const defaultEnvironmentPath = workspaceProjectPath ? `${workspaceProjectPath}:${defaultEnvironment}` : defaultEnvironment
+  const defaultEnvironmentDisplay = defaultEnvironment ? `\n\n${chalk.bold.green('Default environment:')} ${chalk.bold.white(defaultEnvironmentPath)}` : ''
+
   logger.info('Starting program');
   program
     .name('envie')
-    .description('CLI for managing .env files securely and conveniently')
+    .description(`CLI for managing environment variables${defaultEnvironmentDisplay}`)
   
   const firstTime = checkIfFirstTime()
   if (firstTime && process.argv.length <= 2) {
