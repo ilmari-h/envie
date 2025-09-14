@@ -22,7 +22,7 @@ Envie is available as a CLI tool on npm.
 To install it globally on your machine, run:
 
 ```
-$ npm install -g @envie/cli
+npm install -g @envie/cli
 ```
 
 Requirements: Node.js (v22.0 and up) and Linux or macOS operating system

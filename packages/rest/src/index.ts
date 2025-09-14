@@ -521,6 +521,17 @@ const environments = c.router({
 })
 
 export const organizations = c.router({
+  organizationExists: {
+    method: 'GET',
+    path: '/organizations/:name/exists',
+    pathParams: z.object({
+      name: nameSchema
+    }),
+    responses: {
+      200: z.object({ exists: z.boolean() })
+    },
+    summary: 'Check if an organization exists'
+  },
   getOrganizations: {
     method: 'GET',
     path: '/organizations',

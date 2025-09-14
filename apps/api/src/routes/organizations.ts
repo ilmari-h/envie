@@ -2,10 +2,19 @@ import { db, generateNanoid, Schema } from '@repo/db';
 import { count, eq, and } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { getOrganization as getOrganizationByPath, isValidUUID } from '../queries/by-path';
+import { getOrganization as getOrganizationByPath } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
-import { randomBytes } from 'crypto';
 import { getUserByNameOrId } from '../queries/user';
+
+export const organizationExists = async ({ params: { name } }: { params: TsRestRequest<typeof contract.organizations.organizationExists>['params'] }) => {
+  const organization = await db.select({ count: count() })
+    .from(Schema.organizations)
+    .where(eq(Schema.organizations.name, name));
+  return {
+    status: 200 as const,
+    body: { exists: ( organization[0]?.count ?? 0) > 0 }
+  };
+};
 
 export const getOrganizations = async ({ req }: { req: TsRestRequest<typeof contract.organizations.getOrganizations> }) => {
 

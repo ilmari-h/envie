@@ -20,7 +20,7 @@ import {
   getEnvironmentVersions,
 } from './routes/environments';
 import { env } from './env';
-import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite } from './routes/organizations';
+import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite, organizationExists } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
 import { getMe, updateName, listUsers } from './routes/users';
@@ -171,6 +171,10 @@ const router = s.router(contract, {
     getOrganizations: {
       middleware: [requireAuth],
       handler: getOrganizations
+    },
+    organizationExists: {
+      middleware: [requireAuth],
+      handler: organizationExists
     },
     getOrganizationMembers: {
       middleware: [requireAuth],
@@ -359,9 +363,10 @@ app.get('/auth/cli/login', async (req, res, next) => {
 // GitHub Auth Routes
 app.get('/auth/github', (req, res, next) => {
   const cliToken = req.query.cliToken as string | undefined;
+  const onboarding = req.query.onboarding as string | undefined;
   passport.authenticate('github', { 
     session: false, 
-    state: cliToken
+    state: cliToken ?? (onboarding ? 'onboarding' : undefined)
   })(req, res, next);
 });
 
@@ -390,6 +395,10 @@ app.get('/auth/github/callback',
       // Set the token in Redis allowing CLI to get it with another request to /auth/cli/login
       await redis.set(`cli_login:${state}`, token, {expiration: {type: 'EX', value: 60 * 10}});
       res.redirect(`${env.FRONTEND_URL}/login/success`);
+    } else if (state === 'onboarding') {
+      // Set cookie and redirect to the onboarding page
+      res.cookie(AUTH_COOKIE_NAME, token);
+      res.redirect(`${env.FRONTEND_URL}/new-user/onboarding`);
     } else {
       // Set cookie and redirect to the dashboard
       res.cookie(AUTH_COOKIE_NAME, token);

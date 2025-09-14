@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@repo/ui": "*",
+    "@repo/db": "*",
     "@t3-oss/env-nextjs": "^0.13.4",
     "@tanstack/react-form": "^1.11.1",
     "@tanstack/react-query": "5",
@@ -22,6 +23,7 @@
     "next-runtime-env": "^3.3.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "stripe": "^18.5.0",
     "zod": "^3.24.4"
   },
   "devDependencies": {
