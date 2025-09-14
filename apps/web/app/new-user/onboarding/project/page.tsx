@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { env } from 'next-runtime-env';
 import { nameSchema, PlanSelection, Onboarding } from '../../schemas';
+import { tsr } from '../../../tsr';
 
 export default function ProjectPage() {
   const [projectName, setProjectName] = useState('');
@@ -13,6 +14,7 @@ export default function ProjectPage() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const router = useRouter();
+  const { mutateAsync: createProject } = tsr.projects.createProject.useMutation();
 
   useEffect(() => {
     // Read plan selection from localStorage
@@ -80,6 +82,25 @@ export default function ProjectPage() {
       
       // Handle different flows based on plan
       if (planData?.plan === 'free') {
+
+        // Get user's personal organization
+        const organizations = await tsr.organizations.getOrganizations.query();
+        if(organizations.status !== 200) {
+          throw new Error((organizations.body as { message: string }).message || 'Failed to get organizations');
+        }
+
+        if(!organizations.body[0]) {
+          throw new Error('User has no organizations');
+        }
+
+        // Create project
+        await createProject({
+          body: {
+            name: projectName,
+            description: '',
+            organizationIdOrName: organizations.body[0].name,
+          },
+        });
         router.push('/new-user/onboarding/done');
       } else if (planData?.plan === 'team') {
         // Start Stripe checkout flow
@@ -95,6 +116,8 @@ export default function ProjectPage() {
             },
             body: JSON.stringify({
               quantity: quantity,
+              organizationName: organizationName,
+              projectName: projectName,
             }),
           });
 

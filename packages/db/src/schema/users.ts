@@ -12,6 +12,7 @@ export const users = pgTable('users', {
   maxOrganizations: integer('max_organizations').notNull().default(1),
   maxUsersPerOrganization: integer('max_users_per_organization').notNull().default(1),
   email: text('email'),
+  stripeCustomerId: text("stripe_customer_id"),
   ...timestamps
 })
 

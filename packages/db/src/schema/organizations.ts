@@ -3,6 +3,7 @@ import { nanoid, generateNanoid, timestamps } from './utils';
 import { users } from './users';
 import { organizationRoles } from './organization-roles';
 import { relations } from 'drizzle-orm';
+import { projects } from './projects';
 
 export const organizations = pgTable('organizations', {
   id: nanoid('id').primaryKey(),
@@ -23,4 +24,5 @@ export const organizationRelations = relations(organizations, ({ many, one }) =>
     fields: [organizations.createdById],
     references: [users.id]
   }),
+  projects: many(projects),
 }));

@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
 
     // For demonstration purposes, we're using the Checkout session to retrieve the customer ID.
     // Typically this is stored alongside the authenticated user in your database.
+    // TODO: store customer id in database
     const checkoutSession = await stripe.checkout.sessions.retrieve(session_id);
 
     if (!checkoutSession.customer) {

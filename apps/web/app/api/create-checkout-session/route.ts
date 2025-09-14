@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No authenticated user found' }, { status: 401 });
     }
 
-    const { quantity = 1 } = await request.json();
+    const { quantity = 1, organizationName, projectName } = await request.json();
+    if(!organizationName || !projectName) {
+      return NextResponse.json({ error: 'Organization name and project name are required' }, { status: 400 });
+    }
 
     const session = await stripe.checkout.sessions.create({
       billing_address_collection: 'auto',
@@ -34,10 +37,13 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
+      metadata: {
+        user_id: authenticatedUser.userId,
+        initial_organization_name: organizationName,
+        initial_project_name: projectName,
+      },
 
-      // TODO: add user id to the success url
-      // REdirect to backend and set user benefits in db
-      success_url: `${env.APP_URL}/new-user/onboarding/done?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${env.APP_URL}/api/finish-checkout/{CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.APP_URL}/new-user/onboarding/project?canceled=true`,
     });
 
