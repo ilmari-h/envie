@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { env } from '../../../env';
 import { getAuthenticatedUser } from '../../../auth/helpers';
-import { db, organizationRoles, organizations, projects, users, Schema } from '@repo/db';
+import { getDb, organizationRoles, organizations, projects, users, Schema } from '@repo/db';
 import { eq } from 'drizzle-orm';
 
 const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY, {
@@ -17,6 +17,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ session_i
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
     }
 
+    const db = getDb(env.DATABASE_URL);
     const priceId = env.STRIPE_TEAM_PRICE_ID;
     if(!priceId) {
       return NextResponse.json({ error: 'Price ID not configured' }, { status: 500 });

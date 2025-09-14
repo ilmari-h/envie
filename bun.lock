@@ -104,6 +104,7 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@repo/db": "*",
         "@repo/ui": "*",
         "@t3-oss/env-nextjs": "^0.13.4",
         "@tanstack/react-form": "^1.11.1",

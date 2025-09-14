@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { env } from '../../env';
 import { getAuthenticatedUser } from '../../auth/helpers';
-import { db, Schema } from '@repo/db';
+import { getDb, Schema } from '@repo/db';
 import { eq } from 'drizzle-orm';
 
 const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY, {
@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Organization name and project name are required' }, { status: 400 });
     }
 
+    const db = getDb(env.DATABASE_URL);
     const dbUser = await db.query.users.findFirst({
       where: eq(Schema.users.id, authenticatedUser.userId),
     });

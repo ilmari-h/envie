@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { env } from '../../env';
-import { db, Schema } from '@repo/db';
+import { getDb, Schema } from '@repo/db';
 import { getAuthenticatedUser } from '../../auth/helpers';
 import { eq } from 'drizzle-orm';
 
@@ -21,6 +21,7 @@ export async function POST(_: NextRequest) {
     }
 
     // Get customer from db
+    const db = getDb(env.DATABASE_URL);
     const customerUser = await db.query.users.findFirst({
       where: eq(Schema.users.id, authenticatedUser.userId),
     });
