@@ -206,6 +206,10 @@ const user = c.router({
         id: z.string(),
         name: z.string(),
         authMethod: z.enum(['github', 'email', 'token']),
+        limits: z.object({
+          maxOrganizations: z.number().int(),
+          maxUsersPerOrganization: z.number().int(),
+        }).optional(),
         publicKeys: z.array(z.object({
           valueBase64: z.string(),
           name: z.string(),

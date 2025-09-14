@@ -63,7 +63,11 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
         valueBase64: upk.publicKey.id,
         name: upk.publicKey.name,
         algorithm: upk.publicKey.algorithm
-      }))
+      })),
+      limits: {
+        maxOrganizations: user.maxOrganizations,
+        maxUsersPerOrganization: user.maxUsersPerOrganization
+      }
     }
   }
 }

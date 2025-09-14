@@ -3,15 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { env } from '../../../env';
 import { getAuthenticatedUser } from '../../../auth/helpers';
-import { db, organizationRoles, organizations, projects, users } from '@repo/db';
+import { db, organizationRoles, organizations, projects, users, Schema } from '@repo/db';
 import { eq } from 'drizzle-orm';
 
 const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-08-27.basil',
 }) : null;
 
-export async function GET(_: NextRequest, { params }: { params: { session_id: string } }) {
-  const { session_id } = params;
+export async function GET(_: NextRequest, context: { params: Promise<{ session_id: string }> }) {
+  const { session_id } = await context.params;
   try {
     if (!stripe) {
       return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
@@ -32,7 +32,7 @@ export async function GET(_: NextRequest, { params }: { params: { session_id: st
     }
 
     const checkoutSession = await stripe.checkout.sessions.retrieve(session_id, {
-      expand: ['line_items'],
+      expand: ['line_items', 'customer'],
     });
     const quantity = checkoutSession.line_items?.data[0]?.quantity;
     if(!quantity) {
@@ -41,12 +41,14 @@ export async function GET(_: NextRequest, { params }: { params: { session_id: st
 
     // 3 by minimum, 1 additional for each added quantity
     const amountOfUsers = quantity + 2; 
-
     const error = await db.transaction(async (tx) => {
       const [updatedUser] = await tx.update(users).set({
         maxOrganizations: 3,
         maxUsersPerOrganization: amountOfUsers,
-      }).where(eq(users.id, authenticatedUser.userId)).returning();
+        stripeCustomerId: (checkoutSession.customer as Stripe.Customer)?.id
+          ? (checkoutSession.customer as Stripe.Customer).id
+          : undefined,
+      }).where(eq(Schema.users.id, authenticatedUser.userId)).returning();
       if(!updatedUser) {
         return { message: 'Failed to update user' };
       }
@@ -86,7 +88,7 @@ export async function GET(_: NextRequest, { params }: { params: { session_id: st
     if(error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.redirect(new URL(`${env.APP_URL}/new-user/onboarding/done?success=true&session_id=${session_id}`));
+    return NextResponse.redirect(new URL(`${env.APP_URL}/dashboard?success=true`));
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return NextResponse.json(

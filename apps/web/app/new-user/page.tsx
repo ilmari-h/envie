@@ -7,7 +7,7 @@ import { PlanSelection } from './schemas';
 
 export default function NewUserPage() {
   const [teamSize, setTeamSize] = useState(3);
-  const [selectedPlan, setSelectedPlan] = useState<'free' | 'team'>('free');
+  const [selectedPlan, setSelectedPlan] = useState<'free' | 'team'>('team');
 
   const calculatePrice = (size: number) => {
     return (size - 3) * 5 + 5;

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { env } from '../../env';
 import { getAuthenticatedUser } from '../../auth/helpers';
+import { db, Schema } from '@repo/db';
+import { eq } from 'drizzle-orm';
 
 const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-08-27.basil',
@@ -28,6 +30,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Organization name and project name are required' }, { status: 400 });
     }
 
+    const dbUser = await db.query.users.findFirst({
+      where: eq(Schema.users.id, authenticatedUser.userId),
+    });
+    if(!dbUser) {
+      return NextResponse.json({ error: 'No customer found' }, { status: 400 });
+    }
+
+
     const session = await stripe.checkout.sessions.create({
       billing_address_collection: 'auto',
       line_items: [
@@ -37,6 +47,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
+      customer: dbUser.stripeCustomerId ?? undefined,
       metadata: {
         user_id: authenticatedUser.userId,
         initial_organization_name: organizationName,

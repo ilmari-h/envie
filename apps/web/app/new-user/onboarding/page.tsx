@@ -15,8 +15,9 @@ export default async function OnboardingPage() {
     where: eq(Schema.users.id, user.userId),
 
   })
+  console.log(userData);
   if(userData && userData.maxOrganizations > 1) {
-    return redirect("/new-user/onboarding/done");
+    return redirect("/dashboard");
   }
 
   return redirect("/new-user/onboarding/organization")

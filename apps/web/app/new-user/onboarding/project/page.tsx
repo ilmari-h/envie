@@ -101,7 +101,7 @@ export default function ProjectPage() {
             organizationIdOrName: organizations.body[0].name,
           },
         });
-        router.push('/new-user/onboarding/done');
+        router.push('/dashboard');
       } else if (planData?.plan === 'team') {
         // Start Stripe checkout flow
         setIsProcessingPayment(true);
