@@ -10,5 +10,6 @@ const envSchema = z.object({
   GITHUB_CALLBACK_URL: z.string(),
 
   FRONTEND_URL: z.string(),
+  APP_DOMAIN: z.string(),
 });
 export const env = envSchema.parse(process.env);

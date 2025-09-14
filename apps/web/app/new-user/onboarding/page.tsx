@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser } from "../../auth/helpers";
-import { db, Schema } from "@repo/db";
+import { getDb, Schema } from "@repo/db";
 import { eq } from "drizzle-orm";
+import { env } from "../../env";
 
 export default async function OnboardingPage() {
 
@@ -9,6 +10,8 @@ export default async function OnboardingPage() {
   if(!user) {
     return redirect("/new-user");
   }
+
+  const db = getDb(env.DATABASE_URL);
 
   // If user already has a paid plan, redirect to done page
   const userData = await db.query.users.findFirst({

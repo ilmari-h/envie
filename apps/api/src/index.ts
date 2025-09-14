@@ -397,11 +397,11 @@ app.get('/auth/github/callback',
       res.redirect(`${env.FRONTEND_URL}/login/success`);
     } else if (state === 'onboarding') {
       // Set cookie and redirect to the onboarding page
-      res.cookie(AUTH_COOKIE_NAME, token);
+      res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN});
       res.redirect(`${env.FRONTEND_URL}/new-user/onboarding`);
     } else {
       // Set cookie and redirect to the dashboard
-      res.cookie(AUTH_COOKIE_NAME, token);
+      res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN});
       res.redirect(`${env.FRONTEND_URL}/dashboard`);
     }
   }
