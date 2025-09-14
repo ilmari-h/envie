@@ -4,11 +4,7 @@ import postgres from "postgres";
 import * as Schema from "../schema";
 export * as Schema from "../schema";
 // Database connection config
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
+const connectionString = process.env.DATABASE_URL ?? "postgres://localhost:5432/envie";
 
 // Client for migrations and queries
 export const migrationClient = postgres(connectionString, { max: 1 });
