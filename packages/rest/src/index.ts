@@ -349,7 +349,7 @@ const environments = c.router({
         .refine(v => !v || parseInt(v) > 0, {
           message: 'Version must be a positive number'
         }),
-      variableGroups: z.string().optional().transform(v => v === 'true').describe('If true, returns variable groups instead of environments')
+      variableGroups: z.string().optional().describe('If true, returns variable groups instead of environments')
     }),
     responses: {
       200: environmentWithVersionSchema.array()

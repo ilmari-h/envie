@@ -113,7 +113,7 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
 
     const environmentsWithVersions = await Promise.all(environments
       // Variable groups have no associated project
-      .filter(e => variableGroups ? !e.project : !!e.project)
+      .filter(e => variableGroups === 'true' ? !e.project : !!e.project)
 
       .map(async (e) => {
         const environmentVersion = await getEnvironmentVersionByIndex(e.id, version);
