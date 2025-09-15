@@ -1,7 +1,7 @@
 import express from 'express';
 import { createExpressEndpoints, initServer } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { db, Schema } from '@repo/db';
+import { db, generateNanoid, Schema } from '@repo/db';
 import passport from 'passport';
 import cookieParser from 'cookie-parser';
 import { Strategy as GitHubStrategy } from 'passport-github';
@@ -27,6 +27,7 @@ import { getMe, updateName, listUsers } from './routes/users';
 import { getPublicKeys, setPublicKey, getDecryptionKeys } from './routes/public-keys';
 import { createClient } from "redis";
 import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
+import { nanoid } from 'nanoid';
 
 const AUTH_COOKIE_NAME = 'envie_token';
 
@@ -302,6 +303,7 @@ passport.use(new GitHubStrategy({
           email: profile.emails?.[0]?.value
         });
         const [organization] = await tx.insert(Schema.organizations).values({
+          name: generateNanoid(),
           createdById: githubUserId,
           description: 'Personal organization for ' + (profile.username ?? profile.displayName)
         }).returning();

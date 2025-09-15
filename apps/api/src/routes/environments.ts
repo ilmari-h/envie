@@ -44,7 +44,7 @@ function verifySignature(message: string, signature: { signature: string; algori
   }
 }
 
-export const getEnvironments = async ({ req, query: { path, version, pubkey } }:
+export const getEnvironments = async ({ req, query: { path, version, pubkey, variableGroups } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
@@ -112,6 +112,9 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey } }:
     }
 
     const environmentsWithVersions = await Promise.all(environments
+      // Variable groups have no associated project
+      .filter(e => variableGroups === 'true' ? !e.project : !!e.project)
+
       .map(async (e) => {
         const environmentVersion = await getEnvironmentVersionByIndex(e.id, version);
         const totalVersions = await db.select({ count: count() })
