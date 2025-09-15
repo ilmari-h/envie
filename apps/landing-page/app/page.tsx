@@ -196,6 +196,10 @@ export default function HomePage() {
                 <Github className="w-5 h-5" />
               </a>
               <span className="text-gray-500">•</span>
+              <a href="mailto:support@envie.cloud" className="text-gray-400 hover:text-green-400 transition-colors text-sm">
+                support@envie.cloud
+              </a>
+              <span className="text-gray-500">•</span>
               <span className="text-gray-400 text-sm">
                 Made with ❤️ for developers
               </span>
