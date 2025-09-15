@@ -4,18 +4,18 @@ import './globals.css'
 import Script from 'next/script'
 
 export const metadata: Metadata = {
-  title: 'Envie - environment configuration management for developers',
+  title: 'Envie - manage your environment variables',
   description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
   openGraph: {
-    title: 'Envie - environment configuration management for developers',
+    title: 'Envie - manage your environment variables',
     description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
     type: 'website',
-    url: 'https://envie.dev',
+    url: 'https://envie.cloud',
     siteName: 'Envie',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Envie - environment configuration management for developers',
+    title: 'Envie - manage your environment variables',
     description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
   },
 }
