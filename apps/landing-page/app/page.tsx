@@ -145,7 +145,7 @@ export default function HomePage() {
               <div className="text-white">$ envie set org:project:staging \<br/>DATABASE_URL=postgresql://user:password@localhost:5432/my_database</div>
               <div className="text-gray-400 text-xs mt-3"><br/># Find out who changed what and when</div>
               <div className="text-gray-400 text-xs mt-3"># Audit trail of environment changes that you can roll back</div>
-              <div className="text-white">$ envie audit org:project:staging</div>
+              <div className="text-white">$ envie environment audit org:project:staging</div>
             </div>
           </div>
         </div>
