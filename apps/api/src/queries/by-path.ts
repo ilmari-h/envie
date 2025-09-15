@@ -1,5 +1,5 @@
 import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, environments, Organization, OrganizationRole, Project, Schema } from '@repo/db';
-import { eq, and, or, SQL } from 'drizzle-orm';
+import { eq, and, or, SQL, isNull } from 'drizzle-orm';
 import { isUserRequester } from '../types/cast';
 
 export const isValidUUID = (uuid: string) => {
@@ -133,35 +133,35 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
 }
 
 export async function getEnvironmentByPath(
-  pathOrId: string,
+  path: string,
   scope: OperationScope
-): Promise<[OrganizationWithRole, Project, Environment & { access: EnvironmentAccess & { decryptionData: EnvironmentDecryptionData[] } }]> {
-  if(!isValidPath(pathOrId, 3) && !isValidUUID(pathOrId)) {
+): Promise<[OrganizationWithRole, Project | null, Environment & { access: EnvironmentAccess & { decryptionData: EnvironmentDecryptionData[] } }]> {
+  if(!isValidPath(path, 3)) {
     throw new Error('Invalid environment path');
   }
 
-  const whereStatements: (SQL | undefined)[] = !isValidPath(pathOrId, 3) && isValidUUID(pathOrId)
-    ? [eq(Schema.environments.id, pathOrId)]
-    : [];
+  const whereStatements: (SQL | undefined)[] = []
 
-  let organization: OrganizationWithRole | undefined;
-  let project: Project | undefined;
+  let organization: OrganizationWithRole | null;
+  let project: Project | null;
   
   // Resolve path
-  if(whereStatements.length === 0) {
-    // Path must contain three parts separated by ':'
-    const parts = pathOrId.split(':');
-    const [organizationPart, projectPart, environmentPart] = parts as [string, string, string];
+  // Path must contain three parts separated by ':'
+  const parts = path.split(':');
+  const [organizationPart, projectPart, environmentPart] = parts as [string, string, string];
 
-    [organization, project] = await getProjectByPath(`${organizationPart}:${projectPart}`, scope);
-    if(!organization || !project) {
-      throw new Error('Invalid project path');
-    }
-    whereStatements.push(
-      eq(Schema.environments.projectId, project.id),
-      eq(Schema.environments.name, environmentPart)
-    );
+  // If in place of project is 'group' this environment is a variable group
+  [organization, project] = projectPart === 'group'
+    ? [ await getOrganization(organizationPart, scope), null ]
+    : await getProjectByPath(`${organizationPart}:${projectPart}`, scope) 
+
+  if(!organization || (!project && projectPart !== 'group')) {
+    throw new Error('Invalid project path');
   }
+  whereStatements.push(
+    project ? eq(Schema.environments.projectId, project.id) : isNull(Schema.environments.projectId),
+    eq(Schema.environments.name, environmentPart)
+  );
 
   const environment = await db.query.environments.findFirst({
     where: and(...whereStatements),
@@ -194,9 +194,6 @@ export async function getEnvironmentByPath(
 
   if(!environment) {
     throw new Error('Environment not found');
-  }
-  if(!organization || !project) {
-    [organization, project] = await getProjectByPath(environment.projectId, scope);
   }
   return [organization, project, { ...environment, access: userAccess, project: project }];
 }

@@ -71,11 +71,20 @@ environmentCommand
           { header: 'ID', key: 'id' },
           { header: 'Versions', key: 'versions' },
         ],
-        response.body.map(env => ({
-          path: `${env.project.organization.name}:${env.project.name}:${env.name}`,
-          versions: env.version?.versionNumber || '0',
-          id: env.id
-        }))
+        
+        // Environments that are not variable groups should all have projects
+        response.body.filter(env => !!env.project).map(env => {
+
+          // This 'unknown' case should never happen
+          const projectName = env.project?.name ?? 'unknown';
+          const organizationName = env.project?.organization.name ?? 'unknown';
+
+          return {  
+            path: `${organizationName}:${projectName}:${env.name}`,
+            versions: env.version?.versionNumber || '0',
+            id: env.id
+          }
+        })
       );
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);

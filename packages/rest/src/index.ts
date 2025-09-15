@@ -22,6 +22,7 @@ const nameSchema = z.string()
   .max(32)
   .regex(nameRegex, 'Name can only contain latin letters, numbers, underscores and hyphens')
   .refine(name => name !== 'default', 'Reserved name')
+  .refine(name => name !== 'group', 'Reserved name')
 
 export const invitedUserSchema = z.object({
   userId: z.string(),
@@ -42,7 +43,7 @@ export const userSchema = z.object({
 });
 
 export const organizationSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().nanoid(),
   name: z.string(),
   description: z.string().nullable(),
   createdById: z.string().nullable(),
@@ -51,28 +52,28 @@ export const organizationSchema = z.object({
 });
 
 export const projectSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().nanoid(),
   name: z.string(),
   description: z.string().nullable(),
-  organizationId: z.string().uuid(),
+  organizationId: z.string().nanoid(),
   createdAt: z.date(),
   updatedAt: z.date(),
   organization: organizationSchema
 });
 
 export const environmentSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().nanoid(),
   name: z.string(),
-  projectId: z.string().uuid(),
+  projectId: z.string().nanoid().nullable().optional(),
   preservedVersions: z.number().int(),
   createdAt: z.date(),
   updatedAt: z.date(),
-  project: projectSchema
+  project: projectSchema.nullable().optional()
 });
 
 export const environmentVersionSchema = z.object({
-  id: z.string().uuid(),
-  environmentId: z.string().uuid().nullable(),
+  id: z.string().nanoid(),
+  environmentId: z.string().nanoid().nullable(),
   savedBy: z.string(),
   createdAt: z.date(),
   updatedAt: z.date(),
