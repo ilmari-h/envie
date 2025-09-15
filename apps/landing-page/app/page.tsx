@@ -41,9 +41,9 @@ export default function HomePage() {
               <Github className="w-4 h-4" />
               <span>GitHub</span>
             </a>
-            <button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 px-4 py-1.5 rounded-md font-medium text-sm transition-all duration-200 transform hover:scale-105">
+            <a href="https://web.envie.cloud/new-user" className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 px-4 py-1.5 rounded-md font-medium text-sm transition-all duration-200 transform hover:scale-105">
               Sign Up
-            </button>
+            </a>
           </div>
         </nav>
       </header>
@@ -105,9 +105,9 @@ export default function HomePage() {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-            <button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 px-6 py-2.5 rounded-md font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25 flex items-center space-x-2">
+            <a href="https://web.envie.cloud/new-user" className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 px-6 py-2.5 rounded-md font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25 flex items-center space-x-2">
               <span>Start Building</span>
-            </button>
+            </a>
             <div className="w-px ml-2 h-8 bg-white/40 hidden sm:block"></div>
             <a 
               href="https://github.com/ilmari-h/envie" 
@@ -173,10 +173,6 @@ export default function HomePage() {
                 <Star className="w-4 h-4" />
                 <span>Star on GitHub</span>
               </a>
-              <button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-400 hover:to-green-500 px-6 py-2.5 rounded-md font-medium transition-all duration-200 transform hover:scale-105 flex items-center space-x-2 justify-center">
-                <span>Sign Up</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </div>

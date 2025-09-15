@@ -182,9 +182,9 @@ For example, here's how to use envie in a web development project together with 
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun with-env next build",
-    "dev": "bun with-env next dev --turbo",
-    "start": "bun with-env next start",
+    "build": "npx with-env next build",
+    "dev": "npx with-env next dev --turbo",
+    "start": "npx with-env next start",
     "with-env": "envie exec default --"
   },
   "dependencies": {
