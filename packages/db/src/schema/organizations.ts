@@ -7,7 +7,7 @@ import { projects } from './projects';
 
 export const organizations = pgTable('organizations', {
   id: nanoid('id').primaryKey(),
-  name: text('name').notNull().default(generateNanoid()),
+  name: text('name').notNull().$defaultFn( () => generateNanoid()),
   description: text('description'),
   createdById: text('created_by_id').references(() => users.id).notNull(),
   ...timestamps

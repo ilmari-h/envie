@@ -8,6 +8,13 @@
       "when": 1756642220214,
       "tag": "0000_initial_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1757957944481,
+      "tag": "0001_stripe_customer_id",
+      "breakpoints": true
     }
   ]
 }
