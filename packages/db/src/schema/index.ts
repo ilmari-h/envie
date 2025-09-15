@@ -8,3 +8,5 @@ export * from './environment-access';
 export * from './environment-versions';
 export * from './access-tokens';
 export * from './public-keys';
+export * from './variable-groups';
+export * from './environment-variable-groups';
