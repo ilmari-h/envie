@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Check, Users, Plus, Minus } from 'lucide-react';
 import { env } from "next-runtime-env";
 import { PlanSelection } from './schemas';
+import { recordConversion } from '../tracker';
 
 export default function NewUserPage() {
   const [teamSize, setTeamSize] = useState(3);
@@ -19,7 +20,8 @@ export default function NewUserPage() {
       plan: selectedPlan,
       teamSize: teamSize
     } satisfies PlanSelection));
-    
+
+    recordConversion(selectedPlan === 'free' ? 0 : calculatePrice(teamSize));
     // Redirect to auth
     window.location.href = `${env("NEXT_PUBLIC_API_URL")}/auth/github?onboarding=true`;
   };

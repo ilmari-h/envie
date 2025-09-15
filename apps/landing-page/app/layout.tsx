@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
+import Script from 'next/script'
 
 export const metadata: Metadata = {
   title: 'Envie - environment configuration management for developers',
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <body>{children}</body>
       <GoogleAnalytics gaId="AW-16519815193" />
+
     </html>
   )
 }

@@ -5,6 +5,7 @@ import { Providers } from "./providers";
 import { PublicEnvScript } from 'next-runtime-env';
 import { GoogleAnalytics } from '@next/third-parties/google'
 import { env } from "./env";
+import Script from "next/script";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -35,7 +36,23 @@ export default function RootLayout({
           {children}
         </Providers>
         {env.GOOGLE_ANALYTICS_ID && (
+          <>
           <GoogleAnalytics gaId={env.GOOGLE_ANALYTICS_ID} />
+
+        <Script
+          async
+          strategy="afterInteractive"
+          src={`https://www.googletagmanager.com/gtag/js?id=${env.GOOGLE_ANALYTICS_ID}`}
+        ></Script>
+        <Script strategy="afterInteractive" id="gtm">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', ${env.GOOGLE_ANALYTICS_ID});
+          `}
+        </Script>
+        </>
         )}
       </body>
     </html>
