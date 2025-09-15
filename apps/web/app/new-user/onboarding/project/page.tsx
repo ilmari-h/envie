@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { env } from 'next-runtime-env';
 import { nameSchema, PlanSelection, Onboarding } from '../../schemas';
 import { tsr } from '../../../tsr';
+import { recordConversion } from '../../../tracker';
 
 export default function ProjectPage() {
   const [projectName, setProjectName] = useState('');
@@ -94,6 +95,7 @@ export default function ProjectPage() {
         }
 
         // Create project
+        recordConversion(0);
         await createProject({
           body: {
             name: projectName,
@@ -109,6 +111,7 @@ export default function ProjectPage() {
 
           const quantity = calculateStripeQuantity(planData.teamSize);
           
+          recordConversion(quantity * 5);
           const response = await fetch('/api/create-checkout-session', {
             method: 'POST',
             headers: {
