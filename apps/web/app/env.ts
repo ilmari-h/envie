@@ -9,6 +9,7 @@ export const env = createEnv({
     STRIPE_TEAM_PRICE_ID: z.string(),
     JWT_SECRET: z.string(),
     DATABASE_URL: z.string().url(),
+    GOOGLE_ANALYTICS_ID: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_API_URL: z.string().url(),
@@ -22,6 +23,7 @@ export const env = createEnv({
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_TEAM_PRICE_ID: process.env.STRIPE_TEAM_PRICE_ID,
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    GOOGLE_ANALYTICS_ID: process.env.GOOGLE_ANALYTICS_ID,
   },
   skipValidation: process.env.SKIP_ENV_VALIDATION === '1',
 }); 
