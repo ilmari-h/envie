@@ -297,7 +297,7 @@ passport.use(new GitHubStrategy({
 
     if(!user) {
       db.transaction(async (tx) => {
-        await db.insert(Schema.users).values({
+        await tx.insert(Schema.users).values({
           id: githubUserId,
           name: profile.username || profile.displayName,
           email: profile.emails?.[0]?.value

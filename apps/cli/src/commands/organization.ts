@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
 import { ExpiryFromNow } from './utils';
 import { confirm } from '../ui/confirm';
-import { organizationCompletions, userAndTokenCompletions, userCompletions } from '../utils/completions';
+import { organizationCompletions, userAndTokenCompletions } from '../utils/completions';
 
 type CreateOrganizationOptions = BaseOptions & {
   description?: string;

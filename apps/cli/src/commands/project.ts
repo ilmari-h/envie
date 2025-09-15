@@ -5,7 +5,7 @@ import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
 import { confirm } from '../ui/confirm';
-import { organizationCompletionsWithTrailingColon, projectCompletions, projectCompletionsWithTrailingColon } from '../utils/completions';
+import { organizationCompletionsWithTrailingColon, projectCompletions } from '../utils/completions';
 
 type ProjectOptions = BaseOptions & {
   organization?: string;
