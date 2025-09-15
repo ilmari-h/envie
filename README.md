@@ -28,11 +28,6 @@ npm install -g @envie/cli
 Requirements: Node.js (v22.0 and up) and Linux or macOS operating system
 
 ## 🚀 Quick start guide
-> [!TIP]  
-> Not into self hosting? Envie is **free forever** for individual use with affordable per-user licensing available for teams.
->
-> Head over to <https://envie.cloud> and sign up to get started with a forever-free plan!
-
 > [!IMPORTANT]  
 > To use Envie, you need an Ed25519 keypair on your machine. This is because Envie uses client-side encryption to secure your environment variables.
 > 
@@ -206,6 +201,11 @@ Envie configuration can be managed via the CLI (see `envie config` subcommands).
 Local configuration can also be managed via a `config.json` file, stored under the standard configuration directory if your operating system (`XDG_CONFIG_HOME/envie` for Linux and `~/Library/Application Support/envie` for macOS.) You can override this with the environment variable `ENVIE_CONFIG_DIRECTORY`.
 
 ## Self Hosting
+> [!TIP]  
+> Not into self hosting? Envie Cloud offers a hosted instance that is **free forever** for individual use with affordable per-user licensing available for teams.
+>
+> Head over to <https://envie.cloud> and sign up to get started with a forever-free plan!
+
 
 Envie can be self-hosted using Docker. Two images are required:
 
