@@ -21,6 +21,9 @@ RUN bun install --frozen-lockfile
 ENV SKIP_ENV_VALIDATION=1
 RUN bunx turbo build --filter=landing-page
 
+# Ensure public directory exists
+RUN mkdir -p /app/apps/landing-page/public
+
 # Production stage
 FROM node:24-alpine AS runner
 
