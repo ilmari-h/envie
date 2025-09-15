@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
-import Script from 'next/script'
 
 export const metadata: Metadata = {
   title: 'Envie - manage your environment variables',
