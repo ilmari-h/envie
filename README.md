@@ -235,7 +235,7 @@ Your environment variable values are stored encrypted on the server (that is, in
 To allow your selected team members to access and decrypt it, Envie uses X25519 Diffie–Hellman key exchange protocol.
 
 When you create an environment, a data encryption key (DEK) is generated on the client.
-For each user that has access to this environment, an encrypted version the DEK is stored on the server.
+For each user that has access to this environment, an encrypted version of the DEK is stored on the server.
 This encrypted DEK can only by decrypted with that user's keypair.
 
 This approach is widely adopted in other applications.
