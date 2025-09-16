@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 
 const AUTH_COOKIE_NAME = 'envie_token';
 
-interface AuthenticatedUser {
+export interface AuthenticatedUser {
   userId: string;
   username: string;
   pubkey?: string | null;
