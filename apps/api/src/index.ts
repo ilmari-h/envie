@@ -29,7 +29,11 @@ import { createClient } from "redis";
 import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
 import { nanoid } from 'nanoid';
 
+// Cookie that contains the JWT token for auth
 const AUTH_COOKIE_NAME = 'envie_token';
+
+// This cookie is just a hint for frontend to know when the token expires
+const AUTH_HINT_COOKIE_NAME = 'envie_token_expiry';
 
 const app = express();
 app.use(express.json());
@@ -362,6 +366,12 @@ app.get('/auth/cli/login', async (req, res, next) => {
   res.json({ token });
 });
 
+app.get('/auth/logout', async (req, res, next) => {
+  res.clearCookie(AUTH_COOKIE_NAME, {domain: env.APP_DOMAIN});
+  res.clearCookie(AUTH_HINT_COOKIE_NAME, {domain: env.APP_DOMAIN});
+  res.redirect(`${env.FRONTEND_URL}`);
+});
+
 // GitHub Auth Routes
 app.get('/auth/github', (req, res, next) => {
   const cliToken = req.query.cliToken as string | undefined;
@@ -391,6 +401,15 @@ app.get('/auth/github/callback',
       env.JWT_SECRET, 
       { expiresIn: '30d' }
     );
+    const jwtExpiry = jwt.decode(token, {json: true}) 
+    if(!jwtExpiry || !jwtExpiry.exp) {
+      return res.status(500).json({ message: 'Failed to decode JWT token in auth callback' });
+    }
+    const authHintPayload = {
+      exp: jwtExpiry.exp,
+      userId: (req.user as { id: string }).id,
+      username: (req.user as { username: string }).username,
+    }
 
     // Either CLI or web UI login.
     if (state?.startsWith('cli_')) {
@@ -399,11 +418,13 @@ app.get('/auth/github/callback',
       res.redirect(`${env.FRONTEND_URL}/login/success`);
     } else if (state === 'onboarding') {
       // Set cookie and redirect to the onboarding page
-      res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN});
+      res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});
+      res.cookie(AUTH_HINT_COOKIE_NAME, JSON.stringify(authHintPayload), {domain: env.APP_DOMAIN, httpOnly: false});
       res.redirect(`${env.FRONTEND_URL}/new-user/onboarding/organization`);
     } else {
       // Set cookie and redirect to the dashboard
-      res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN});
+      res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});
+      res.cookie(AUTH_HINT_COOKIE_NAME, JSON.stringify(authHintPayload), {domain: env.APP_DOMAIN, httpOnly: false});
       res.redirect(`${env.FRONTEND_URL}/dashboard`);
     }
   }

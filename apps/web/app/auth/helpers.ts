@@ -8,6 +8,7 @@ interface AuthenticatedUser {
   userId: string;
   username: string;
   pubkey?: string | null;
+  jwtToken: string;
 }
 
 export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> {
@@ -24,7 +25,8 @@ export async function getAuthenticatedUser(): Promise<AuthenticatedUser | null> 
     return {
       userId: decoded.userId,
       username: decoded.username,
-      pubkey: decoded.pubkey || null
+      pubkey: decoded.pubkey || null,
+      jwtToken: token
     };
   } catch (error) {
     // JWT verification failed or other error

@@ -145,7 +145,7 @@ Example of an `envierc.json`
 {
   "organizationName": "acme",
   "projectName": "acme-web-application",
-  "instanceUrl": "https://envie.acme.co"
+  "instanceUrl": "https://api.envie.cloud"
 }
 ```
 
@@ -230,9 +230,16 @@ Envie uses public key encryption to ensure your environment variables stay priva
 - **Time-limited access** - Automatically revoke access after a given period of time
 
 ### Public Key Encryption
-- **Privacy by design** - Your secrets are encrypted before they leave your computer
-- **Selective sharing** - Only decrypt data for users you specifically authorize
-- **No server access** - Even if the server is compromised, your environment variables remain secure
+
+Your environment variable values are stored encrypted on the server (that is, in the database of your Envie API instance).
+To allow your selected team members to access and decrypt it, Envie uses X25519 Diffie–Hellman key exchange protocol.
+
+When you create an environment, a data encryption key (DEK) is generated on the client.
+For each user that has access to this environment, an encrypted version the DEK is stored on the server.
+This encrypted DEK can only by decrypted with that user's keypair.
+
+This approach is widely adopted in other applications.
+For example, ***dotenvx*** is another environment variable management solution that uses this approach. You can find their whitepaper at <https://dotenvx.com/dotenvx.pdf>.
 
 ## Architecture
 

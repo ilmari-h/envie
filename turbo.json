@@ -14,7 +14,8 @@
     "SKIP_ENV_VALIDATION",
 	"STRIPE_SECRET_KEY",
 	"STRIPE_TEAM_PRICE_ID",
-	"APP_URL"
+	"APP_URL",
+	"APP_DOMAIN"
   ],
   "tasks": {
     "build": {

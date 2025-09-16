@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Copy, Check } from 'lucide-react';
 import { tsr } from '../tsr';
+import Sidebar from '../components/sidebar';
 
 export default function Dashboard() {
   const [copied, setCopied] = useState(false);
@@ -54,10 +55,11 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-screen h-full">
-        <main className="flex flex-col items-center justify-center gap-3 h-full px-4">
+        <Sidebar />
+        <main className="flex flex-col items-center justify-center gap-3 h-full px-4 md:ml-64">
           <div className="text-neutral-400 font-mono text-sm">Loading...</div>
         </main>
-        <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium">
+        <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium md:ml-64">
           © {new Date().getFullYear()} envie
         </footer>
       </div>
@@ -66,7 +68,8 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-screen h-full">
-      <main className="flex flex-col items-center justify-center gap-6 h-full px-4">
+      <Sidebar />
+      <main className="flex flex-col items-center justify-center gap-6 h-full px-4 md:ml-64">
         <h2 className="font-mono text-neutral-100 text-lg">Welcome to Envie</h2>
         
         {/* Command Window */}
@@ -109,13 +112,13 @@ export default function Dashboard() {
         ) : (
           <button 
             onClick={handleUpgrade}
-            className="bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-4 py-2 rounded text-sm transition-colors font-mono"
+            className="bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-4 py-2 rounded text-xs transition-colors font-mono"
           >
             Upgrade Plan
           </button>
         )}
       </main>
-      <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium">
+      <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium md:ml-64">
         © {new Date().getFullYear()} envie
       </footer>
     </div>
