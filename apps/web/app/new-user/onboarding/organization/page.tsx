@@ -66,7 +66,7 @@ export default function OrganizationPage() {
       
       // Also keep legacy storage for compatibility
       localStorage.setItem('envie-organization-name', organizationName);
-      router.push('/new-user/onboarding/project');
+      router.push('/new-user/onboarding/project?checkout=true');
     }
   };
 
