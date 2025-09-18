@@ -1,16 +1,47 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { LogoutButton } from "./logout-button";
-import { Menu, ArrowLeft } from "lucide-react";
+import { Menu, ArrowLeft, CreditCard, Zap } from "lucide-react";
 import { getAuthHint } from "../utils/get-auth-hint";
+import { ClientInferResponseBody } from "@ts-rest/core";
+import { contract } from "@repo/rest";
+import { Button } from "@repo/ui/button";
+import Link from "next/link";
 
-export default function Sidebar() {
+type User = ClientInferResponseBody<typeof contract.user.getUser, 200>
+export default function Sidebar({user}: {user: User}) {
   const [isOpen, setIsOpen] = useState(false);
-  const user = getAuthHint()
-
+  const router = useRouter();
+  const isPaidUser = (user?.limits?.maxOrganizations ?? 1) > 1;
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+
+  const handleManageBilling = async () => {
+    try {
+      const response = await fetch('/api/create-portal-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('Failed to create portal session:', data.error);
+      }
+    } catch (error) {
+      console.error('Error creating portal session:', error);
+    }
+  };
+
+  const handleUpgrade = () => {
+    router.push('/new-user');
+  };
 
   if (!user) {
     return null;
@@ -53,7 +84,7 @@ export default function Sidebar() {
                 <p className="font-mono text-xs text-neutral-400">
                   logged in as
                   <span className="font-mono text-sm text-neutral-100 break-all ml-2">
-                    {user.username}
+                    {user.name}
                   </span>
                 </p>
                 {/* Collapse button - only on mobile */}
@@ -64,6 +95,37 @@ export default function Sidebar() {
                   <ArrowLeft className="w-4 h-4 text-neutral-400" />
                 </button>
               </div>
+            </div>
+
+            {/* Billing/Upgrade button */}
+            <div className="mb-4 w-full">
+              {isPaidUser ? (
+                <button 
+                  onClick={handleManageBilling}
+                  className="w-full bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-4 py-2 rounded text-xs transition-colors font-mono flex items-center justify-center gap-2"
+                >
+                  Manage Billing
+                </button>
+              ) : (
+                  <Link href="/new-user">
+                  <Button 
+                    variant="accent"
+                    className="w-full mb-3"
+                  >
+                    Upgrade Plan
+                  </Button>
+                  </Link>
+              )}
+            </div>
+            {/* Support contact */}
+            <div >
+              <p className="font-mono text-xs text-neutral-400 mb-1">Contact support</p>
+              <a
+                href="mailto:support@envie.cloud"
+                className="font-mono text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                support@envie.cloud
+              </a>
             </div>
 
             {/* Logout button */}
