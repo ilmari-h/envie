@@ -15,6 +15,23 @@ Envie is both a secret manager for production use and a developer tool for bette
 - **Multi-tenant organizations** - Support for teams with role-based permissions
 - **Version history** - Track changes to environment configurations over time. Rollback to previous and see an audit trail of changes
 
+#### Roadmap
+
+○ **Variable Groups**  
+│ Group environment variables together with shared access control rules  
+│ → [Learn more](https://github.com/ilmari-h/envie/discussions/4)  
+│  
+○ **Web UI**  
+│ Manage environments through a browser interface
+│ → [Learn more](https://github.com/ilmari-h/envie/discussions/7)  
+│  
+○ **Deployment Automation**  
+│ Trigger deployments when environment variables are updated  
+│ → [Learn more](https://github.com/ilmari-h/envie/discussions/5)  
+│  
+
+You can suggest features and discuss the roadmap in [discussions](https://github.com/ilmari-h/envie/discussions).
+
 ## 📦 Installation
 
 Envie is available as a CLI tool on npm.
