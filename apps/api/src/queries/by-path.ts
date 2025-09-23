@@ -221,6 +221,10 @@ export async function getProjectEnvironments(
 
   // Filter environments based on scope
   const filteredEnvironments = environments.filter(environment => {
+    // Filter out environments without access
+    if (!environment.access || environment.access.length === 0) {
+      return false;
+    }
     if(scope?.editEnvironment && !environment.access.find(access => access.write)) {
       return false;
     }
