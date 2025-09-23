@@ -13,7 +13,7 @@ export const projects = pgTable('projects', {
   organizationId: nanoidType('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   ...timestamps
 }, (t) => ([{
-  uniqueName: uniqueIndex('unique_name').on(t.organizationId, t.name)
+  uniqueName: uniqueIndex('projects_unique_name_organization_id').on(t.organizationId, t.name)
 }]));
 
 export type Project = typeof projects.$inferSelect & {

@@ -24,7 +24,7 @@ export const getPublicKeys = async ({
       body: {
         publicKeys: targetUser.userPublicKeys.map(upk => (
         {
-        valueBase64: Buffer.from(upk.publicKey.id).toString('base64'),
+        valueBase64: upk.publicKey.id,
         algorithm: upk.publicKey.algorithm
       }
       ))

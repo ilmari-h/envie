@@ -10,6 +10,7 @@ import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
 import { EnvironmentPath, ExpiryFromNow } from './utils';
 import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions } from '../utils/completions';
 import { confirm } from '../ui/confirm';
+import { normalizeEd25519PublicKey } from '../utils/keypair';
 
 type EnvironmentOptions = BaseOptions;
 
@@ -531,7 +532,9 @@ environmentCommand
         wrappedKey: decryptionData.wrappedDek,
         ephemeralPublicKey: decryptionData.ephemeralPublicKey,
       });
-      const wrappedDeks = targetPublicKeys.body.publicKeys.map(pk => dek.wrap(new Ed25519PublicKey(pk.valueBase64)));
+      const wrappedDeks = targetPublicKeys.body.publicKeys.map(
+        pk => dek.wrap(new Ed25519PublicKey(normalizeEd25519PublicKey(pk.valueBase64)))
+      );
       const response = await client.environments.setEnvironmentAccess({
         params: { idOrPath: environmentPath.toString() },
         body: {

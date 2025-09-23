@@ -93,29 +93,30 @@ All of these can have different access control rules (more on that later).
 You can create an environment from an existing *.env* file on your disk with:
 
 ```bash
-envie environment create organization:project:rest-api <path-to-env-file>
+envie environment create <organization>:<project>:<environment-name> <path-to-env-file>
 ```
 
 Or if you already have an environment and want to update it from a *.env* file on your disk
 ```bash
-envie environment update organization:project:rest-api <path-to-env-file>
+envie environment update <organization>:<project>:<environment-name> <path-to-env-file>
+
 ```
 
 You can also update a single environment variable at a time with:
 
 ```bash
-envie set org:project:env-name KEY=value
+envie set <organization>:<project>:<environment-name> KEY=value
 
 # or
-envie set org:project:env-name KEY value
+envie set <organization>:<project>:<environment-name> KEY value
 
 # or copy from another environment
-envie set org:project:env-name KEY org:project:other-env
+envie set <organization>:<project>:<environment-name> KEY org:project:other-env
 ```
 
 To remove an environment variable, run:
 ```bash
-envie unset org:project:env-name KEY
+envie unset <org>:<project>:<env-name> KEY
 ```
 
 ### Using your environments
@@ -124,16 +125,16 @@ Instead of sourcing a local .env file you can run any command with Envie using y
 
 Execute a command with environment variables loaded:
 ```bash
-envie exec organization:project:environment ./your-command.sh
+envie exec <organization>:<project>:<environment-name> ./your-command.sh
 
 # or specify a version
-envie exec organization:project:environment@version ./your-command.sh
+envie exec <organization>:<project>:<environment-name>@version ./your-command.sh
 
 # or no command to run an interactive shell
-envie exec organization:project:environment
+envie exec <organization>:<project>:<environment-name>
 
 # use -- to pass arguments to the command
-envie exec organization:project:environment@version npm -- run dev
+envie exec <organization>:<project>:<environment-name>@version npm -- run dev
 ```
 
 ### Workspace configurations with `envierc.json`
