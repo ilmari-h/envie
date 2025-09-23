@@ -121,7 +121,7 @@ async function main() {
     .description(`CLI for managing environment variables${defaultEnvironmentDisplay}`)
   
   const firstTime = checkIfFirstTime()
-  if (firstTime && process.argv.length <= 2) {
+  if ((firstTime && process.argv.length <= 2) || process.argv.includes('--wizard')) {
     await wizard()
     process.exit(0)
   } else {
