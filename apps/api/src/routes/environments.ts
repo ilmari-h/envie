@@ -136,8 +136,21 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
           } : null,
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
-          }
+          },
         } satisfies EnvironmentWithVersion;
+
+        // TODO: check that user has view access to the variable groups
+        const variableGroups = e.projectId ? await db.query.environmentVariableGroups.findMany({  
+          where: eq(Schema.environmentVariableGroups.requiredByEnvironmentVersionId, environmentVersion.id),
+          with: {
+            variableGroup: {
+              with: {
+                environment: true
+              }
+            }
+          }
+        }) : null;
+
         return {
           ...e,
           version: {
@@ -145,6 +158,14 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
             content: environmentVersion.encryptedContent.toString('base64'),
             keys: environmentVersion.keys.map(k => k.key),
             versionNumber: totalVersions[0]?.count ?? 1,
+            variableGroups: variableGroups?.map(vg => ({
+              id: vg.variableGroup.id,
+              name: vg.variableGroup.environment.name,
+              environmentId: vg.variableGroup.environmentId,
+              description: vg.variableGroup.description,
+              createdAt: vg.variableGroup.createdAt,
+              updatedAt: vg.variableGroup.updatedAt,
+            })) ?? null
           } satisfies EnvironmentVersion,
           decryptionData: decryptionData ? {
             wrappedEncryptionKey: decryptionData.encryptedSymmetricKey.toString('base64'),

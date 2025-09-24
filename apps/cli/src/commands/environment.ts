@@ -1,5 +1,6 @@
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
+import { getEnvironment } from './utils/get-environment';
 import { printTable } from '../ui/table';
 import { parseEnv } from 'node:util';
 import * as fs from 'fs';
@@ -7,10 +8,12 @@ import * as path from 'path';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
-import { EnvironmentPath, ExpiryFromNow } from './utils';
+import { EnvironmentPath } from './utils/environment-path';
+import { ExpiryFromNow } from './utils/expiry-from-now';
 import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions } from '../utils/completions';
 import { confirm } from '../ui/confirm';
 import { normalizeEd25519PublicKey } from '../utils/keypair';
+import { printEnvironment } from '../ui/environment-print';
 
 type EnvironmentOptions = BaseOptions;
 
@@ -234,73 +237,52 @@ environmentCommand
   .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
   .action(async function(path: string) {
     const opts = this.opts<ShowOptions>();
-    const instanceUrl = getInstanceUrl();
     
     try {
-      // Validate environment path format (must have exactly 3 parts)
-      const environmentPath = new EnvironmentPath(path);
+      // Get environment data
+      const { version, decryptedContent } = await getEnvironment(path, opts.unsafeDecrypt ?? false);
 
-      const client = createTsrClient(instanceUrl);
-      const userKeyPair = await UserKeyPair.getInstance();
-      
-      // Get the specific environment using the path
-      const response = await client.environments.getEnvironments({
-        query: {
-          path: environmentPath.toString(),
-          version: environmentPath.version?.toString(),
-          pubkey: userKeyPair.publicKey.toBase64()
+      // Process variable groups
+      const variableGroups = await Promise.all((version.variableGroups ?? []).map(async vg => {
+        if (opts.unsafeDecrypt) {
+          const { decryptedContent } = await getEnvironment(vg.environmentId, true);
+          return { 
+            name: vg.name, 
+            content: decryptedContent || {} 
+          };
+        } else {
+          const { version: vgVersion } = await getEnvironment(vg.environmentId, false);
+          // Create encrypted placeholder object
+          const encryptedContent: Record<string, string> = {};
+          vgVersion.keys.forEach(key => {
+            encryptedContent[key] = '<encrypted>';
+          });
+          return { 
+            name: vg.name, 
+            content: encryptedContent 
+          };
         }
-      });
+      }));
 
-      if (response.status !== 200) {
-        console.error(`Failed to fetch environment: ${response.status}`);
-        process.exit(1);
-      }
-
-      if (response.body.length === 0) {
-        console.error('Environment not found');
-        process.exit(1);
-      }
-
-      const environment = response.body[0];
-      
-      if (!environment.version) {
-        console.error('Version not found');
-        process.exit(1);
-      }
-
-      const decryptionData = environment.decryptionData
-      if(!decryptionData) {
-        console.error('Decryption data not found');
-        process.exit(1);
-      }
-
-      // Check if decryption is requested
-      if (opts.unsafeDecrypt) {
-        try {
-          const dek = opts.backupKey
-          ? await DataEncryptionKey.readFromFile(opts.backupKey)
-          : (await UserKeyPair.getInstance()).unwrapKey({
-              wrappedKey: decryptionData.wrappedEncryptionKey,
-              ephemeralPublicKey: decryptionData.ephemeralPublicKey
-            });
-
-          const decryptedContent = dek.decryptContent(environment.version.content);
-          
-          // Print decrypted content to stdout (no other output)
-          console.log(decryptedContent);
-          
-        } catch (error) {
-          console.error('Error during decryption:', error instanceof Error ? error.message : error);
-          process.exit(1);
-        }
+      // Create environment variables object (non-grouped variables)
+      const environmentVars: Record<string, string> = {};
+      if (opts.unsafeDecrypt && decryptedContent) {
+        Object.assign(environmentVars, decryptedContent);
       } else {
-        // Print keys with "<encrypted>" as values
-        const keys = environment.version.keys;
-        for (const key of keys) {
-          console.log(`${key}=<encrypted>`);
-        }
+        // Create encrypted placeholder for environment keys
+        version.keys.forEach(key => {
+          environmentVars[key] = '<encrypted>';
+        });
       }
+
+      // Use the new stylized printing function
+      const environmentPath = new EnvironmentPath(path);
+      printEnvironment({
+        decrypted: opts.unsafeDecrypt ?? false,
+        variableGroups,
+        environmentVars,
+        environmentName: environmentPath.toString()
+      });
 
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
@@ -328,24 +310,11 @@ environmentCommand
         console.log(`Instance URL: ${instanceUrl}`);
       }
 
-      // First get the environment to get the decryption data
-      const envResponse = await client.environments.getEnvironments({
-        query: {
-          path: environmentPath.toString(),
+      // Get environment data with decryption
+      const { decryptionData, decryptedContent: currentEnvVars } = await getEnvironment(pathParam, true);
 
-          // Request decryption data for the user's public key
-          pubkey: userKeyPair.publicKey.toBase64()
-        }
-      });
-
-      if (envResponse.status !== 200 || envResponse.body.length === 0) {
-        console.error('Error: Environment not found');
-        process.exit(1);
-      }
-
-      const environment = envResponse.body[0];
-      if (!environment.decryptionData) {
-        console.error('Error: No decryption data found for environment');
+      if (!currentEnvVars || !decryptionData) {
+        console.error('Error: Failed to decrypt environment content');
         process.exit(1);
       }
 
@@ -383,14 +352,10 @@ environmentCommand
       
       try {
         const dek = userKeyPair.unwrapKey({
-          wrappedKey: environment.decryptionData.wrappedEncryptionKey,
-          ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey,
+          wrappedKey: decryptionData.wrappedEncryptionKey,
+          ephemeralPublicKey: decryptionData.ephemeralPublicKey,
         });
 
-        // Decrypt current environment to compare
-        const currentEnvVars: Record<string, string | number> = environment.version
-          ? parseEnv(dek.decryptContent(environment.version.content)) as Record<string, string | number>
-          : {};
 
         // Compare old and new environment variables
         const currentKeys = new Set(Object.keys(currentEnvVars));

@@ -79,6 +79,14 @@ export const environmentVersionSchema = z.object({
   content: z.string(),
   keys: z.array(z.string()),
   versionNumber: z.number().int(),
+  variableGroups: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string().nullable(),
+    environmentId: z.string(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })).nullable(),
 });
 
 export const envrionmentVersionWithWrappedEncryptionKeySchema = environmentVersionSchema.extend({
@@ -96,7 +104,7 @@ export const environmentWithVersionSchema = environmentSchema.extend({
   }).nullable(),
   accessControl: z.object({
     users: z.array(userSchema).optional()
-  })
+  }),
 });
 
 export const organizationWithProjectsCountSchema = organizationSchema.extend({

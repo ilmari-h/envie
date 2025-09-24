@@ -2,7 +2,7 @@ import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair } from '../crypto';
-import { EnvironmentPath } from './utils';
+import { EnvironmentPath } from './utils/environment-path';
 import { environmentCompletions } from '../utils/completions';
 import { parseEnv } from 'node:util';
 
