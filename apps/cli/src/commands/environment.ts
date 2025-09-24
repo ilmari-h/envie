@@ -177,7 +177,10 @@ environmentCommand
         const response = await client.environments.createEnvironment({
           body: {
             name: environmentPath.environmentName,
-            project: environmentPath.projectPath.toString(),
+            environmentType: {
+              type: 'environment',
+              project: environmentPath.projectPath.toString()
+            },
             content: {
               keys: encryptedEnvironment.keys,
               ciphertext: encryptedEnvironment.ciphertext,

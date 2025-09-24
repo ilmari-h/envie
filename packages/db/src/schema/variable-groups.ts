@@ -7,8 +7,10 @@ import { relations } from "drizzle-orm";
 // Functionality is in the environments table.
 export const variableGroups = pgTable('variable_groups', {
   id: nanoid('id').primaryKey(),
-  name: text('name').notNull(),
+
+  // The content of the variable group is in the environments table.
   environmentId: nanoid('environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
+
   description: text('description'),
   ...timestamps
 });

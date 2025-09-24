@@ -3,7 +3,7 @@ import { eq, and, count, desc } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentWithVersion } from '@repo/rest';
-import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
+import { getEnvironmentByPath, getOrganization, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
 import { getEnvironmentVersionByIndex } from '../queries/environment-version';
 import { getUserByNameOrId } from '../queries/user';
@@ -167,17 +167,21 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
 // Optionally adds given users to the environment with the environment AES key wrapped with each user's public key
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, content, decryptionData }
+  body: { name, content, decryptionData, environmentType }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
 }) => {
-
-  const [organization, projectDb] = await getProjectByPath(project, {
+  const [organization, project] = environmentType.type === 'variableGroup'
+  ? [
+    await getOrganization(environmentType.variableGroup.organization, {
+      requester: req.requester,
+      createEnvironments: true
+    }), null] : await getProjectByPath(environmentType.project, {
     requester: req.requester,
     createEnvironments: true
   });
-  if(!organization || !projectDb) {
+  if(!organization || (!project && environmentType.type !== 'variableGroup')) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
@@ -196,7 +200,14 @@ export const createEnvironment = async ({
   const existingEnvironment = await db.query.environments.findFirst({
     where: and(
       eq(Schema.environments.name, name),
-      eq(Schema.environments.projectId, projectDb.id)
+
+      environmentType.type === 'variableGroup'
+        ? eq(Schema.environments.organizationId, organization.id)
+        : undefined,
+
+      environmentType.type === 'environment' && project
+        ? eq(Schema.environments.projectId, project.id)
+        : undefined
     )
   });
 
@@ -207,13 +218,14 @@ export const createEnvironment = async ({
     };
   }
 
-  // Create environment and first version if tent is provided.
+  // Create environment and first version
   const environment = await db.transaction(async (tx) => {
 
       const [newEnvironment] = await tx.insert(Schema.environments)
         .values({
           name,
-          projectId: projectDb.id
+          projectId: environmentType.type === 'environment' && project ? project.id : undefined,
+          organizationId: environmentType.type === 'variableGroup' ? organization.id : undefined,
         })
         .returning();
 
@@ -229,6 +241,14 @@ export const createEnvironment = async ({
         }).returning();
       
       if (!environmentAccess) return null;
+
+      if (environmentType.type === 'variableGroup') {
+        await tx.insert(Schema.variableGroups)
+          .values({
+            environmentId: newEnvironment.id,
+            description: environmentType.variableGroup.description
+          });
+      }
 
       // Create decryption data for the creator with the AES key for the environment wrapped with their public keys
       for(const data of decryptionData) {
@@ -313,8 +333,66 @@ export const updateEnvironmentContent = async ({
       body: { message: 'Environment not found' }
     };
   }
+  
+  // Check if the keys are a part of any variable group for the current version.
+  // If so, we cannot update the content. User must update the variable group instead.
+
+  const latestVersionOfEnvironment = await db.query.environmentVersions.findFirst({
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
+    orderBy: desc(Schema.environmentVersions.createdAt)
+  });
+  if (!latestVersionOfEnvironment) {
+    return {
+      status: 500 as const,
+      body: { message: 'Latest version of environment not found' }
+    };
+  }
+
+  // IF environment is not a variable group itself
+  if (environment.projectId) {
+
+    const variableGroups = await db.query.environmentVariableGroups.findMany({
+      where: eq(Schema.environmentVariableGroups.requiredByEnvironmentVersionId, latestVersionOfEnvironment.id),
+      with: {
+        variableGroup: {
+          with: {
+            environment: true
+          }
+        }
+      }
+    });
+
+    for (const variableGroup of variableGroups) {
+      const variableGroupEnvironment = variableGroup.variableGroup.environment;
+      const variableGroupEnvironmentVersion = await db.query.environmentVersions.findFirst({
+        where: eq(Schema.environmentVersions.environmentId, variableGroupEnvironment.id),
+        orderBy: desc(Schema.environmentVersions.createdAt),
+        with: {
+          keys: true
+        }
+      });
+      if (!variableGroupEnvironmentVersion) {
+        return {
+          status: 500 as const,
+          body: { message: 'Latest version of variable group environment not found' }
+        };
+      }
+      const conflictingKey = variableGroupEnvironmentVersion.keys.find(key => content.keys.includes(key.key));
+      if (conflictingKey) {
+        return {
+          status: 400 as const,
+          body: {
+            message: `The provided key '${conflictingKey.key}' is part of the variable group '${variableGroupEnvironment.name}'. Update the variable group instead.`
+          }
+        };
+      }
+    }
+  }
+
+  // No conflicts for provided keys in the variable groups.
 
   // Update content in transaction
+  // TODO: inherit any variable groups from the prervious latest version!
   const updatedVersion = await db.transaction(async (tx) => {
     const [updatedVersion] = await tx.insert(Schema.environmentVersions)
       .values({
@@ -348,42 +426,6 @@ export const updateEnvironmentContent = async ({
   return {
     status: 200 as const,
     body: {}
-  };
-};
-
-export const updateEnvironmentSettings = async ({
-  req,
-  params: { idOrPath },
-  body: { preserveVersions }
-}: {
-  req: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>;
-  params: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['params'];
-  body: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['body']
-}) => {
-
-  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
-    requester: req.requester,
-    editEnvironment: true
-  });
-  if(!organization || !project || !environment) {
-    return {
-      status: 404 as const,
-      body: { message: 'Environment not found' }
-    };
-  }
-
-  // Update environment settings
-  if (preserveVersions !== undefined) {
-    await db.update(Schema.environments)
-      .set({
-        preservedVersions: preserveVersions
-      })
-      .where(eq(Schema.environments.id, environment.id));
-  }
-
-  return {
-    status: 200 as const,
-    body: { message: 'Environment access updated successfully' }
   };
 };
 
@@ -727,5 +769,134 @@ export const getEnvironmentVersions = async ({
   return {
     status: 200 as const,
     body: versionsResponse
+  };
+};
+
+export const requireVariableGroup = async ({
+  req,
+  params: { idOrPath },
+  body: { variableGroupId }
+}: {
+  req: TsRestRequest<typeof contract.environments.requireVariableGroup>;
+  params: TsRestRequest<typeof contract.environments.requireVariableGroup>['params'];
+  body: TsRestRequest<typeof contract.environments.requireVariableGroup>['body'];
+}) => {
+
+  // Get environment with write access
+  const [_organization, _project, environment] = await getEnvironmentByPath(idOrPath, {
+    requester: req.requester,
+    editEnvironment: true
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Verify the variable group exists and user has access to it
+  const variableGroup = await db.query.variableGroups.findFirst({
+    where: eq(Schema.variableGroups.id, variableGroupId),
+    with: {
+      environment: {
+        with: {
+          access: {
+            where: isUserRequester(req.requester)
+              ? eq(Schema.environmentAccess.userId, req.requester.userId)
+              : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
+          }
+        }
+      }
+    }
+  });
+
+  if (!variableGroup || variableGroup.environment.access.length === 0) {
+    return {
+      status: 404 as const,
+      body: { message: 'Variable group not found or no access' }
+    };
+  }
+
+  // Get the latest version of the current environment
+  const latestVersion = await db.query.environmentVersions.findFirst({
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
+    orderBy: desc(Schema.environmentVersions.createdAt),
+    with: {
+      keys: true,
+      requiresVariableGroups: true
+    }
+  });
+
+  if (!latestVersion) {
+    return {
+      status: 500 as const,
+      body: { message: 'No versions found for environment' }
+    };
+  }
+
+  // Check if variable group is already attached to the latest version
+  const existingAttachment = latestVersion.requiresVariableGroups.find(
+    vg => vg.variableGroupId === variableGroupId
+  );
+
+  if (existingAttachment) {
+    return {
+      status: 400 as const,
+      body: { message: 'Variable group already attached to latest version' }
+    };
+  }
+
+  // Create new version copying content from the latest version and add variable group attachment
+  const newVersion = await db.transaction(async (tx) => {
+    // Create new environment version with same content as latest
+    const [newVersion] = await tx.insert(Schema.environmentVersions)
+      .values({
+        environmentId: environment.id,
+        encryptedContent: latestVersion.encryptedContent,
+        savedBy: isUserRequester(req.requester) ? req.requester.userId : req.requester.accessTokenOwnerId
+      })
+      .returning();
+
+    if (!newVersion) return null;
+
+    // Copy all keys from the previous version
+    if (latestVersion.keys.length > 0) {
+      await tx.insert(Schema.environmentVersionKeys)
+        .values(latestVersion.keys.map(key => ({
+          key: key.key,
+          environmentVersionId: newVersion.id,
+        })));
+    }
+
+    // Copy all existing variable group attachments from the previous version
+    if (latestVersion.requiresVariableGroups.length > 0) {
+      await tx.insert(Schema.environmentVariableGroups)
+        .values(latestVersion.requiresVariableGroups.map(vg => ({
+          requiredByEnvironmentVersionId: newVersion.id,
+          variableGroupId: vg.variableGroupId
+        })));
+    }
+
+    // Add the new variable group attachment
+    await tx.insert(Schema.environmentVariableGroups)
+      .values({
+        requiredByEnvironmentVersionId: newVersion.id,
+        variableGroupId: variableGroupId
+      });
+
+    return newVersion;
+  });
+
+  if (!newVersion) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to create new environment version' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: { message: 'Variable group attached successfully' }
   };
 };
