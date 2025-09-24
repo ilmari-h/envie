@@ -348,6 +348,9 @@ export const updateEnvironmentContent = async ({
     };
   }
 
+  // Get variable groups for the latest version (if environment is not a variable group itself)
+  let variableGroupIds: string[] = [];
+  
   // IF environment is not a variable group itself
   if (environment.projectId) {
 
@@ -361,6 +364,8 @@ export const updateEnvironmentContent = async ({
         }
       }
     });
+
+    variableGroupIds = variableGroups.map(vg => vg.variableGroupId);
 
     for (const variableGroup of variableGroups) {
       const variableGroupEnvironment = variableGroup.variableGroup.environment;
@@ -392,7 +397,6 @@ export const updateEnvironmentContent = async ({
   // No conflicts for provided keys in the variable groups.
 
   // Update content in transaction
-  // TODO: inherit any variable groups from the prervious latest version!
   const updatedVersion = await db.transaction(async (tx) => {
     const [updatedVersion] = await tx.insert(Schema.environmentVersions)
       .values({
@@ -410,6 +414,15 @@ export const updateEnvironmentContent = async ({
         .values(content.keys.map(key => ({
           key,
           environmentVersionId: updatedVersion.id,
+        })));
+    }
+
+    // Inherit variable groups from the previous latest version (if environment is not a variable group itself)
+    if (environment.projectId && variableGroupIds.length > 0) {
+      await tx.insert(Schema.environmentVariableGroups)
+        .values(variableGroupIds.map(vgId => ({
+          requiredByEnvironmentVersionId: updatedVersion.id,
+          variableGroupId: vgId
         })));
     }
 
