@@ -18,6 +18,7 @@ import {
   deleteEnvironment,
   getEnvironmentVersions,
   addVariableGroup,
+  getVariableGroupInfo,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite, organizationExists } from './routes/organizations';
@@ -170,6 +171,10 @@ const router = s.router(contract, {
     addVariableGroup: {
       middleware: [requireAuth],
       handler: addVariableGroup
+    },
+    getVariableGroupInfo: {
+      middleware: [requireAuth],
+      handler: getVariableGroupInfo
     }
   }),
   organizations: s.router(contract.organizations, {

@@ -548,6 +548,36 @@ const environments = c.router({
     },
     summary: 'Create a new version of the environment and attach the given variable group to it'
   },
+
+  getVariableGroupInfo: {
+    method: 'GET',
+    path: '/environments/variable-groups/:variableGroupId',
+    pathParams: z.object({
+      variableGroupId: z.string()
+    }),
+    responses: {
+      200: z.object({
+        variableGroup: z.object({
+          id: z.string(),
+          name: z.string(),
+          description: z.string().nullable(),
+          organizationId: z.string(),
+          createdAt: z.date(),
+          updatedAt: z.date()
+        }),
+        appliedToEnvironments: z.array(z.object({
+          environmentId: z.string(),
+          environmentName: z.string(),
+          projectId: z.string(),
+          projectName: z.string(),
+          appliedAt: z.date()
+        }))
+      }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Get variable group information with environments it is applied to (latest versions only)'
+  },
 })
 
 export const organizations = c.router({

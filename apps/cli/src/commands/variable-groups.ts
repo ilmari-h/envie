@@ -7,6 +7,7 @@ import { organizationCompletions, organizationCompletionsWithTrailingColon, vari
 import { getEnvironment } from './utils/get-environment';
 import { EnvironmentPath } from './utils/environment-path';
 import { printEnvironment } from '../ui/environment-print';
+import { printVariableGroupUsage } from '../ui/variable-group-usage-print';
 
 type VariableGroupOptions = BaseOptions;
 
@@ -122,16 +123,17 @@ variableGroupCommand
 
 variableGroupCommand
   .commandWithSuggestions('show')
-  .description('Show an environment')
+  .description('Show a variable group and its usage')
   .argumentWithSuggestions('<path>', 'Variable group path', variableGroupCompletions)
   .option('-b, --backup-key <key-file>', 'Restore the environment from a backup key')
   .option('--unsafe-decrypt', 'Decrypt and print the environment variables to stdout')
   .action(async function(path: string) {
     const opts = this.opts<ShowOptions>();
+    const instanceUrl = getInstanceUrl();
     
     try {
-      // Get environment data
-      const { version, decryptedContent } = await getEnvironment({ path }, opts.unsafeDecrypt ?? false);
+      // Get environment data (variable group content)
+      const { version, decryptedContent, environment } = await getEnvironment({ path }, opts.unsafeDecrypt ?? false);
 
       // Create environment variables object (non-grouped variables)
       const environmentVars: Record<string, string> = {};
@@ -144,7 +146,7 @@ variableGroupCommand
         });
       }
 
-      // Print environment
+      // Print environment content
       const environmentPath = new EnvironmentPath(path);
       printEnvironment({
         decrypted: opts.unsafeDecrypt ?? false,
@@ -152,6 +154,30 @@ variableGroupCommand
         environmentVars,
         environmentName: environmentPath.toString()
       });
+
+      // Get variable group usage information
+      const client = createTsrClient(instanceUrl);
+      
+      // Use the environment ID to find the variable group and get its usage
+      if (environment) {
+          const usageResponse = await client.environments.getVariableGroupInfo({
+            params: { variableGroupId: environment.id },
+          });
+          if (usageResponse.status !== 200) {
+            console.error(`Failed to fetch variable group usage: ${usageResponse.status}`);
+            process.exit(1);
+          }
+
+          printVariableGroupUsage({
+            organizationName: environment.organization?.name ?? 'N/A',
+            variableGroupName: environmentPath.toString(),
+            appliedToEnvironments: usageResponse.body.appliedToEnvironments.map((env: any) => ({
+              ...env,
+              appliedAt: new Date(env.appliedAt)
+            }))
+          });
+
+      }
 
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);

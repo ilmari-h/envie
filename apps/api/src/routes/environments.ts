@@ -1,5 +1,5 @@
 import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, Schema, AccessToken } from '@repo/db';
-import { eq, and, count, desc } from 'drizzle-orm';
+import { eq, and, count, desc, max, isNull } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentWithVersion } from '@repo/rest';
@@ -972,5 +972,120 @@ export const addVariableGroup = async ({
   return {
     status: 200 as const,
     body: { message: 'Variable group attached successfully' }
+  };
+};
+
+export const getVariableGroupInfo = async ({
+  req,
+  params: { variableGroupId },
+}: {
+  req: TsRestRequest<typeof contract.environments.getVariableGroupInfo>;
+  params: TsRestRequest<typeof contract.environments.getVariableGroupInfo>['params'];
+  query: TsRestRequest<typeof contract.environments.getVariableGroupInfo>['query'];
+}) => {
+  
+  // Find variable group by environment ID
+  const variableGroup = await db.query.variableGroups.findFirst({
+    where: eq(Schema.variableGroups.environmentId, variableGroupId),
+    with: {
+      environment: {
+        with: {
+          organization: true
+        }
+      }
+    }
+  });
+
+
+  if (!variableGroup) {
+    return {
+      status: 404 as const,
+      body: { message: 'Variable group not found' }
+    };
+  }
+
+  // Check if user has access to the variable group's organization
+  const hasAccess = await db.query.organizationRoles.findFirst({
+    where: and(
+      eq(Schema.organizationRoles.organizationId, variableGroup.environment.organization!.id),
+      isUserRequester(req.requester) 
+        ? eq(Schema.organizationRoles.userId, req.requester.userId)
+        : eq(Schema.organizationRoles.userId, req.requester.accessTokenOwnerId!)
+    )
+  });
+
+  if (!hasAccess) {
+    return {
+      status: 403 as const,
+      body: { message: 'Access denied' }
+    };
+  }
+
+  // 1. Get all environment versions that use this variable group
+  const environmentVariableGroups = await db.query.environmentVariableGroups.findMany({
+    where: eq(Schema.environmentVariableGroups.variableGroupId, variableGroup.id),
+    with: {
+      requiredByEnvironmentVersion: {
+        with: {
+          environment: true
+        }
+      }
+    }
+  });
+
+  // 2. Collect all environment version IDs in a map
+  const versionIdsWithVariableGroup = new Set(
+    environmentVariableGroups.map(evg => evg.requiredByEnvironmentVersionId)
+  );
+
+  // 3. Get unique environments and find their latest versions
+  const uniqueEnvironments = new Map<string, Environment>();
+  environmentVariableGroups.forEach(evg => {
+    const env = evg.requiredByEnvironmentVersion.environment;
+    if (env && env.projectId) { // Only regular environments, not variable groups
+      uniqueEnvironments.set(env.id, env);
+    }
+  });
+
+  const finalResults = [];
+  
+  // 4. For each environment, check if its latest version has the variable group
+  for (const [envId, environment] of uniqueEnvironments) {
+    const latestVersion = await db.query.environmentVersions.findFirst({
+      where: eq(Schema.environmentVersions.environmentId, envId),
+      orderBy: desc(Schema.environmentVersions.createdAt),
+      with: {
+        environment: {
+          with: {
+            project: true
+          }
+        }
+      }
+    });
+
+    if (latestVersion && versionIdsWithVariableGroup.has(latestVersion.id)) {
+        finalResults.push({
+          environmentId: environment.id,
+          environmentName: environment.name,
+          projectId: environment.projectId!,
+          projectName: latestVersion.environment?.project?.name ?? 'N/A',
+          appliedAt: latestVersion.createdAt
+        });
+    }
+  }
+
+  return {
+    status: 200 as const,
+    body: {
+      variableGroup: {
+        id: variableGroup.id,
+        name: variableGroup.environment.name,
+        description: variableGroup.description,
+        organizationId: variableGroup.environment.organization!.id,
+        createdAt: variableGroup.createdAt,
+        updatedAt: variableGroup.updatedAt
+      },
+      appliedToEnvironments: finalResults
+    }
   };
 };
