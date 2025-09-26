@@ -8,26 +8,31 @@
 
 Envie is both a secret manager for production use and a developer tool for better management of environment variables. Declutter and secure your developer machine by eliminating the need for local `.env` files.
 
-#### ✨ Features
+### Features
 
-- **Always encrypted** - Environment variables are encrypted before transit and never visible to the server
-- **Fine-grained access control** - Grant access to specific environments on a per-user basis, optionally with time limits
-- **Multi-tenant organizations** - Support for teams with role-based permissions
-- **Version history** - Track changes to environment configurations over time. Rollback to previous and see an audit trail of changes
+- **Always encrypted**  
+Environment variables are encrypted before transit and never visible to the server
 
-#### Roadmap
+- **Fine-grained access control**  
+Grant access to specific environments on a per-user basis, optionally with time limits
 
-○ **Variable Groups**  
-│ Group environment variables together with shared access control rules  
-│ → [Learn more](https://github.com/ilmari-h/envie/discussions/4)  
+- **Version history**  
+Track changes to environment configurations over time. Rollback to previous and see an audit trail of changes
+
+- **Variable groups**  
+Group and organize environment variables together with shared access control rules. 
+
+- **Multi-tenant organizations**  
+Support for teams with role-based permissions
+
+
+### Roadmap
+
+○ [**Web UI**](https://github.com/ilmari-h/envie/discussions/7)  
+│ Manage environments through a browser interface  
 │  
-○ **Web UI**  
-│ Manage environments through a browser interface
-│ → [Learn more](https://github.com/ilmari-h/envie/discussions/7)  
-│  
-○ **Deployment Automation**  
+○ [**Deployment Automation**](https://github.com/ilmari-h/envie/discussions/5)  
 │ Trigger deployments when environment variables are updated  
-│ → [Learn more](https://github.com/ilmari-h/envie/discussions/5)  
 │  
 
 You can suggest features and discuss the roadmap in [discussions](https://github.com/ilmari-h/envie/discussions).
