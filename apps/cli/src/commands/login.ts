@@ -40,7 +40,6 @@ export const loginCommand = new RootCommand().createCommand('login')
         throw new Error(`Failed to get login nonce: ${nonceResponse.status}`);
       }
       const { nonce } = await nonceResponse.json() as { nonce: string };
-      console.log("nonce", nonce);
       if (opts.verbose) {
         console.log('Got login nonce, opening browser...');
       }

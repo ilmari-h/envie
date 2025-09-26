@@ -10,10 +10,11 @@ import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
 import { EnvironmentPath } from './utils/environment-path';
 import { ExpiryFromNow } from './utils/expiry-from-now';
-import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions } from '../utils/completions';
+import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions, variableGroupCompletions } from '../utils/completions';
 import { confirm } from '../ui/confirm';
 import { normalizeEd25519PublicKey } from '../utils/keypair';
 import { printEnvironment } from '../ui/environment-print';
+import { createEnvironmentHelper } from './utils/create-environment';
 
 type EnvironmentOptions = BaseOptions;
 
@@ -100,133 +101,22 @@ environmentCommand
   .commandWithSuggestions('create')
   .description('Create a new environment')
   .argumentWithSuggestions('<path>', 'Environment path', projectCompletionsWithTrailingColon)
-  .argumentWithSuggestions('[file]', 'A file containing the initial content', filepathCompletions)
+  .argument('[KEY=VALUE...]', 'Optional space-separated key=value pairs')
+  .option('--file <path>', 'File containing environment variables')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
-  .action(async function(pathParam: string, filePath?: string) {
-    const opts = this.opts<CreateEnvironmentOptions>();
-    const instanceUrl = getInstanceUrl();
-    const client = createTsrClient(instanceUrl);
+  .action(async function(pathParam: string, keyValuePairs: string[]) {
+    const opts = this.opts<CreateEnvironmentOptions & { file?: string }>();
     const environmentPath = new EnvironmentPath(pathParam);
     
-    try {
-      if (opts.verbose) {
-        console.log(`Creating environment: ${environmentPath.toString()}`);
-        console.log(`Reading from file: ${filePath}`);
-        console.log(`Instance URL: ${instanceUrl}`);
+    await createEnvironmentHelper({
+      pathParam,
+      filePath: opts.file,
+      keyValuePairs,
+      environmentType: {
+        type: 'environment',
+        project: environmentPath.projectPath.toString()
       }
-
-      // Validate and read the .env file
-      if (filePath && !fs.existsSync(filePath)) {
-        console.error(`Error: File "${filePath}" does not exist`);
-        process.exit(1);
-      }
-
-      let fileContent: string = "";
-      if (filePath) {
-        try {
-          const absoluteFilePath = path.resolve(filePath);
-          fileContent = fs.readFileSync(absoluteFilePath, 'utf-8');
-        } catch (error) {
-          console.error(`Error: Unable to read file "${filePath}": ${error instanceof Error ? error.message : error}`);
-          process.exit(1);
-        }
-      }
-
-      // Parse .env file content
-      const envVars = parseEnv(fileContent);
-      const parsedEnvFileContent = Object.entries(envVars).map(([key, value]) => `${key}=${value}`).join('\n');
-
-      // Get user's keypair for encryption
-      const [userKeyPair, userData] = await Promise.all([
-        UserKeyPair.getInstance(),
-        client.user.getUser()
-      ]);
-
-      if (userData.status !== 200 ) {
-        console.error(`Failed to get user data: ${(userData.body as { message: string }).message}`);
-        process.exit(1);
-      }
-
-      if (opts.verbose) {
-        console.log('Parsed .env file content:');
-        console.log(JSON.stringify(envVars, null, 2));
-        console.log(`\nEnvironment path: ${environmentPath.toString()}`);
-      }
-      
-      if(opts.verbose) {
-        console.log(`Found ${Object.keys(envVars).length} environment variables`);
-      }
-      
-      try {
-
-        // Create DEK wrapped with just the user's own public key
-        const { encryptedEnvironment, wrappedKeys, dekBase64 } = DataEncryptionKey.newWithPKE(
-          userData.body.publicKeys.map(pk => new Ed25519PublicKey(pk.valueBase64)),
-          parsedEnvFileContent
-        );
-
-        console.log(userKeyPair.sign(encryptedEnvironment.ciphertext));
-
-        if (opts.verbose) {
-          console.log('\nEncryption successful!');
-          console.log('Encrypted content keys:', encryptedEnvironment.keys);
-          console.log('User wrapped key:', {
-            wrappedKey: wrappedKeys[0].wrappedKey,
-            ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey
-          });
-        }
-        
-        // Create environment
-        const response = await client.environments.createEnvironment({
-          body: {
-            name: environmentPath.environmentName,
-            environmentType: {
-              type: 'environment',
-              project: environmentPath.projectPath.toString()
-            },
-            content: {
-              keys: encryptedEnvironment.keys,
-              ciphertext: encryptedEnvironment.ciphertext,
-              signature: userKeyPair.sign(encryptedEnvironment.ciphertext)
-            },
-            decryptionData: wrappedKeys.map(key => ({
-              publicKeyBase64: key.publicKeyBase64,
-              wrappedEncryptionKey: key.wrappedKey,
-              ephemeralPublicKey: key.ephemeralPublicKey
-            }))
-          }
-        });
-
-        if (response.status !== 201) {
-          console.error(`Failed to create environment: ${(response.body as { message: string }).message}`);
-          process.exit(1);
-        }
-
-        console.log(chalk.green(`Environment created!`));
-
-        // Write the secret key to a file or display it
-        if (opts.secretKeyFile) {
-          fs.writeFileSync(opts.secretKeyFile, `${dekBase64}\n`, 'utf-8');
-          console.log(
-            `Backup secret key written to ${opts.secretKeyFile}.\n`
-            + chalk.red("STORE IT SOMEWHERE SAFE!\n")
-            + `It can be used to decrypt this environment's content without your keypair.`);
-        } else {
-          console.log(
-            `Backup secret key: ${dekBase64}\n`
-            + chalk.red("STORE IT SOMEWHERE SAFE!\n")
-            + `It can be used to decrypt this environment's content without your keypair.`);
-        }
-
-      } catch (error) {
-        console.error('Error during encryption:', error instanceof Error ? error.message : error);
-        process.exit(1);
-      }
-
-    } catch (error) {
-      console.error('Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
+    }, opts);
   });
 
 environmentCommand
@@ -240,18 +130,18 @@ environmentCommand
     
     try {
       // Get environment data
-      const { version, decryptedContent } = await getEnvironment(path, opts.unsafeDecrypt ?? false);
+      const { version, environment, decryptedContent } = await getEnvironment({ path }, opts.unsafeDecrypt ?? false);
 
       // Process variable groups
       const variableGroups = await Promise.all((version.variableGroups ?? []).map(async vg => {
         if (opts.unsafeDecrypt) {
-          const { decryptedContent } = await getEnvironment(vg.environmentId, true);
+          const { decryptedContent } = await getEnvironment({ environmentId: vg.environmentId }, true);
           return { 
-            name: vg.name, 
+            name: `${environment.project?.organization.name}:group:${vg.name}`,
             content: decryptedContent || {} 
           };
         } else {
-          const { version: vgVersion } = await getEnvironment(vg.environmentId, false);
+          const { version: vgVersion } = await getEnvironment({ environmentId: vg.environmentId }, false);
           // Create encrypted placeholder object
           const encryptedContent: Record<string, string> = {};
           vgVersion.keys.forEach(key => {
@@ -311,7 +201,7 @@ environmentCommand
       }
 
       // Get environment data with decryption
-      const { decryptionData, decryptedContent: currentEnvVars } = await getEnvironment(pathParam, true);
+      const { decryptionData, decryptedContent: currentEnvVars } = await getEnvironment({ path: pathParam }, true);
 
       if (!currentEnvVars || !decryptionData) {
         console.error('Error: Failed to decrypt environment content');
@@ -684,6 +574,35 @@ environmentCommand
 
       console.log(chalk.green('Environment deleted successfully.'));
       process.exit(0);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .commandWithSuggestions('add-group')
+  .description('Attach a variable group as a dependency to an environment')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
+  .argumentWithSuggestions('<variableGroupId>', 'Variable group ID to attach', variableGroupCompletions)
+  .action(async function(path: string, variableGroupId: string) {
+    const instanceUrl = getInstanceUrl();
+    
+    try {
+      const client = createTsrClient(instanceUrl);
+      const environmentPath = new EnvironmentPath(path);
+      
+      const response = await client.environments.addVariableGroup({
+        params: { environmentPath: environmentPath.toString(), variableGroupPath: variableGroupId },
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to attach variable group: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+
+      console.log(chalk.green(`Variable group ${variableGroupId} successfully attached to environment ${environmentPath.toString()}`));
+      
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);

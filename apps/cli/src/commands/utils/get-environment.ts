@@ -17,20 +17,20 @@ interface EnvironmentData {
 }
 
 export async function getEnvironment(
-  path: string, 
+  environment: { path: string } | { environmentId: string },
   decrypt: boolean = false
 ): Promise<EnvironmentData> {
   const instanceUrl = getInstanceUrl();
   const userKeyPair = await UserKeyPair.getInstance();
-  const environmentPath = new EnvironmentPath(path);
   
   const client = createTsrClient(instanceUrl);
   
   // Get the specific environment using the path
   const response = await client.environments.getEnvironments({
     query: {
-      path: environmentPath.toString(),
-      version: environmentPath.version?.toString(),
+      path: 'path' in environment ? new EnvironmentPath(environment.path).toString() : undefined,
+      environmentId: 'environmentId' in environment ? environment.environmentId : undefined,
+      version: 'path' in environment ? new EnvironmentPath(environment.path).version?.toString() : undefined,
       pubkey: userKeyPair.publicKey.toBase64()
     }
   });
@@ -43,13 +43,13 @@ export async function getEnvironment(
     throw new Error('Environment not found');
   }
 
-  const environment = response.body[0];
+  const environmentData = response.body[0];
   
-  if (!environment.version) {
+  if (!environmentData.version) {
     throw new Error('Version not found');
   }
 
-  const decryptionData = environment.decryptionData;
+  const decryptionData = environmentData.decryptionData;
   if (!decryptionData) {
     throw new Error('Decryption data not found');
   }
@@ -62,12 +62,12 @@ export async function getEnvironment(
       ephemeralPublicKey: decryptionData.ephemeralPublicKey
     });
 
-    decryptedContent = dek.decryptContent(environment.version.content);
+    decryptedContent = dek.decryptContent(environmentData.version.content);
   }
 
   return {
-    environment,
-    version: environment.version,
+    environment: environmentData,
+    version: environmentData.version,
     decryptionData,
     decryptedContent: decryptedContent
       ? parseEnv(decryptedContent) as Record<string, string>

@@ -6,7 +6,7 @@ import { relations } from 'drizzle-orm';
 import { environmentVersions } from './environment-versions';
 import { environmentAccess } from './environment-access';
 import { environmentVariableGroups } from './environment-variable-groups';
-import { organizations } from './organizations';
+import { Organization, organizations } from './organizations';
 
 export const environments = pgTable('environments', {
   id: nanoid('id').primaryKey(),
@@ -29,6 +29,9 @@ export const environments = pgTable('environments', {
 
 export type Environment = typeof environments.$inferSelect & {
   project?: Project | null
+
+  // Defined only when environment is a variable group
+  organization?: Organization | null
 };
 
 export const environmentRelations = relations(environments, ({ many, one }) => ({
@@ -43,10 +46,5 @@ export const environmentRelations = relations(environments, ({ many, one }) => (
   organization: one(organizations, {
     fields: [environments.organizationId],
     references: [organizations.id]
-  }),
-
-  // What variable groups this environment depends on
-  requiresVariableGroups: many(environmentVariableGroups, {
-    relationName: 'required_by_environment'
   }),
 }));

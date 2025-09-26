@@ -17,7 +17,7 @@ import {
   listEnvironmentAccess,
   deleteEnvironment,
   getEnvironmentVersions,
-  requireVariableGroup,
+  addVariableGroup,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite, organizationExists } from './routes/organizations';
@@ -167,9 +167,9 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: getEnvironmentVersions
     },
-    requireVariableGroup: {
+    addVariableGroup: {
       middleware: [requireAuth],
-      handler: requireVariableGroup
+      handler: addVariableGroup
     }
   }),
   organizations: s.router(contract.organizations, {

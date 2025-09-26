@@ -67,7 +67,10 @@ export const environmentSchema = z.object({
   projectId: z.string().nanoid().nullable().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
-  project: projectSchema.nullable().optional()
+  project: projectSchema.nullable().optional(),
+  
+  // Defined only when environment is a variable group
+  organization: organizationSchema.nullable().optional()
 });
 
 export const environmentVersionSchema = z.object({
@@ -83,6 +86,7 @@ export const environmentVersionSchema = z.object({
     id: z.string(),
     name: z.string(),
     description: z.string().nullable(),
+    organizationId: z.string(),
     environmentId: z.string(),
     createdAt: z.date(),
     updatedAt: z.date(),
@@ -345,7 +349,8 @@ const environments = c.router({
     method: 'GET',
     path: '/environments',
     query: z.object({
-      path: z.string().optional(),
+      path: z.string().optional().describe('Path to environment or partial path e.g. organization:project to filter by project'),
+      environmentId: z.string().optional().describe('Request by environment id. Must be defined if path is not provided'),
       pubkey: z.string().optional().describe('If single environment is requested, specifies the public key to use for decryption'),
       version: z.string()
         .optional()
@@ -527,15 +532,14 @@ const environments = c.router({
     summary: 'Remove user access from an environment'
   },
 
-  requireVariableGroup: {
+  addVariableGroup: {
     method: 'POST',
-    path: '/environments/:idOrPath/require-variable-group',
+    path: '/environments/:environmentPath/require-variable-group/:variableGroupPath',
     pathParams: z.object({
-      idOrPath: z.string()
+      environmentPath: z.string(),
+      variableGroupPath: z.string()
     }),
-    body: z.object({
-      variableGroupId: z.string()
-    }),
+    body: z.object({}),
     responses: {
       200: z.object({ message: z.string() }),
       400: z.object({ message: z.string() }),

@@ -259,13 +259,6 @@ export const getDecryptionKeys = async ({
     }
   });
 
-  if (!accessEntries || accessEntries.length === 0) {
-    return {
-      status: 404 as const,
-      body: { message: 'No access found for current user' }
-    };
-  }
-
   const decryptionData = accessEntries.map(
       ea => ea.decryptionData.map(d => ({
       publicKeyId: d.publicKeyId,
@@ -275,9 +268,6 @@ export const getDecryptionKeys = async ({
       environmentId: ea.environmentId
     }))
   ).flat().filter(d => d.publicKeyId === pubkey);
-
-  console.log(pubkey);
-  console.log(decryptionData);
 
   return {
     status: 200 as const,

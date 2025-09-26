@@ -18,7 +18,7 @@ export const environmentVariableGroupRelations = relations(environmentVariableGr
   requiredByEnvironmentVersion: one(environmentVersions, {
     fields: [environmentVariableGroups.requiredByEnvironmentVersionId],
     references: [environmentVersions.id],
-    relationName: 'applied_to_environment_version'
+    relationName: 'required_by_environment_version'
   }),
   variableGroup: one(variableGroups, {
     fields: [environmentVariableGroups.variableGroupId],

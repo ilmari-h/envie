@@ -1,4 +1,4 @@
-import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, environments, Organization, OrganizationRole, Project, Schema } from '@repo/db';
+import { db, Environment, EnvironmentAccess, EnvironmentDecryptionData, VariableGroup, Organization, OrganizationRole, Project, Schema, variableGroups } from '@repo/db';
 import { eq, and, or, SQL, isNull } from 'drizzle-orm';
 import { isUserRequester } from '../types/cast';
 
@@ -28,23 +28,26 @@ export interface OrganizationWithRole extends Organization {
   role: OrganizationRole;
 }
 
-export async function getOrganization(pathOrId: string, scope: Omit<OperationScope, 'editEnvironment'>): Promise<OrganizationWithRole> {
-  if(!isValidPath(pathOrId, 1) && !isValidUUID(pathOrId)) {
+export async function getOrganization(pathOrId: { path?: string, id?: string}, scope: Omit<OperationScope, 'editEnvironment'>): Promise<OrganizationWithRole> {
+  if(pathOrId.path && !isValidPath(pathOrId.path, 1)) {
     throw new Error('Invalid organization path');
   }
 
-  const whereStatements: (SQL | undefined)[] = isValidUUID(pathOrId)
-    ? [eq(Schema.organizations.id, pathOrId)]
+  const whereStatements: (SQL | undefined)[] = pathOrId.id
+    ? [eq(Schema.organizations.id, pathOrId.id)]
     : [];
   
   // Resolve path
   if(whereStatements.length === 0) {
+    if(!pathOrId.path) {
+      throw new Error('Organization path or ID is required');
+    }
     // Path must not contain ':'
-    if(pathOrId.includes(':')) {
+    if(pathOrId.path && pathOrId.path.includes(':')) {
       throw new Error('Invalid organization path');
     }
 
-    whereStatements.push(eq(Schema.organizations.name, pathOrId));
+    whereStatements.push(eq(Schema.organizations.name, pathOrId.path));
   }
 
   const organization = await db.query.organizations.findFirst({
@@ -92,11 +95,7 @@ export async function getOrganization(pathOrId: string, scope: Omit<OperationSco
 
 export async function getProjectByPath(pathOrId: string, scope: Omit<OperationScope, 'editEnvironment'>): Promise<[OrganizationWithRole, Project]> {
 
-  if(!isValidPath(pathOrId, 2) && !isValidUUID(pathOrId)) {
-      throw new Error('Invalid project path');
-  }
-
-  const whereStatements: (SQL | undefined)[] = isValidUUID(pathOrId)
+  const whereStatements: (SQL | undefined)[] = !isValidPath(pathOrId, 2)
     ? [eq(Schema.projects.id, pathOrId)]
     : [];
 
@@ -108,7 +107,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
     // Path must contain two parts separated by ':'
     const parts = pathOrId.split(':');
     const [organizationPart, projectPart] = parts as [string, string];
-    organization = await getOrganization(organizationPart, scope);
+    organization = await getOrganization({ path: organizationPart }, scope);
     if(!organization) {
       throw new Error('Invalid organization path');
     }
@@ -127,7 +126,7 @@ export async function getProjectByPath(pathOrId: string, scope: Omit<OperationSc
 
   // Get organization with scope check
   if(!organization) {
-    organization = await getOrganization(project.organizationId, scope);
+    organization = await getOrganization({ id: project.organizationId }, scope);
   }
   return [organization, { ...project, organization }]
 }
@@ -152,7 +151,7 @@ export async function getEnvironmentByPath(
 
   // If in place of project is 'group' this environment is a variable group
   [organization, project] = projectPart === 'group'
-    ? [ await getOrganization(organizationPart, scope), null ]
+    ? [ await getOrganization({ path: organizationPart }, scope), null ]
     : await getProjectByPath(`${organizationPart}:${projectPart}`, scope) 
 
   if(!organization || (!project && projectPart !== 'group')) {
@@ -167,6 +166,7 @@ export async function getEnvironmentByPath(
     where: and(...whereStatements),
     with: {
       project: true,
+      organization: true,
       access: {
         with: {
           decryptionData: true
@@ -208,6 +208,7 @@ export async function getProjectEnvironments(
     where: eq(Schema.environments.projectId, project.id),
     with: {
       project: true,
+      organization: true,
       access: {
         with: {
           decryptionData: true
@@ -241,11 +242,64 @@ export async function getProjectEnvironments(
   }));
 }
 
+export async function getEnvironmentById(
+  id: string,
+  scope: OperationScope
+): Promise<[OrganizationWithRole, Project | null, Environment & { access: EnvironmentAccess & { decryptionData: EnvironmentDecryptionData[] } }]> {
+
+  // First fetch the environment by ID
+  const environment = await db.query.environments.findFirst({
+    where: eq(Schema.environments.id, id),
+    with: {
+      project: true,
+      organization: true,
+      access: {
+        with: {
+          decryptionData: true
+        },
+        where: isUserRequester(scope.requester)
+          ? eq(Schema.environmentAccess.userId, scope.requester.userId)
+          : eq(Schema.environmentAccess.accessTokenId, scope.requester.accessTokenId)
+      },
+    }
+  });
+
+  if(!environment) {
+    throw new Error('Environment not found');
+  }
+
+  const userAccess = environment?.access.find(access => {
+    if(scope?.editEnvironment && !access.write) {
+      return false;
+    }
+    return true;
+  });
+  if(!userAccess) {
+    throw new Error('Missing environment access rights');
+  }
+
+  // Now fetch the organization (and project if exists) with proper scope checking
+  let organization: OrganizationWithRole;
+  let project: Project | null = null;
+
+  if (environment.projectId) {
+    // Regular environment - get project and organization
+    [organization, project] = await getProjectByPath(environment.projectId, scope);
+  } else if (environment.organizationId) {
+    // Variable group - get organization only
+    organization = await getOrganization({ id: environment.organizationId }, scope);
+  } else {
+    throw new Error('Environment has no associated project or organization');
+  }
+
+  return [organization, project, { ...environment, access: userAccess, project: project }];
+}
+
 export async function getOrganizationEnvironments(
   organizationPathOrId: string,
   scope: OperationScope
 ): Promise<(Environment & { access: EnvironmentAccess & { decryptionData: EnvironmentDecryptionData[] } })[]> {
-  const organization = await getOrganization(organizationPathOrId, scope);
+  const organization = await getOrganization({ path: organizationPathOrId }, scope);
 
   const projects = await db.query.projects.findMany({
     where: eq(Schema.projects.organizationId, organization.id),
@@ -265,3 +319,39 @@ export async function getOrganizationEnvironments(
     }
   }));
 }
+
+// export async function getVariableGroupByPath(
+//   path: string,
+//   scope: OperationScope
+// ): Promise<VariableGroup> {
+//   const [organizationName, variableGroupName] = path.split(':');
+//   if(!organizationName || !variableGroupName) {
+//     throw new Error('Invalid variable group path');
+//   }
+
+//   const variableGroup = await db.query.variableGroups.findFirst({
+//     where: and(
+//       eq(Schema.environments.name, variableGroupName),
+//       isNull(Schema.environments.projectId),
+//       eq(Schema.organizations.name, organizationName)
+//     ),
+//     with: {
+//       environment: {
+//         with: {
+//           organization: true,
+//           access: {
+//             where: isUserRequester(scope.requester)
+//               ? eq(Schema.environmentAccess.userId, scope.requester.userId)
+//               : eq(Schema.environmentAccess.accessTokenId, scope.requester.accessTokenId)
+//           }
+//         }
+//       }
+//     }
+//   });
+
+//   if(!variableGroup) {
+//     throw new Error('Variable group not found');
+//   }
+  
+//   return variableGroup;
+// }
