@@ -144,7 +144,7 @@ variableGroupCommand
         });
       }
 
-      // Use the new stylized printing function
+      // Print environment
       const environmentPath = new EnvironmentPath(path);
       printEnvironment({
         decrypted: opts.unsafeDecrypt ?? false,

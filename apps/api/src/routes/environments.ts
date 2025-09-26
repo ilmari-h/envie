@@ -111,7 +111,6 @@ export const getEnvironments = async ({ req, query: { path, environmentId, versi
     const [_organization, _project, environmentById] = await getEnvironmentById(
       environmentId, { requester: req.requester }
     );
-    console.log("ENVIRONMENT BY ID", environmentById);
     if(!environmentById) {
       return {
         status: 404 as const,
@@ -154,13 +153,22 @@ export const getEnvironments = async ({ req, query: { path, environmentId, versi
           },
         } satisfies EnvironmentWithVersion;
 
-        // TODO: check that user has view access to the variable groups
+        // TODO: return helpful error if user doesn't have access to the variable group
         const variableGroups = e.projectId ? await db.query.environmentVariableGroups.findMany({  
           where: eq(Schema.environmentVariableGroups.requiredByEnvironmentVersionId, environmentVersion.id),
           with: {
             variableGroup: {
               with: {
-                environment: true
+                environment: {
+                  with: {
+                    // Check that user has view access to the variable group
+                    access: {
+                      where: isUserRequester(req.requester)
+                      ? eq(Schema.environmentAccess.userId, req.requester.userId)
+                      : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
+                    }
+                  }
+                }
               }
             }
           }

@@ -165,7 +165,7 @@ environmentCommand
         });
       }
 
-      // Use the new stylized printing function
+      // Print environment
       const environmentPath = new EnvironmentPath(path);
       printEnvironment({
         decrypted: opts.unsafeDecrypt ?? false,
@@ -601,8 +601,6 @@ environmentCommand
         process.exit(1);
       }
 
-      console.log(chalk.green(`Variable group ${variableGroupId} successfully attached to environment ${environmentPath.toString()}`));
-      
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);

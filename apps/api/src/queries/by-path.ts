@@ -319,39 +319,3 @@ export async function getOrganizationEnvironments(
     }
   }));
 }
-
-// export async function getVariableGroupByPath(
-//   path: string,
-//   scope: OperationScope
-// ): Promise<VariableGroup> {
-//   const [organizationName, variableGroupName] = path.split(':');
-//   if(!organizationName || !variableGroupName) {
-//     throw new Error('Invalid variable group path');
-//   }
-
-//   const variableGroup = await db.query.variableGroups.findFirst({
-//     where: and(
-//       eq(Schema.environments.name, variableGroupName),
-//       isNull(Schema.environments.projectId),
-//       eq(Schema.organizations.name, organizationName)
-//     ),
-//     with: {
-//       environment: {
-//         with: {
-//           organization: true,
-//           access: {
-//             where: isUserRequester(scope.requester)
-//               ? eq(Schema.environmentAccess.userId, scope.requester.userId)
-//               : eq(Schema.environmentAccess.accessTokenId, scope.requester.accessTokenId)
-//           }
-//         }
-//       }
-//     }
-//   });
-
-//   if(!variableGroup) {
-//     throw new Error('Variable group not found');
-//   }
-  
-//   return variableGroup;
-// }
