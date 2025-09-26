@@ -1,24 +1,24 @@
-import { pgTable, text, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { environments } from "./environments";
 import { nanoid, timestamps } from "./utils";
 import { variableGroups } from "./variable-groups";
+import { environmentVersions } from "./environment-versions";
 
 export const environmentVariableGroups = pgTable('environment_variable_groups', {
-  requiredByEnvironmentId: nanoid('required_by_environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
+  requiredByEnvironmentVersionId: nanoid('required_by_environment_version_id').references(() => environmentVersions.id, { onDelete: 'cascade' }).notNull(),
   
   variableGroupId: nanoid('variable_group_id').references(() => variableGroups.id, { onDelete: 'cascade' }).notNull(),
 
   ...timestamps
 }, (t) => ([{
-  pk: primaryKey({ columns: [t.requiredByEnvironmentId, t.variableGroupId] })
+  pk: primaryKey({ columns: [t.requiredByEnvironmentVersionId, t.variableGroupId] })
 }]));
 
 export const environmentVariableGroupRelations = relations(environmentVariableGroups, ({ one }) => ({
-  requiredByEnvironment: one(environments, {
-    fields: [environmentVariableGroups.requiredByEnvironmentId],
-    references: [environments.id],
-    relationName: 'applied_to_environment'
+  requiredByEnvironmentVersion: one(environmentVersions, {
+    fields: [environmentVariableGroups.requiredByEnvironmentVersionId],
+    references: [environmentVersions.id],
+    relationName: 'required_by_environment_version'
   }),
   variableGroup: one(variableGroups, {
     fields: [environmentVariableGroups.variableGroupId],

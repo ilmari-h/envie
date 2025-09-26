@@ -1,4 +1,4 @@
-import { pgTable, text } from "drizzle-orm/pg-core";
+import { pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 import { nanoid, timestamps } from "./utils";
 import { environments } from "./environments";
 import { relations } from "drizzle-orm";
@@ -7,11 +7,17 @@ import { relations } from "drizzle-orm";
 // Functionality is in the environments table.
 export const variableGroups = pgTable('variable_groups', {
   id: nanoid('id').primaryKey(),
-  name: text('name').notNull(),
+
+  // The content of the variable group is in the environments table.
   environmentId: nanoid('environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
+
   description: text('description'),
   ...timestamps
-});
+}, (t) => ([
+  {
+    uniqueEnvironmentId: uniqueIndex('unique_environment_id').on(t.environmentId)
+  }
+]));
 
 
 export const variableGroupRelations = relations(variableGroups, ({ one }) => ({
@@ -20,3 +26,5 @@ export const variableGroupRelations = relations(variableGroups, ({ one }) => ({
     references: [environments.id]
   })
 }));
+
+export type VariableGroup = typeof variableGroups.$inferSelect;

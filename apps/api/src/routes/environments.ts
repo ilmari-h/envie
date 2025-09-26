@@ -3,12 +3,13 @@ import { eq, and, count, desc } from 'drizzle-orm';
 import { TsRestRequest } from '@ts-rest/express';
 import { contract } from '@repo/rest';
 import type { EnvironmentVersion, EnvironmentWithVersion } from '@repo/rest';
-import { getEnvironmentByPath, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
+import { getEnvironmentById, getEnvironmentByPath, getOrganization, getOrganizationEnvironments, getProjectByPath, getProjectEnvironments } from '../queries/by-path';
 import { isUserRequester } from '../types/cast';
 import { getEnvironmentVersionByIndex } from '../queries/environment-version';
 import { getUserByNameOrId } from '../queries/user';
 import { ed25519 } from '@noble/curves/ed25519';
 import { getRequesterPublicKey } from '../queries/public-key';
+import { late } from 'zod';
 
 // Helper function to verify Ed25519 signatures
 function verifySignature(message: string, signature: { signature: string; algorithm: 'ecdsa' | 'rsa' }, publicKey: Buffer): { valid: boolean; error?: string } {
@@ -44,76 +45,89 @@ function verifySignature(message: string, signature: { signature: string; algori
   }
 }
 
-export const getEnvironments = async ({ req, query: { path, version, pubkey, variableGroups } }:
+export const getEnvironments = async ({ req, query: { path, environmentId, version, pubkey, variableGroups } }:
   {
     req: TsRestRequest<typeof contract.environments.getEnvironments>,
     query: TsRestRequest<typeof contract.environments.getEnvironments>['query']
   }) => {
 
-    const pathParts = path?.split(':') ?? [];
-    if(pathParts.length !== 3 && version) {
-      return {
-        status: 400 as const,
-        body: { message: 'Version number only allowed for single environment' }
-      };
-    }
-
     let environments: (Environment & { access: EnvironmentAccess & { decryptionData: EnvironmentDecryptionData[] } })[] = [];
-    if(pathParts.length === 1) {
-      const orgEnvironments = await getOrganizationEnvironments(pathParts[0]!, {
-        requester: req.requester
-      });
-      environments = orgEnvironments;
-    } else if(pathParts.length === 2) {
-      environments = await getProjectEnvironments(pathParts[0]! + ':' + pathParts[1]!, {
-        requester: req.requester
-      });
-    } else if(pathParts.length === 3) {
-      const [_organization, _project, environment] = await getEnvironmentByPath(
-        pathParts[0]! + ':' + pathParts[1]! + ':' + pathParts[2]!, { requester: req.requester }
-      );
-      if(!environment) {
+    if(path || !environmentId) {
+      const pathParts = path?.split(':') ?? [];
+      if(pathParts.length !== 3 && version) {
         return {
-          status: 404 as const,
-          body: { message: 'Environment not found' }
+          status: 400 as const,
+          body: { message: 'Version number only allowed for single environment' }
         };
       }
-      environments = [environment];
-    } else {
-      // get all environments that user can view
-      const environmentAccess = await db.query.environmentAccess.findMany({
-        where: isUserRequester(req.requester)
-          ? eq(Schema.environmentAccess.userId, req.requester.userId)
-          : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId),
-        with: {
-          decryptionData: true,
-          environment: {
-            with: {
-              project: {
-                with: {
-                  organization: true
+
+      if(pathParts.length === 1) {
+        const orgEnvironments = await getOrganizationEnvironments(pathParts[0]!, {
+          requester: req.requester
+        });
+        environments = orgEnvironments;
+      } else if(pathParts.length === 2) {
+        environments = await getProjectEnvironments(pathParts[0]! + ':' + pathParts[1]!, {
+          requester: req.requester
+        });
+      } else if(pathParts.length === 3) {
+        const [_organization, _project, environment] = await getEnvironmentByPath(
+          pathParts[0]! + ':' + pathParts[1]! + ':' + pathParts[2]!, { requester: req.requester }
+        );
+        if(!environment) {
+          return {
+            status: 404 as const,
+            body: { message: 'Environment not found' }
+          };
+        }
+        environments = [environment];
+      } else {
+        // get all environments that user can view
+        const environmentAccess = await db.query.environmentAccess.findMany({
+          where: isUserRequester(req.requester)
+            ? eq(Schema.environmentAccess.userId, req.requester.userId)
+            : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId),
+          with: {
+            decryptionData: true,
+            environment: {
+              with: {
+                organization:  true,
+                project: {
+                  with: {
+                    organization: true
+                  }
                 }
               }
             }
           }
-        }
-      });
-      environments = environmentAccess.map(e => ({
-        ...e.environment,
-        access: e
-      }));
+        });
+        environments = environmentAccess.map(e => ({
+          ...e.environment,
+          access: e
+        }));
+      }
+  } else if(environmentId) {
+    // Get environment by ID
+    const [_organization, _project, environmentById] = await getEnvironmentById(
+      environmentId, { requester: req.requester }
+    );
+    if(!environmentById) {
+      return {
+        status: 404 as const,
+        body: { message: 'Environment not found' }
+      };
     }
+    environments = [environmentById];
+  }
 
     if(!environments) {
       return {
         status: 404 as const,
-        body: { message: 'Environments not found' }
+        body: { message: 'No environments found' }
       };
     }
 
     const environmentsWithVersions = await Promise.all(environments
-      // Variable groups have no associated project
-      .filter(e => variableGroups === 'true' ? !e.project : !!e.project)
 
       .map(async (e) => {
         const environmentVersion = await getEnvironmentVersionByIndex(e.id, version);
@@ -136,8 +150,30 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
           } : null,
           accessControl: {
             users: accessControl.length > 0 ? accessControl.map(a => a.users) : undefined
-          }
+          },
         } satisfies EnvironmentWithVersion;
+
+        // TODO: return helpful error if user doesn't have access to the variable group
+        const variableGroups = e.projectId ? await db.query.environmentVariableGroups.findMany({  
+          where: eq(Schema.environmentVariableGroups.requiredByEnvironmentVersionId, environmentVersion.id),
+          with: {
+            variableGroup: {
+              with: {
+                environment: {
+                  with: {
+                    // Check that user has view access to the variable group
+                    access: {
+                      where: isUserRequester(req.requester)
+                      ? eq(Schema.environmentAccess.userId, req.requester.userId)
+                      : eq(Schema.environmentAccess.accessTokenId, req.requester.accessTokenId)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }) : null;
+
         return {
           ...e,
           version: {
@@ -145,6 +181,15 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
             content: environmentVersion.encryptedContent.toString('base64'),
             keys: environmentVersion.keys.map(k => k.key),
             versionNumber: totalVersions[0]?.count ?? 1,
+            variableGroups: variableGroups?.map(vg => ({
+              id: vg.variableGroup.id,
+              name: vg.variableGroup.environment.name,
+              organizationId: vg.variableGroup.environment.organizationId!,
+              environmentId: vg.variableGroup.environmentId,
+              description: vg.variableGroup.description,
+              createdAt: vg.variableGroup.createdAt,
+              updatedAt: vg.variableGroup.updatedAt,
+            })) ?? null
           } satisfies EnvironmentVersion,
           decryptionData: decryptionData ? {
             wrappedEncryptionKey: decryptionData.encryptedSymmetricKey.toString('base64'),
@@ -167,17 +212,21 @@ export const getEnvironments = async ({ req, query: { path, version, pubkey, var
 // Optionally adds given users to the environment with the environment AES key wrapped with each user's public key
 export const createEnvironment = async ({ 
   req, 
-  body: { name, project, content, decryptionData }
+  body: { name, content, decryptionData, environmentType }
 }: { 
   req: TsRestRequest<typeof contract.environments.createEnvironment>; 
   body: TsRestRequest<typeof contract.environments.createEnvironment>['body']
 }) => {
-
-  const [organization, projectDb] = await getProjectByPath(project, {
+  const [organization, project] = environmentType.type === 'variableGroup'
+  ? [
+    await getOrganization({ path: environmentType.variableGroup.organization }, {
+      requester: req.requester,
+      createEnvironments: true
+    }), null] : await getProjectByPath(environmentType.project, {
     requester: req.requester,
     createEnvironments: true
   });
-  if(!organization || !projectDb) {
+  if(!organization || (!project && environmentType.type !== 'variableGroup')) {
     return {
       status: 404 as const,
       body: { message: 'Project not found' }
@@ -196,7 +245,14 @@ export const createEnvironment = async ({
   const existingEnvironment = await db.query.environments.findFirst({
     where: and(
       eq(Schema.environments.name, name),
-      eq(Schema.environments.projectId, projectDb.id)
+
+      environmentType.type === 'variableGroup'
+        ? eq(Schema.environments.organizationId, organization.id)
+        : undefined,
+
+      environmentType.type === 'environment' && project
+        ? eq(Schema.environments.projectId, project.id)
+        : undefined
     )
   });
 
@@ -207,13 +263,14 @@ export const createEnvironment = async ({
     };
   }
 
-  // Create environment and first version if tent is provided.
+  // Create environment and first version
   const environment = await db.transaction(async (tx) => {
 
       const [newEnvironment] = await tx.insert(Schema.environments)
         .values({
           name,
-          projectId: projectDb.id
+          projectId: environmentType.type === 'environment' && project ? project.id : undefined,
+          organizationId: environmentType.type === 'variableGroup' ? organization.id : undefined,
         })
         .returning();
 
@@ -229,6 +286,14 @@ export const createEnvironment = async ({
         }).returning();
       
       if (!environmentAccess) return null;
+
+      if (environmentType.type === 'variableGroup') {
+        await tx.insert(Schema.variableGroups)
+          .values({
+            environmentId: newEnvironment.id,
+            description: environmentType.variableGroup.description
+          });
+      }
 
       // Create decryption data for the creator with the AES key for the environment wrapped with their public keys
       for(const data of decryptionData) {
@@ -303,16 +368,83 @@ export const updateEnvironmentContent = async ({
     };
   }
 
-  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
+  const [organization, _, environment] = await getEnvironmentByPath(idOrPath, {
     requester: req.requester,
     editEnvironment: true
   });
-  if(!organization || !project || !environment) {
+  if(!organization || !environment) {
     return {
       status: 404 as const,
       body: { message: 'Environment not found' }
     };
   }
+  
+  // Check if the keys are a part of any variable group for the current version.
+  // If so, we cannot update the content. User must update the variable group instead.
+
+  const latestVersionOfEnvironment = await db.query.environmentVersions.findFirst({
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
+    orderBy: desc(Schema.environmentVersions.createdAt),
+    with: {
+      keys: true
+    }
+  });
+  if (!latestVersionOfEnvironment) {
+    return {
+      status: 500 as const,
+      body: { message: 'Latest version of environment not found' }
+    };
+  }
+
+  // Get variable groups for the latest version (if environment is not a variable group itself)
+  let variableGroupIds: string[] = [];
+  
+  // If environment is not a variable group itself
+  if (environment.projectId) {
+    const variableGroups = await db.query.environmentVariableGroups.findMany({
+      where: eq(Schema.environmentVariableGroups.requiredByEnvironmentVersionId, latestVersionOfEnvironment.id),
+      with: {
+        variableGroup: {
+          with: {
+            environment: true
+          }
+        }
+      }
+    });
+
+    variableGroupIds = variableGroups.map(vg => vg.variableGroupId);
+
+    const addedKeys = content.keys
+      .filter(key => !latestVersionOfEnvironment.keys.some(k => k.key === key))
+    
+    for (const variableGroup of variableGroups) {
+      const variableGroupEnvironment = variableGroup.variableGroup.environment;
+      const variableGroupEnvironmentVersion = await db.query.environmentVersions.findFirst({
+        where: eq(Schema.environmentVersions.environmentId, variableGroupEnvironment.id),
+        orderBy: desc(Schema.environmentVersions.createdAt),
+        with: {
+          keys: true
+        }
+      });
+      if (!variableGroupEnvironmentVersion) {
+        return {
+          status: 500 as const,
+          body: { message: 'Latest version of variable group environment not found' }
+        };
+      }
+      const conflictingKey = variableGroupEnvironmentVersion.keys.find(key => addedKeys.includes(key.key));
+      if (conflictingKey) {
+        return {
+          status: 400 as const,
+          body: {
+            message: `The provided key '${conflictingKey.key}' is part of the variable group '${variableGroupEnvironment.name}'. Update the variable group instead.`
+          }
+        };
+      }
+    }
+  }
+
+  // No conflicts for provided keys in the variable groups.
 
   // Update content in transaction
   const updatedVersion = await db.transaction(async (tx) => {
@@ -335,6 +467,15 @@ export const updateEnvironmentContent = async ({
         })));
     }
 
+    // Inherit variable groups from the previous latest version (if environment is not a variable group itself)
+    if (environment.projectId && variableGroupIds.length > 0) {
+      await tx.insert(Schema.environmentVariableGroups)
+        .values(variableGroupIds.map(vgId => ({
+          requiredByEnvironmentVersionId: updatedVersion.id,
+          variableGroupId: vgId
+        })));
+    }
+
     return updatedVersion;
   });
 
@@ -348,42 +489,6 @@ export const updateEnvironmentContent = async ({
   return {
     status: 200 as const,
     body: {}
-  };
-};
-
-export const updateEnvironmentSettings = async ({
-  req,
-  params: { idOrPath },
-  body: { preserveVersions }
-}: {
-  req: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>;
-  params: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['params'];
-  body: TsRestRequest<typeof contract.environments.updateEnvironmentSettings>['body']
-}) => {
-
-  const [organization, project, environment] = await getEnvironmentByPath(idOrPath, {
-    requester: req.requester,
-    editEnvironment: true
-  });
-  if(!organization || !project || !environment) {
-    return {
-      status: 404 as const,
-      body: { message: 'Environment not found' }
-    };
-  }
-
-  // Update environment settings
-  if (preserveVersions !== undefined) {
-    await db.update(Schema.environments)
-      .set({
-        preservedVersions: preserveVersions
-      })
-      .where(eq(Schema.environments.id, environment.id));
-  }
-
-  return {
-    status: 200 as const,
-    body: { message: 'Environment access updated successfully' }
   };
 };
 
@@ -727,5 +832,145 @@ export const getEnvironmentVersions = async ({
   return {
     status: 200 as const,
     body: versionsResponse
+  };
+};
+
+export const addVariableGroup = async ({
+  req,
+  params,
+  body
+}: {
+  req: TsRestRequest<typeof contract.environments.addVariableGroup>;
+  params: TsRestRequest<typeof contract.environments.addVariableGroup>['params'];
+  body: TsRestRequest<typeof contract.environments.addVariableGroup>['body'];
+}) => {
+  const { environmentPath, variableGroupPath } = params;
+
+  // Get environment with write access
+  const [organization, _project, environment] = await getEnvironmentByPath(environmentPath, {
+    requester: req.requester,
+    editEnvironment: true
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Get environment of variable group
+  const [variableGroupOrganization, _empty, variableGroupEnvironment] = await getEnvironmentByPath(variableGroupPath, {
+    requester: req.requester
+  });
+
+  if (!variableGroupEnvironment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Variable group not found' }
+    };
+  }
+
+  // Check that the variable group is in the same organization as the environment
+  if (variableGroupOrganization.id !== organization.id) {
+    return {
+      status: 400 as const,
+      body: { message: 'Variable group is not in the same organization as the environment' }
+    };
+  }
+
+  // Verify the variable group exists and user has access to it
+  const variableGroup = await db.query.variableGroups.findFirst({
+    where: eq(Schema.variableGroups.environmentId, variableGroupEnvironment.id),
+  });
+
+
+  if (!variableGroup) {
+    return {
+      status: 404 as const,
+      body: { message: 'Variable group not found or no access' }
+    };
+  }
+
+  // Get the latest version of the current environment
+  const latestVersion = await db.query.environmentVersions.findFirst({
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
+    orderBy: desc(Schema.environmentVersions.createdAt),
+    with: {
+      keys: true,
+      requiresVariableGroups: true
+    }
+  });
+
+  if (!latestVersion) {
+    return {
+      status: 500 as const,
+      body: { message: 'No versions found for environment' }
+    };
+  }
+
+  // Check if variable group is already attached to the latest version
+  const existingAttachment = latestVersion.requiresVariableGroups.find(
+    vg => vg.variableGroupId === variableGroup.id
+  );
+
+  if (existingAttachment) {
+    return {
+      status: 400 as const,
+      body: { message: 'Variable group already attached to latest version' }
+    };
+  }
+
+  // Create new version copying content from the latest version and add variable group attachment
+  const newVersion = await db.transaction(async (tx) => {
+    // Create new environment version with same content as latest
+    const [newVersion] = await tx.insert(Schema.environmentVersions)
+      .values({
+        environmentId: environment.id,
+        encryptedContent: latestVersion.encryptedContent,
+        savedBy: isUserRequester(req.requester) ? req.requester.userId : req.requester.accessTokenOwnerId
+      })
+      .returning();
+
+    if (!newVersion) return null;
+
+    // Copy all keys from the previous version
+    if (latestVersion.keys.length > 0) {
+      await tx.insert(Schema.environmentVersionKeys)
+        .values(latestVersion.keys.map(key => ({
+          key: key.key,
+          environmentVersionId: newVersion.id,
+        })));
+    }
+
+    // Copy all existing variable group attachments from the previous version
+    if (latestVersion.requiresVariableGroups.length > 0) {
+      await tx.insert(Schema.environmentVariableGroups)
+        .values(latestVersion.requiresVariableGroups.map(vg => ({
+          requiredByEnvironmentVersionId: newVersion.id,
+          variableGroupId: vg.variableGroupId
+        })));
+    }
+
+    // Add the new variable group attachment
+    await tx.insert(Schema.environmentVariableGroups)
+      .values({
+        requiredByEnvironmentVersionId: newVersion.id,
+        variableGroupId: variableGroup.id
+      });
+
+    return newVersion;
+  });
+
+  if (!newVersion) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to create new environment version' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: { message: 'Variable group attached successfully' }
   };
 };

@@ -12,12 +12,12 @@ import {
   getEnvironments, 
   createEnvironment, 
   updateEnvironmentContent, 
-  updateEnvironmentSettings,
   setEnvironmentAccess,
   deleteEnvironmentAccess,
   listEnvironmentAccess,
   deleteEnvironment,
   getEnvironmentVersions,
+  addVariableGroup,
 } from './routes/environments';
 import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite, organizationExists } from './routes/organizations';
@@ -147,10 +147,6 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: updateEnvironmentContent
     },
-    updateEnvironmentSettings: {
-      middleware: [requireAuth],
-      handler: updateEnvironmentSettings
-    },
     setEnvironmentAccess: {
       middleware: [requireAuth],
       handler: setEnvironmentAccess
@@ -170,6 +166,10 @@ const router = s.router(contract, {
     getEnvironmentVersions: {
       middleware: [requireAuth],
       handler: getEnvironmentVersions
+    },
+    addVariableGroup: {
+      middleware: [requireAuth],
+      handler: addVariableGroup
     }
   }),
   organizations: s.router(contract.organizations, {

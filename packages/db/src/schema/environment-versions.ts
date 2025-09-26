@@ -3,6 +3,7 @@ import { bytea, nanoid, nanoidType, timestamps } from './utils';
 import { environments } from './environments';
 import { relations } from 'drizzle-orm';
 import { users } from './users';
+import { environmentVariableGroups } from './environment-variable-groups';
 
 export const environmentVersions = pgTable('environment_versions', {
   id: nanoid('id').primaryKey(),
@@ -40,5 +41,9 @@ export const environmentVersionRelations = relations(environmentVersions, ({ man
   author: one(users, {
     fields: [environmentVersions.savedBy],
     references: [users.id]
-  })
+  }),
+  // What variable groups this environment version depends on
+  requiresVariableGroups: many(environmentVariableGroups, {
+    relationName: 'required_by_environment_version'
+  }),
 }));

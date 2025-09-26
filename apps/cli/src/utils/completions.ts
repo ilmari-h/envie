@@ -134,7 +134,9 @@ export async function environmentCompletions({input, before}: {input: string, be
     if (response.status !== 200) {
       return [];
     }
-    return response.body.map(environment => `${environment.project.organization.name}:${environment.project.name}:${environment.name}`);
+    return response.body.filter(environment => !!environment.project).map(environment => 
+     `${environment.project!.organization.name}:${environment.project!.name}:${environment.name}`
+    )
   } catch {
     return [];
   }
@@ -166,6 +168,28 @@ export async function tokenCompletions({input, before}: {input: string, before: 
   } catch {
     return [];
   }
+}
+
+export async function variableGroupCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
+  try {
+    const client = createTsrClient(getInstanceUrl());
+    const response = await client.environments.getEnvironments({
+      query: { variableGroups: 'true' }
+    });
+    if (response.status !== 200) {
+      return [];
+    }
+    return response.body
+      .filter(variableGroupEnvironment => !!variableGroupEnvironment.organization)
+      .map(variableGroupEnvironment => `${variableGroupEnvironment.organization!.name}:group:${variableGroupEnvironment.name}`);
+  } catch {
+    return [];
+  }
+}
+
+export async function variableGroupAndEnvironmentCompletions({input, before}: {input: string, before: string}): Promise<string[]> {
+  const [variableGroups, environments] = await Promise.all([variableGroupCompletions({input, before}), environmentCompletions({input, before})]);
+  return [ ...environments, ...variableGroups ];
 }
 
 export async function userAndTokenCompletions({input, before}: {input: string, before: string}): Promise<string[]> {

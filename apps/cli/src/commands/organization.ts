@@ -3,7 +3,7 @@ import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { BaseOptions, RootCommand } from './root';
-import { ExpiryFromNow } from './utils';
+import { ExpiryFromNow } from './utils/expiry-from-now';
 import { confirm } from '../ui/confirm';
 import { organizationCompletions, userAndTokenCompletions } from '../utils/completions';
 

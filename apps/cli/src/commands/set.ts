@@ -2,8 +2,8 @@ import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair } from '../crypto';
-import { EnvironmentPath } from './utils';
-import { environmentCompletions } from '../utils/completions';
+import { EnvironmentPath } from './utils/environment-path';
+import { variableGroupAndEnvironmentCompletions } from '../utils/completions';
 import { parseEnv } from 'node:util';
 
 type SetOptions = BaseOptions & {
@@ -13,9 +13,9 @@ type SetOptions = BaseOptions & {
 const rootCmd = new RootCommand();
 export const setCommand = rootCmd.createCommand<SetOptions>('set')
   .description('Set an environment variable')
-  .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', environmentCompletions)
+  .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', variableGroupAndEnvironmentCompletions)
   .argumentWithSuggestions('<key-value>', 'Key-value pair in format "key=value" or as separate arguments', () => Promise.resolve([]))
-  .argumentWithSuggestions('[value]', 'Value if provided separately from key OR the path of another environment to copy the key from there', environmentCompletions)
+  .argumentWithSuggestions('[value]', 'Value if provided separately from key OR the path of another environment to copy the key from there', variableGroupAndEnvironmentCompletions)
   .action(async function(path: string, keyValue: string, separateValue?: string) {
     const opts = this.opts<SetOptions>();
     const instanceUrl = getInstanceUrl();
@@ -118,8 +118,8 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
         }
 
         // Parse current content into lines
-        // TODO: make this more robust
-        const lines = currentContent.split('\n').filter(line => line.trim());
+        const lines = Object.entries(parseEnv(currentContent) as Record<string, string>)
+          .map(([key, value]) => `${key}=${value}`);
         const existingKeyIndex = lines.findIndex(line => line.startsWith(`${key}=`));
 
         if (existingKeyIndex !== -1) {
@@ -166,7 +166,7 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
 
 export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
   .description('Unset an environment variable')
-  .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', environmentCompletions)
+  .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', variableGroupAndEnvironmentCompletions)
   // TODO: completions
   .argument('<key>', 'Key to unset')
   .action(async function(path: string, key: string) {
@@ -174,6 +174,7 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
     const client = createTsrClient(instanceUrl);
+    const userKeyPair = await UserKeyPair.getInstance();
     
     try {
       if (!key.trim()) {
@@ -183,9 +184,12 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
 
       // First get the environment to get the decryption data
       const envResponse = await client.environments.getEnvironments({
-        query: { path: environmentPath.toString() }
+        query: {
+          path: environmentPath.toString(),
+          pubkey: userKeyPair.publicKey.toBase64(),
+        }
       });
-
+      
       if (envResponse.status !== 200 || envResponse.body.length === 0) {
         console.error('Error: Environment not found');
         process.exit(1);
@@ -197,12 +201,9 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
         process.exit(1);
       }
 
-      // Get user's private key for decryption
-      const userKeyPair = await UserKeyPair.getInstance();
-
       try {
         // Unwrap the environment's encryption key
-        const dek = (await UserKeyPair.getInstance()).unwrapKey({
+        const dek = userKeyPair.unwrapKey({
           wrappedKey: environment.decryptionData.wrappedEncryptionKey,
           ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
         });
@@ -216,16 +217,22 @@ export const unsetCommand = rootCmd.createCommand<SetOptions>('unset')
 
         // Parse current content into lines and remove the key
         // TODO: make this more robust
-        const lines = currentContent.split('\n')
-          .filter(line => line.trim() && !line.startsWith(`${key}=`));
+        const entries = parseEnv(currentContent) as Record<string, string>;
+
+        // Check that the key exists
+        if (!entries[key]) {
+          console.error(`Error: Key ${key} not found in environment`);
+          process.exit(1);
+        }
+        delete entries[key];
 
         // Encrypt the updated content
-        const encryptedContent = dek.encryptContent(lines.join('\n'));
+        const encryptedContent = dek.encryptContent(Object.entries(entries).map(([key, value]) => `${key}=${value}`).join('\n'));
 
         if (opts.verbose) {
           console.log('\nEncryption successful!');
         }
-        
+
         // Update environment content
         const response = await client.environments.updateEnvironmentContent({
           params: {

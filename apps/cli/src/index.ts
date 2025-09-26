@@ -7,6 +7,7 @@ import { configCommand } from './commands/config';
 import { organizationCommand } from './commands/organization';
 import { projectCommand } from './commands/project';
 import { environmentCommand } from './commands/environment';
+import { variableGroupCommand } from './commands/variable-groups';
 import { setCommand, unsetCommand } from './commands/set';
 import { execCommand } from './commands/exec';
 import { accessTokenCommand } from './commands/access-tokens';
@@ -131,6 +132,7 @@ async function main() {
       setCommand,
       unsetCommand,
       environmentCommand,
+      variableGroupCommand,
       projectCommand,
       organizationCommand,
       configCommand,
