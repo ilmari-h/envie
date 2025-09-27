@@ -17,7 +17,7 @@ interface EnvironmentData {
 }
 
 export async function getEnvironment(
-  environment: { path: string } | { environmentId: string },
+  environment: { path: EnvironmentPath } | { environmentId: string },
   decrypt: boolean = false
 ): Promise<EnvironmentData> {
   const instanceUrl = getInstanceUrl();
@@ -28,9 +28,9 @@ export async function getEnvironment(
   // Get the specific environment using the path
   const response = await client.environments.getEnvironments({
     query: {
-      path: 'path' in environment ? new EnvironmentPath(environment.path).toString() : undefined,
+      path: 'path' in environment ? environment.path.toString() : undefined,
       environmentId: 'environmentId' in environment ? environment.environmentId : undefined,
-      version: 'path' in environment ? new EnvironmentPath(environment.path).version?.toString() : undefined,
+      version: 'path' in environment && environment.path.version ? environment.path.version.toString() : undefined,
       pubkey: userKeyPair.publicKey.toBase64()
     }
   });

@@ -129,15 +129,10 @@ export async function createEnvironmentHelper(
         parsedEnvFileContent
       );
 
-      console.log(userKeyPair.sign(encryptedEnvironment.ciphertext));
 
+      const signature = userKeyPair.sign(encryptedEnvironment.ciphertext);
       if (opts.verbose) {
-        console.log('\nEncryption successful!');
-        console.log('Encrypted content keys:', encryptedEnvironment.keys);
-        console.log('User wrapped key:', {
-          wrappedKey: wrappedKeys[0].wrappedKey,
-          ephemeralPublicKey: wrappedKeys[0].ephemeralPublicKey
-        });
+        console.log(signature);
       }
       
       // Create environment
@@ -150,7 +145,7 @@ export async function createEnvironmentHelper(
           content: {
             keys: encryptedEnvironment.keys,
             ciphertext: encryptedEnvironment.ciphertext,
-            signature: userKeyPair.sign(encryptedEnvironment.ciphertext)
+            signature: signature
           },
           decryptionData: wrappedKeys.map(key => ({
             publicKeyBase64: key.publicKeyBase64,

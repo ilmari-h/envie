@@ -28,8 +28,7 @@ function getBoxChars() {
     bottomLeft: '╰',
     horizontal: '─',
     vertical: '│',
-    titleRight: '├',
-    middleLeft: '├',
+    middleLeft: '╭',
   };
 }
 
@@ -52,6 +51,11 @@ function createConnectedBox(title: string, content: string[], colorFn: typeof ch
   content.forEach(line => {
     lines.push(colorFn(chars.vertical) + ' ' + line);
   });
+  
+  // Add spacing line after content (except for the last box)
+  if (!isLast) {  
+    lines.push(colorFn(chars.vertical));
+  }
   
   // Bottom border only for the last box
   if (isLast) {
@@ -76,8 +80,6 @@ function formatVariableForDisplay(key: string, value: string, decrypted: boolean
     coloredValue = chalk.yellow(value);
   } else if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
     coloredValue = chalk.magenta(value);
-  } else if (value.includes('secret') || value.includes('key') || value.includes('password')) {
-    coloredValue = chalk.red('***REDACTED***');
   } else {
     coloredValue = chalk.green(value);
   }

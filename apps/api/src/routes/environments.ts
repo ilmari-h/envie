@@ -343,7 +343,7 @@ export const createEnvironment = async ({
 export const updateEnvironmentContent = async ({
   req,
   params: { idOrPath },
-  body: { content }
+  body: { content, rollbackToVersionId }
 }: {
   req: TsRestRequest<typeof contract.environments.updateEnvironmentContent>;
   params: TsRestRequest<typeof contract.environments.updateEnvironmentContent>['params'];
@@ -399,10 +399,13 @@ export const updateEnvironmentContent = async ({
   // Get variable groups for the latest version (if environment is not a variable group itself)
   let variableGroupIds: string[] = [];
   
-  // If environment is not a variable group itself
+  // If environment is not a variable group itself and not rolling back
   if (environment.projectId) {
     const variableGroups = await db.query.environmentVariableGroups.findMany({
-      where: eq(Schema.environmentVariableGroups.requiredByEnvironmentVersionId, latestVersionOfEnvironment.id),
+      where: eq(
+        Schema.environmentVariableGroups.requiredByEnvironmentVersionId,
+        rollbackToVersionId ? rollbackToVersionId : latestVersionOfEnvironment.id
+      ),
       with: {
         variableGroup: {
           with: {
@@ -433,7 +436,7 @@ export const updateEnvironmentContent = async ({
         };
       }
       const conflictingKey = variableGroupEnvironmentVersion.keys.find(key => addedKeys.includes(key.key));
-      if (conflictingKey) {
+      if (conflictingKey && !rollbackToVersionId) {
         return {
           status: 400 as const,
           body: {
@@ -880,6 +883,7 @@ export const addVariableGroup = async ({
   }
 
   // Verify the variable group exists and user has access to it
+  // TODO: access
   const variableGroup = await db.query.variableGroups.findFirst({
     where: eq(Schema.variableGroups.environmentId, variableGroupEnvironment.id),
   });
@@ -972,6 +976,141 @@ export const addVariableGroup = async ({
   return {
     status: 200 as const,
     body: { message: 'Variable group attached successfully' }
+  };
+};
+
+export const removeVariableGroup = async ({
+  req,
+  params
+}: {
+  req: TsRestRequest<typeof contract.environments.removeVariableGroup>;
+  params: TsRestRequest<typeof contract.environments.removeVariableGroup>['params'];
+}) => {
+  const { environmentPath, variableGroupPath } = params;
+
+  // Get environment with write access
+  const [organization, _project, environment] = await getEnvironmentByPath(environmentPath, {
+    requester: req.requester,
+    editEnvironment: true
+  });
+
+  if (!environment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Environment not found' }
+    };
+  }
+
+  // Get environment of variable group
+  const [variableGroupOrganization, _empty, variableGroupEnvironment] = await getEnvironmentByPath(variableGroupPath, {
+    requester: req.requester
+  });
+
+  if (!variableGroupEnvironment) {
+    return {
+      status: 404 as const,
+      body: { message: 'Variable group not found' }
+    };
+  }
+
+  // Check that the variable group is in the same organization as the environment
+  if (variableGroupOrganization.id !== organization.id) {
+    return {
+      status: 400 as const,
+      body: { message: 'Variable group is not in the same organization as the environment' }
+    };
+  }
+
+  // Verify the variable group exists and user has access to it
+  // TODO: access
+  const variableGroup = await db.query.variableGroups.findFirst({
+    where: eq(Schema.variableGroups.environmentId, variableGroupEnvironment.id),
+  });
+
+  if (!variableGroup) {
+    return {
+      status: 404 as const,
+      body: { message: 'Variable group not found or no access' }
+    };
+  }
+
+  // Get the latest version of the current environment
+  const latestVersion = await db.query.environmentVersions.findFirst({
+    where: eq(Schema.environmentVersions.environmentId, environment.id),
+    orderBy: desc(Schema.environmentVersions.createdAt),
+    with: {
+      keys: true,
+      requiresVariableGroups: true
+    }
+  });
+
+  if (!latestVersion) {
+    return {
+      status: 500 as const,
+      body: { message: 'No versions found for environment' }
+    };
+  }
+
+  // Check if variable group is attached to the latest version
+  const existingAttachment = latestVersion.requiresVariableGroups.find(
+    vg => vg.variableGroupId === variableGroup.id
+  );
+
+  if (!existingAttachment) {
+    return {
+      status: 400 as const,
+      body: { message: 'Variable group is not attached to the latest version' }
+    };
+  }
+
+  // Create new version copying content from the latest version but exclude the variable group
+  const newVersion = await db.transaction(async (tx) => {
+    // Create new environment version with same content as latest
+    const [newVersion] = await tx.insert(Schema.environmentVersions)
+      .values({
+        environmentId: environment.id,
+        encryptedContent: latestVersion.encryptedContent,
+        savedBy: isUserRequester(req.requester) ? req.requester.userId : req.requester.accessTokenOwnerId
+      })
+      .returning();
+
+    if (!newVersion) return null;
+
+    // Copy all keys from the previous version
+    if (latestVersion.keys.length > 0) {
+      await tx.insert(Schema.environmentVersionKeys)
+        .values(latestVersion.keys.map(key => ({
+          key: key.key,
+          environmentVersionId: newVersion.id,
+        })));
+    }
+
+    // Copy all existing variable group attachments from the previous version EXCEPT the one to remove
+    const variableGroupsToKeep = latestVersion.requiresVariableGroups.filter(
+      vg => vg.variableGroupId !== variableGroup.id
+    );
+
+    if (variableGroupsToKeep.length > 0) {
+      await tx.insert(Schema.environmentVariableGroups)
+        .values(variableGroupsToKeep.map(vg => ({
+          requiredByEnvironmentVersionId: newVersion.id,
+          variableGroupId: vg.variableGroupId
+        })));
+    }
+
+    return newVersion;
+  });
+
+  if (!newVersion) {
+    return {
+      status: 500 as const,
+      body: { message: 'Failed to create new environment version' }
+    };
+  }
+
+  return {
+    status: 200 as const,
+    body: { message: 'Variable group removed successfully' }
   };
 };
 

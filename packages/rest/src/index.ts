@@ -433,6 +433,9 @@ const environments = c.router({
     }),
     body: z.object({
 
+      // If rolling back: TODO: copy variable groups from the specified version?
+      rollbackToVersionId: z.string().optional(),
+
       // The public key used to encrypt the content
       content: z.object({
         keys: z.array(z.string()),
@@ -547,6 +550,22 @@ const environments = c.router({
       404: z.object({ message: z.string() })
     },
     summary: 'Create a new version of the environment and attach the given variable group to it'
+  },
+
+  removeVariableGroup: {
+    method: 'DELETE',
+    path: '/environments/:environmentPath/require-variable-group/:variableGroupPath',
+    pathParams: z.object({
+      environmentPath: z.string(),
+      variableGroupPath: z.string()
+    }),
+    responses: {
+      200: z.object({ message: z.string() }),
+      400: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
+    },
+    summary: 'Create a new version of the environment and remove the given variable group from it'
   },
 
   getVariableGroupInfo: {

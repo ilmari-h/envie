@@ -10,7 +10,7 @@ import { RootCommand, BaseOptions } from './root';
 import { UserKeyPair, Ed25519PublicKey, DataEncryptionKey } from '../crypto';
 import { EnvironmentPath } from './utils/environment-path';
 import { ExpiryFromNow } from './utils/expiry-from-now';
-import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions, variableGroupCompletions } from '../utils/completions';
+import { filepathCompletions, projectCompletions, environmentCompletions, projectCompletionsWithTrailingColon, userAndTokenCompletions, variableGroupCompletions, variableGroupAndEnvironmentCompletions } from '../utils/completions';
 import { confirm } from '../ui/confirm';
 import { normalizeEd25519PublicKey } from '../utils/keypair';
 import { printEnvironment } from '../ui/environment-print';
@@ -18,9 +18,7 @@ import { createEnvironmentHelper } from './utils/create-environment';
 
 type EnvironmentOptions = BaseOptions;
 
-type CreateEnvironmentOptions = EnvironmentOptions & {
-  secretKeyFile?: string;
-};
+type CreateEnvironmentOptions = EnvironmentOptions;
 type ShowOptions = BaseOptions & {
   backupKey?: string;
   unsafeDecrypt?: boolean;
@@ -130,7 +128,7 @@ environmentCommand
     
     try {
       // Get environment data
-      const { version, environment, decryptedContent } = await getEnvironment({ path }, opts.unsafeDecrypt ?? false);
+      const { version, environment, decryptedContent } = await getEnvironment({ path: new EnvironmentPath(path) }, opts.unsafeDecrypt ?? false);
 
       // Process variable groups
       const variableGroups = await Promise.all((version.variableGroups ?? []).map(async vg => {
@@ -201,7 +199,7 @@ environmentCommand
       }
 
       // Get environment data with decryption
-      const { decryptionData, decryptedContent: currentEnvVars } = await getEnvironment({ path: pathParam }, true);
+      const { decryptionData, decryptedContent: currentEnvVars } = await getEnvironment({ path: new EnvironmentPath(pathParam) }, true);
 
       if (!currentEnvVars || !decryptionData) {
         console.error('Error: Failed to decrypt environment content');
@@ -318,7 +316,6 @@ environmentCommand
           process.exit(1);
         }
 
-        console.log(chalk.green('Environment updated successfully!'));
         process.exit(0);
       } catch (error) {
         console.error('Error during encryption:', error instanceof Error ? error.message : error);
@@ -486,7 +483,7 @@ environmentCommand
 environmentCommand
   .commandWithSuggestions('audit')
   .description('Show version history of an environment')
-  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
+  .argumentWithSuggestions('<path>', 'Environment path', variableGroupAndEnvironmentCompletions)
   .action(async function(path: string) {
     const opts = this.opts<EnvironmentOptions>();
     const instanceUrl = getInstanceUrl();
@@ -582,10 +579,10 @@ environmentCommand
 
 environmentCommand
   .commandWithSuggestions('add-group')
-  .description('Attach a variable group as a dependency to an environment')
+  .description('Add a variable group as a dependency to an environment')
   .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
-  .argumentWithSuggestions('<variableGroupId>', 'Variable group ID to attach', variableGroupCompletions)
-  .action(async function(path: string, variableGroupId: string) {
+  .argumentWithSuggestions('<variable-group>', 'Variable group to add', variableGroupCompletions)
+  .action(async function(path: string, variableGroup: string) {
     const instanceUrl = getInstanceUrl();
     
     try {
@@ -593,7 +590,7 @@ environmentCommand
       const environmentPath = new EnvironmentPath(path);
       
       const response = await client.environments.addVariableGroup({
-        params: { environmentPath: environmentPath.toString(), variableGroupPath: variableGroupId },
+        params: { environmentPath: environmentPath.toString(), variableGroupPath: variableGroup },
       });
 
       if (response.status !== 200) {
@@ -601,6 +598,113 @@ environmentCommand
         process.exit(1);
       }
 
+      process.exit(0);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .commandWithSuggestions('remove-group')
+  .description('Remove a variable group from an environment')
+  .argumentWithSuggestions('<path>', 'Environment path', environmentCompletions)
+  .argumentWithSuggestions('<variable-group>', 'Variable group to remove', variableGroupCompletions)
+  .action(async function(path: string, variableGroup: string) {
+    const instanceUrl = getInstanceUrl();
+    
+    try {
+      const client = createTsrClient(instanceUrl);
+      const environmentPath = new EnvironmentPath(path);
+      
+      const response = await client.environments.removeVariableGroup({
+        params: { environmentPath: environmentPath.toString(), variableGroupPath: variableGroup },
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to remove variable group: ${(response.body as { message: string }).message}`);
+        process.exit(1);
+      }
+      process.exit(0);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
+  .commandWithSuggestions('rollback')
+  .description('Rollback an environment to a previous version, creating a new version with content of the selected version')
+  .argumentWithSuggestions('<path>', 'Environment or variable group path', variableGroupAndEnvironmentCompletions)
+  .argument('<version>', 'Version number to rollback to (use audit command to list versions)')
+  .action(async function(path: string, version: string) {
+    const opts = this.opts<EnvironmentOptions>();
+    const instanceUrl = getInstanceUrl();
+    const versionNumber = (() => { try { return parseInt(version, 10); } catch (error) {
+      console.error('Error: Invalid version number');
+      process.exit(1);
+    }})();
+    
+    try {
+      const client = createTsrClient(instanceUrl);
+      const userKeyPair = await UserKeyPair.getInstance();
+      const environmentPath = new EnvironmentPath(path);
+      const environmentPathWithVersion = new EnvironmentPath(path + `@${versionNumber}`);
+
+      if (opts.verbose) {
+        console.log(`Rolling back ${environmentPath.toString()} to version ${versionNumber}`);
+      }
+
+      // Get the old version data (the version we want to rollback to)
+      const { version: oldVersion, decryptedContent } = await getEnvironment({ path: environmentPathWithVersion }, true);
+      
+      if (!decryptedContent) {
+        console.error('Error: Could not decrypt content from the specified version');
+        process.exit(1);
+      }
+
+      // Get current environment data to access the current DEK
+      const { decryptionData } = await getEnvironment({ path: environmentPath }, false);
+      
+      if (!decryptionData) {
+        console.error('Error: Could not get decryption data for current environment');
+        process.exit(1);
+      }
+
+      // Unwrap the current environment's encryption key
+      const dek = userKeyPair.unwrapKey({
+        wrappedKey: decryptionData.wrappedEncryptionKey,
+        ephemeralPublicKey: decryptionData.ephemeralPublicKey
+      });
+
+      // Convert decrypted content back to env format
+      const envContent = Object.entries(decryptedContent)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n');
+
+      // Encrypt the old version's content
+      const encryptedContent = dek.encryptContent(envContent);
+
+      const response = await client.environments.updateEnvironmentContent({
+        params: {
+          idOrPath: environmentPath.toString()
+        },
+        body: {
+          content: {
+            keys: encryptedContent.keys,
+            ciphertext: encryptedContent.ciphertext,
+            signature: userKeyPair.sign(encryptedContent.ciphertext)
+          },
+          rollbackToVersionId: oldVersion.id
+        }
+      });
+
+      if (response.status !== 200) {
+        console.error(`Failed to rollback environment: ${response.status}`, (response.body as { message: string }).message);
+        process.exit(1);
+      }
+
+      process.exit(0);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);
