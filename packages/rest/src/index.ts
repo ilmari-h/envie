@@ -90,7 +90,7 @@ export const environmentVersionSchema = z.object({
     environmentId: z.string(),
     createdAt: z.date(),
     updatedAt: z.date(),
-  })).nullable(),
+  })).nullable().optional(),
 });
 
 export const envrionmentVersionWithWrappedEncryptionKeySchema = environmentVersionSchema.extend({

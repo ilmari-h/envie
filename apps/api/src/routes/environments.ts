@@ -1120,7 +1120,6 @@ export const getVariableGroupInfo = async ({
 }: {
   req: TsRestRequest<typeof contract.environments.getVariableGroupInfo>;
   params: TsRestRequest<typeof contract.environments.getVariableGroupInfo>['params'];
-  query: TsRestRequest<typeof contract.environments.getVariableGroupInfo>['query'];
 }) => {
   
   // Find variable group by environment ID
