@@ -116,7 +116,7 @@ export const getOrganization = async ({
   params: TsRestRequest<typeof contract.organizations.getOrganization>['params'],
 }) => {
 
-  const organization = await getOrganizationByPath(idOrPath, {
+  const organization = await getOrganizationByPath({ path: idOrPath }, {
     requester: req.requester
   });
 
@@ -141,7 +141,7 @@ export const getOrganizationMembers = async ({
   params: TsRestRequest<typeof contract.organizations.getOrganizationMembers>['params'];
 }) => {
   console.log('getOrganizationMembers', idOrName, req.requester);
-  const organization = await getOrganizationByPath(idOrName, {
+  const organization = await getOrganizationByPath({ path: idOrName }, {
     requester: req.requester
   });
 
@@ -194,7 +194,7 @@ export const updateOrganization = async ({
   body: TsRestRequest<typeof contract.organizations.updateOrganization>['body'];
 }) => {
 
-  const organization = await getOrganizationByPath(idOrPath, {
+  const organization = await getOrganizationByPath({ path: idOrPath }, {
     requester: req.requester,
     editOrganization: true
   });
@@ -244,7 +244,7 @@ export const createOrganizationInvite = async ({
     };
   }
 
-  const organization = await getOrganizationByPath(idOrPath, {
+  const organization = await getOrganizationByPath({ path: idOrPath }, {
     requester: req.requester,
     addMembers: true
   });
@@ -455,7 +455,7 @@ export const listOrganizationInvites = async ({
     };
   }
 
-  const organization = await getOrganizationByPath(idOrPath, {
+  const organization = await getOrganizationByPath({ path: idOrPath }, {
     requester: req.requester
   });
 
@@ -574,7 +574,7 @@ export const updateAccess = async ({
     }
 
     // Get organization and verify caller has canAddMembers permission
-    const organization = await getOrganizationByPath(idOrPath, {
+    const organization = await getOrganizationByPath({ path: idOrPath }, {
       requester: req.requester,
       addMembers: true // This ensures caller has canAddMembers permission
     });
