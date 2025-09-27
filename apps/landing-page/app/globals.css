@@ -2,3 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  h1 {
+    @apply text-xl font-semibold;
+    margin: 0;
+  }
+  h2 {
+    margin: 0;
+    @apply text-lg;
+  }
+  h3 {
+    margin: 0;
+    @apply text-base;
+  }
+  h4, h5, h6 {
+    margin: 0;
+    @apply text-sm;
+  }
+}
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  height: 100vh;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
