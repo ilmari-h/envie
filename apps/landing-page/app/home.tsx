@@ -222,8 +222,8 @@ export default function Home({ latestRelease }: HomeProps) {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-lg md:text-xl font-bold mb-2">
-              From messy .env files to organized, auditable environments<br/>
-              <span className="bg-gradient-to-r from-accent-400 to-accent-600 bg-clip-text text-lg md:text-xl text-transparent">Execute securely, organize with groups, track changes, collaborate.</span>
+              A unified CLI to manage your application secrets and environment variables<br/>
+              <span className="bg-gradient-to-r from-accent-400 to-accent-600 bg-clip-text text-lg md:text-xl text-transparent">Convenient, auditable and always encrypted.</span>
             </h2>
           </div>
           
