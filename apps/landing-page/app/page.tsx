@@ -4,15 +4,14 @@ import React, { useState } from 'react';
 import { 
   Copy, 
   Check, 
-  Github,
   Star,
-  Terminal,
   FolderTree,
   History,
-  Play,
   Users,
-  Lock
+  Lock,
+  Code2
 } from 'lucide-react';
+import Image from 'next/image';
 import { Button } from '@repo/ui/button';
 import Link from 'next/link';
 import AnimatedTerminal, { Line } from './animated-terminal';
@@ -133,17 +132,15 @@ export default function HomePage() {
       {/* Header */}
       <header className="relative z-50 px-4 py-2">
         <nav className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-accent-400 to-accent-500 rounded-md flex items-center justify-center">
-              <Terminal className="w-3 h-3 text-black" />
-            </div>
-            <span className="text-base font-bold bg-gradient-to-r from-accent-400 to-accent-500 bg-clip-text text-transparent">
-              Envie
+          <div className="flex items-center">
+              <Image src="/logo.png" alt="Envie" width={20} height={20} className="text-black" />
+            <span className="text-base font-bold text-logo bg-clip-text text-transparent ml-[1px] italic">
+              nvie
             </span>
           </div>
           <div className="hidden md:flex items-center space-x-4">
-            <a href="https://github.com/ilmari-h/envie" className="text-neutral-400 hover:text-accent-400 transition-colors flex items-center space-x-1 text-xs">
-              <Github className="w-3 h-3" />
+            <a href="https://github.com/ilmari-h/envie" className="text-neutral-400 hover:text-accent-400 transition-colors flex items-center space-x-1 text-xs group">
+              <Image src="/github.svg" alt="GitHub" width={16} height={16} className="brightness-0 invert mr-1 opacity-60 group-hover:opacity-100 transition-opacity" style={{filter: 'brightness(0) invert(1) sepia(1) saturate(0) hue-rotate(0deg)'}} />
               <span>Star on GitHub</span>
             </a>
             <Link href="https://web.envie.cloud/new-user">
@@ -215,7 +212,7 @@ export default function HomePage() {
             </Link>
             <div className="w-px h-6 bg-neutral-600 hidden sm:block mx-2"></div>
             <Link href="https://github.com/ilmari-h/envie">
-              <Button variant="regular" icon={<Github className="w-3 h-3" />} className='min-w-[130px]'>
+              <Button variant="regular" icon={<Image src="/github.svg" alt="GitHub" width={16} height={16} className="brightness-0 invert" />} className='min-w-[130px]'>
                 View on GitHub
               </Button>
             </Link>
@@ -238,10 +235,10 @@ export default function HomePage() {
              <div className="border-t border-neutral-700/50 p-3 pt-5 inline-flex w-full justify-center space-x-2">
                <Button 
                  variant={activeTab === 'secure' ? 'accent' : 'regular'} 
-                 icon={<Lock className="w-3 h-3" />}
+                 icon={<Code2 className="w-3 h-3" />}
                  onClick={() => setActiveTab('secure')}
                >
-                 Secure
+                 Execute
                </Button>
                <Button 
                  variant={activeTab === 'organize' ? 'accent' : 'regular'} 
@@ -280,7 +277,7 @@ export default function HomePage() {
       <section className="px-4 py-8">
         <div className="max-w-2xl mx-auto text-center">
           <div className="bg-accent-900/5 border border-accent-500/20 rounded-lg p-6">
-            <Github className="w-8 h-8 text-accent-400 mx-auto mb-3" />
+            <Image src="/github.svg" alt="GitHub" width={32} height={32} className="brightness-0 invert mx-auto mb-3" />
             <h2 className="text-lg md:text-xl font-bold mb-2">
               <span className="bg-gradient-to-r from-accent-400 to-accent-600 bg-clip-text text-transparent">
                 100% Open Source
@@ -305,18 +302,16 @@ export default function HomePage() {
       <footer className="border-t border-neutral-800 px-4 py-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center space-x-2 mb-2 md:mb-0">
-              <div className="w-5 h-5 bg-gradient-to-br from-accent-400 to-accent-500 rounded-md flex items-center justify-center">
-                <Terminal className="w-3 h-3 text-black" />
-              </div>
-              <span className="text-base font-bold bg-gradient-to-r from-accent-400 to-accent-500 bg-clip-text text-transparent">
-                Envie
+            <div className="flex items-center mb-2 md:mb-0">
+                <Image src="/logo.png" alt="Envie" width={20} height={20} className="text-black" />
+              <span className="text-base font-bold text-logo bg-clip-text text-transparent ml-[1px] italic">
+                nvie
               </span>
             </div>
             
             <div className="flex items-center space-x-3">
-              <a href="https://github.com/ilmari-h/envie" className="text-neutral-500 hover:text-accent-400 transition-colors">
-                <Github className="w-4 h-4" />
+              <a href="https://github.com/ilmari-h/envie" className="text-neutral-500 hover:text-accent-400 transition-colors group">
+                <Image src="/github.svg" alt="GitHub" width={16} height={16} className="transition-all group-hover:brightness-0 group-hover:invert group-hover:sepia group-hover:saturate-[3] group-hover:hue-rotate-[315deg]" style={{filter: 'brightness(0) invert(0.5)'}} />
               </a>
               <span className="text-neutral-600">•</span>
               <a href="mailto:support@envie.cloud" className="text-neutral-500 hover:text-accent-400 transition-colors text-xs">

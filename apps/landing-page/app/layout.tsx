@@ -5,6 +5,9 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Envie - manage your environment variables',
   description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
+  icons: {
+    icon: '/icon-small.png',
+  },
   openGraph: {
     title: 'Envie - manage your environment variables',
     description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',

@@ -9,6 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        logo: {
+          DEFAULT: '#73b638',
+        },
         accent: {
           DEFAULT: '#36b625',
           50: '#f2fdf0',

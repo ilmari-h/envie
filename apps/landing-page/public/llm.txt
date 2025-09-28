@@ -1,0 +1,44 @@
+# Envie - Environment Variable Management Platform
+
+## About
+Envie is an open-source environment variable management platform that helps development teams securely manage, organize, and collaborate on environment variables and secrets.
+
+## Key Features
+- **Secure Environment Management**: Encrypted storage of API keys, credentials, and secrets
+- **Team Collaboration**: Invite team members and control access permissions
+- **Version Control**: Track changes and rollback to previous versions
+- **Variable Groups**: Organize related variables together (e.g., OAuth credentials, AWS keys)
+- **CLI Tool**: Switch between environments with simple commands
+- **Self-Hostable**: Deploy on your own infrastructure or use hosted solution
+
+## Usage Examples
+```bash
+# Install CLI
+npm install -g @envie/cli
+
+# Create environment from .env file
+envie environment create org:project:staging --file .env
+
+# Update variables
+envie set org:project:staging API_KEY=1234567890
+
+# Run project with environment
+envie exec org:project:staging npm -- dev
+
+# Create variable groups
+envie variable-group create org oauth OAUTH_SECRET=123 CLIENT_ID=456
+
+# Audit environment changes
+envie environment audit org:project:staging
+```
+
+## Open Source
+- GitHub: https://github.com/ilmari-h/envie
+- License: Open source
+- Self-hostable and free to use
+
+## Contact
+- Website: https://envie.cloud
+- Email: support@envie.cloud
+
+This platform helps developers stop sharing .env files via insecure channels and provides a professional solution for environment variable management across development teams.
