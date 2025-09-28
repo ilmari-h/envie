@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { GoogleAnalytics } from '@next/third-parties/google'
+import Header from './components/header'
+import Footer from './components/footer'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -29,9 +31,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <Header />
+        <main className="flex-1 min-h-[calc(100vh-140px)]">
+          {children}
+        </main>
+        <Footer />
+      </body>
       <GoogleAnalytics gaId="AW-16519815193" />
-
     </html>
   )
 }
