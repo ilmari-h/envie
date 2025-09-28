@@ -21,10 +21,10 @@ const TERMINAL_CONTENTS: Record<TabType, Line[]> = {
   secure: [
   { content: "Migrate your .env file to an envie Environment", isComment: true },
   { content: "envie environment create org:project:staging --file .env", typing: true },
-  { content: " " },
+  { content: " ", delay: 100 },
   { content: "Update a variable", isComment: true },
   { content: "envie set org:project:staging API_KEY=1234567890", typing: true },
-  { content: " " },
+  { content: " ", delay: 100 },
   { content: "Show your environment", isComment: true },
   { content: "envie environment show org:project:staging", typing: true },
   { content: `
@@ -46,10 +46,10 @@ $ next dev --port 3000
   organize: [
     { content: "Group related variables together in a group", isComment: true },
     { content: "envie variable-group create org oauth OAUTH_SECRET=123 CLIENT_ID=456", typing: true },
-    { content: " " },
+    { content: " ", delay: 100 },
     { content: "Add the group to an environment", isComment: true },
     { content: "envie environment add-group org:project:staging org:group:oauth", typing: true },
-    { content: " " },
+    { content: " ", delay: 100 },
     { content: "See your neatly organized environment", isComment: true },
     { content: "envie environment show org:project:staging", typing: true },
     { content: `
@@ -66,6 +66,7 @@ $ next dev --port 3000
 │ OAUTH_SECRET=<encrypted>
 │ APP_ID=<encrypted>
 ╰──────────────────────────────────────────`,  },
+    { content: "", blink: true, },
   ],
   audit: [
     { content: "See who modified your environment and when", isComment: true },
@@ -84,9 +85,10 @@ v1 Aug 10, 2025, 08:42 AM by john
 ────────────────────────────────────────────────────────────
 Total versions: 10
 `,  },
-    { content: " ", },
+    { content: " ", delay: 100 },
     { content: "Rollback to a previous version", isComment: true },
     { content: "envie environment rollback org:project:staging 6", typing: true },
+    { content: "", blink: true, },
   ],
   collaborate: [
     { content: "Create an invite link for your team", isComment: true },
@@ -95,10 +97,10 @@ Total versions: 10
 Invite created! Anyone with this link can join the organization:
 https://web.envie.cloud/invite?inviteId=32d294ulux2gi4ef2p4g3s
 ` },
-    { content: " " },
+    { content: " ", delay: 100 },
     { content: "Grant access to your environment", isComment: true },
     { content: "envie environment set-access my-organization:web-app:staging john --write", typing: true },
-    { content: " " },
+    { content: " ", delay: 100 },
     { content: "See who can access your environment", isComment: true },
     { content: "envie environment list-access my-organization:web-app:staging", typing: true },
     { content: `
@@ -108,6 +110,7 @@ robert    user  github:12345678  ✓
 amy       user  github:abcdefgh  ✗
 john      user  github:87654321  ✓
 `,  },
+    { content: "", blink: true, },
   ],
 };
 

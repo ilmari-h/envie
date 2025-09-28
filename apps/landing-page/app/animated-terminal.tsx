@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface Line {
   content: string;
   typing?: boolean;
   isComment?: boolean;
+  blink?: boolean;
+  delay?: number;
 }
 
 interface AnimatedTerminalProps {
@@ -66,7 +68,7 @@ export function useAnimatedTerminal({
       const timer = setTimeout(() => {
         setCurrentLineIndex(prev => prev + 1);
         setCurrentCharIndex(0);
-      }, delayBetweenLines);
+      }, currentLine.delay ?? delayBetweenLines );
 
       return () => clearTimeout(timer);
     }
@@ -85,9 +87,18 @@ export default function AnimatedTerminal({
     delayBetweenLines, 
     typingSpeed 
   });
+  
+  const terminalContentRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new content is added
+  useEffect(() => {
+    if (terminalContentRef.current) {
+      terminalContentRef.current.scrollTop = terminalContentRef.current.scrollHeight;
+    }
+  }, [displayedLines, isTyping]);
 
   return (
-    <div className="bg-neutral-900/60 border border-accent-500/30 rounded-lg p-3 font-mono text-sm">
+    <div className="bg-neutral-900/60 border border-accent-500/30 rounded-lg p-3 font-mono text-sm h-[300px] flex flex-col">
       <div className="flex items-center mb-4">
         <div className="flex space-x-1">
           <div className="w-[10px] h-[10px] bg-red-500 rounded-full"></div>
@@ -95,27 +106,38 @@ export default function AnimatedTerminal({
           <div className="w-[10px] h-[10px] bg-accent-500 rounded-full"></div>
         </div>
       </div>
-      <div className="space-y-1">
-        {displayedLines.map((line, index) => (
-          <div key={index}>
-            {line.split('\n').map((subLine, subIndex) => (
-              <div key={`${index}-${subIndex}`} className="flex">
-                {displayedLines.length > index && lines[index]?.typing && subIndex === 0 && (
-                  <span className="text-accent-300 mr-2">%</span>
-                )}
-                {displayedLines.length > index && lines[index]?.isComment && subIndex === 0 && (
-                  <span className="text-neutral-500 mr-1">#</span>
-                )}
+      <div 
+        ref={terminalContentRef}
+        className="flex-1 overflow-y-auto terminal-scrollbar"
+      >
+        <div className="space-y-1 min-h-full flex flex-col justify-end">
+          {displayedLines.map((line, index) => (
+            <div key={index}>
+              {line.split('\n').map((subLine, subIndex) => (
+                <div key={`${index}-${subIndex}`} className="flex">
+                  {displayedLines.length > index && lines[index]?.typing && subIndex === 0 && (
+                    <span className="text-accent-300 mr-2">%</span>
+                  )}
+                  {displayedLines.length > index && lines[index]?.isComment && subIndex === 0 && (
+                    <span className="text-neutral-500 mr-1">#</span>
+                  )}
                 <span className={`whitespace-pre ${displayedLines.length > index && lines[index]?.isComment ? 'text-neutral-500' : 'text-neutral-100'}`}>
                   {subLine}
                 </span>
                 {isTyping && index === displayedLines.length - 1 && subIndex === line.split('\n').length - 1 && (
                   <span className="animate-pulse text-accent-400 ml-1">|</span>
                 )}
-              </div>
-            ))}
-          </div>
-        ))}
+                {displayedLines.length > index && lines[index]?.blink && subIndex === line.split('\n').length - 1 && (
+                  <>
+                    <span className="text-accent-300 mr-2">%</span>
+                    <span className="animate-pulse text-accent-400">|</span>
+                  </>
+                )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
