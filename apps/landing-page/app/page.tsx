@@ -134,7 +134,7 @@ export default function HomePage() {
         <nav className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
               <Image src="/logo.png" alt="Envie" width={20} height={20} className="text-black" />
-            <span className="text-base font-bold text-logo bg-clip-text text-transparent ml-[1px] italic">
+            <span className="text-base font-bold text-logo bg-clip-text ml-[1px] italic">
               nvie
             </span>
           </div>
@@ -225,8 +225,8 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-lg md:text-xl font-bold mb-2">
-              Switch between environments with one command<br/>
-              <span className="bg-gradient-to-r from-accent-400 to-accent-600 bg-clip-text text-lg md:text-xl text-transparent">Manage and organize your API keys, credentials and secrets.</span>
+              From messy .env files to organized, auditable environments<br/>
+              <span className="bg-gradient-to-r from-accent-400 to-accent-600 bg-clip-text text-lg md:text-xl text-transparent">Execute securely, organize with groups, track changes, collaborate.</span>
             </h2>
           </div>
           
@@ -304,7 +304,7 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-2 md:mb-0">
                 <Image src="/logo.png" alt="Envie" width={20} height={20} className="text-black" />
-              <span className="text-base font-bold text-logo bg-clip-text text-transparent ml-[1px] italic">
+              <span className="text-base font-bold text-logo bg-clip-text ml-[1px] italic">
                 nvie
               </span>
             </div>
