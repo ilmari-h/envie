@@ -10,7 +10,7 @@ interface GitHubRelease {
 async function getLatestRelease(): Promise<GitHubRelease | null> {
   try {
     const response = await fetch('https://api.github.com/repos/ilmari-h/envie/releases/latest', {
-      next: { revalidate: 3600 } // Revalidate every hour
+      next: { revalidate: 300 } // Revalidate every 5 minutes
     });
     
     if (!response.ok) {

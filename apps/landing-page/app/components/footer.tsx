@@ -22,9 +22,9 @@ export default function Footer() {
               support@envie.cloud
             </a>
             <span className="text-neutral-600">•</span>
-            <span className="text-neutral-500 text-xs">
-              Made with ❤️ for developers
-            </span>
+            <Link href="/changelog" className="text-neutral-500 hover:text-accent-400 transition-colors text-xs">
+              Changelog
+            </Link>
           </div>
         </div>
       </div>
