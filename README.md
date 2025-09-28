@@ -1,6 +1,6 @@
 <div align="center">
 
-# Envie
+<img src="./logo.png" alt="Envie" width="120">
 
 *Keep your secrets and environment variables secure and organized.*
 
