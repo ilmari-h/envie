@@ -98,7 +98,7 @@ export default function AnimatedTerminal({
   }, [displayedLines, isTyping]);
 
   return (
-    <div className="bg-neutral-900/60 border border-accent-500/30 rounded-lg p-3 font-mono text-sm h-[300px] flex flex-col">
+    <div className="bg-neutral-900/60 border border-accent-500/30 rounded-lg p-3 font-mono text-sm h-[380px] flex flex-col">
       <div className="flex items-center mb-4">
         <div className="flex space-x-1">
           <div className="w-[10px] h-[10px] bg-red-500 rounded-full"></div>

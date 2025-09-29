@@ -2,6 +2,7 @@ import { RootCommand, BaseOptions } from './root';
 import { getEnvironment } from './utils/get-environment';
 import { spawn } from 'child_process';
 import { environmentCompletions } from '../utils/completions';
+import { EnvironmentPath } from './utils/environment-path';
 
 const rootCmd = new RootCommand();
 export const execCommand = rootCmd.createCommand<BaseOptions>('exec')
@@ -14,7 +15,7 @@ export const execCommand = rootCmd.createCommand<BaseOptions>('exec')
     
     try {
       // Get and decrypt the environment
-      const { decryptedContent: envVars } = await getEnvironment(path, true);
+      const { decryptedContent: envVars } = await getEnvironment({ path: new EnvironmentPath(path) }, true);
       
       if (!envVars) {
         console.error('Failed to decrypt environment content');
