@@ -1,0 +1,38 @@
+name: Build Dependencies and Type Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'bun.lock'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'bun.lock'
+  workflow_dispatch:
+
+jobs:
+  build-and-typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Build dependencies
+      run: bun run build
+
+    - name: Type check all apps
+      run: bun run check-types
