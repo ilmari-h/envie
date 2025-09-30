@@ -67,9 +67,10 @@ function createConnectedBox(title: string, content: string[], colorFn: typeof ch
   return lines;
 }
 
-function formatVariableForDisplay(key: string, value: string, decrypted: boolean): string {
+function formatVariableForDisplay(key: string, value: string, decrypted: boolean, isOverridden?: boolean, isOverriding?: boolean): string {
   if (!decrypted) {
-    return key + '=' + '<encrypted>';
+    const keyDisplay = isOverridden ? chalk.strikethrough(key) : key;
+    return keyDisplay + '=' + '<encrypted>';
   }
   
   // Color coding for different types of values
@@ -84,7 +85,14 @@ function formatVariableForDisplay(key: string, value: string, decrypted: boolean
     coloredValue = chalk.green(value);
   }
   
-  return key + '=' + coloredValue;
+  // Apply strikethrough for overridden variables
+  const keyDisplay = isOverridden ? chalk.strikethrough(key) : key;
+  const valueDisplay = isOverridden ? chalk.strikethrough(coloredValue) : coloredValue;
+  
+  // Add override label for variables that override group variables
+  const overrideLabel = isOverriding ? ' ' + chalk.magenta.bold('override') : '';
+  
+  return keyDisplay + '=' + valueDisplay + overrideLabel;
 }
 
 function detectConflicts(variableGroups: VariableGroup[], environmentVars: Record<string, string>, environmentName: string): Record<string, string[]> {
@@ -119,10 +127,35 @@ function detectConflicts(variableGroups: VariableGroup[], environmentVars: Recor
   return conflicts;
 }
 
+function detectOverrides(variableGroups: VariableGroup[], environmentVars: Record<string, string>): {
+  overriddenKeys: Set<string>;
+  overridingKeys: Set<string>;
+} {
+  const overriddenKeys = new Set<string>();
+  const overridingKeys = new Set<string>();
+  
+  // Find keys that exist in both environment and variable groups
+  const environmentKeys = new Set(Object.keys(environmentVars));
+  
+  variableGroups.forEach(group => {
+    Object.keys(group.content).forEach(key => {
+      if (environmentKeys.has(key)) {
+        overriddenKeys.add(key);
+        overridingKeys.add(key);
+      }
+    });
+  });
+  
+  return { overriddenKeys, overridingKeys };
+}
+
 export function printEnvironment(options: EnvironmentPrintOptions): void {
   const { decrypted, variableGroups = [], environmentVars, environmentName } = options;
   
   console.log(); // Empty line for spacing
+  
+  // Detect override relationships
+  const { overriddenKeys, overridingKeys } = detectOverrides(variableGroups, environmentVars);
   
   // Collect all sections to display
   const sections: Array<{ title: string, content: string[], colorFn: typeof chalk.cyan }> = [];
@@ -131,7 +164,7 @@ export function printEnvironment(options: EnvironmentPrintOptions): void {
   const envVarEntries = Object.entries(environmentVars);
   if (envVarEntries.length > 0) {
     const content = envVarEntries.map(([key, value]) =>
-      formatVariableForDisplay(key, value, decrypted)
+      formatVariableForDisplay(key, value, decrypted, false, overridingKeys.has(key))
     );
     
     sections.push({
@@ -145,7 +178,7 @@ export function printEnvironment(options: EnvironmentPrintOptions): void {
   variableGroups.forEach((group, index) => {
     const colorFn = GROUP_COLORS[index % GROUP_COLORS.length];
     const content = Object.entries(group.content).map(([key, value]) =>
-      formatVariableForDisplay(key, value, decrypted)
+      formatVariableForDisplay(key, value, decrypted, overriddenKeys.has(key), false)
     );
     
     if (content.length === 0) {

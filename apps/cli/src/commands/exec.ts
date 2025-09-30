@@ -15,16 +15,29 @@ export const execCommand = rootCmd.createCommand<BaseOptions>('exec')
     
     try {
       // Get and decrypt the environment
-      const { decryptedContent: envVars } = await getEnvironment({ path: new EnvironmentPath(path) }, true);
+      const { version, decryptedContent: envVars } = await getEnvironment({ path: new EnvironmentPath(path) }, true);
       
       if (!envVars) {
         console.error('Failed to decrypt environment content');
         process.exit(1);
       }
-        
+      
+      // Process variable groups and merge with environment variables
+      const allVariables: Record<string, string> = {};
+      
+      // First, add variables from all variable groups
+      for (const vg of version.variableGroups ?? []) {
+        const { decryptedContent: groupVars } = await getEnvironment({ environmentId: vg.environmentId }, true);
+        if (groupVars) {
+          Object.assign(allVariables, groupVars);
+        }
+      }
+      
+      // Then, add environment variables (these take precedence over group variables)
+      Object.assign(allVariables, envVars);
       
       // Prepare environment for child process
-      const childEnv = { ...process.env, ...envVars };
+      const childEnv = { ...process.env, ...allVariables };
       
       // Determine what command to run
       let command: string;
@@ -41,7 +54,10 @@ export const execCommand = rootCmd.createCommand<BaseOptions>('exec')
       
       if (opts.verbose) {
         console.log(`Running command: ${command} ${args.join(' ')}`);
-        console.log(`Environment variables loaded: ${Object.keys(envVars).join(', ')}`);
+        console.log(`Environment variables loaded: ${Object.keys(allVariables).join(', ')}`);
+        if (version.variableGroups && version.variableGroups.length > 0) {
+          console.log(`Variable groups included: ${version.variableGroups.map(vg => vg.name).join(', ')}`);
+        }
       }
       
       // Spawn the command with environment variables

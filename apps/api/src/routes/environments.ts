@@ -379,9 +379,7 @@ export const updateEnvironmentContent = async ({
     };
   }
   
-  // Check if the keys are a part of any variable group for the current version.
-  // If so, we cannot update the content. User must update the variable group instead.
-
+  // Get the latest version of the environment
   const latestVersionOfEnvironment = await db.query.environmentVersions.findFirst({
     where: eq(Schema.environmentVersions.environmentId, environment.id),
     orderBy: desc(Schema.environmentVersions.createdAt),
@@ -416,38 +414,7 @@ export const updateEnvironmentContent = async ({
     });
 
     variableGroupIds = variableGroups.map(vg => vg.variableGroupId);
-
-    const addedKeys = content.keys
-      .filter(key => !latestVersionOfEnvironment.keys.some(k => k.key === key))
-    
-    for (const variableGroup of variableGroups) {
-      const variableGroupEnvironment = variableGroup.variableGroup.environment;
-      const variableGroupEnvironmentVersion = await db.query.environmentVersions.findFirst({
-        where: eq(Schema.environmentVersions.environmentId, variableGroupEnvironment.id),
-        orderBy: desc(Schema.environmentVersions.createdAt),
-        with: {
-          keys: true
-        }
-      });
-      if (!variableGroupEnvironmentVersion) {
-        return {
-          status: 500 as const,
-          body: { message: 'Latest version of variable group environment not found' }
-        };
-      }
-      const conflictingKey = variableGroupEnvironmentVersion.keys.find(key => addedKeys.includes(key.key));
-      if (conflictingKey && !rollbackToVersionId) {
-        return {
-          status: 400 as const,
-          body: {
-            message: `The provided key '${conflictingKey.key}' is part of the variable group '${variableGroupEnvironment.name}'. Update the variable group instead.`
-          }
-        };
-      }
-    }
   }
-
-  // No conflicts for provided keys in the variable groups.
 
   // Update content in transaction
   const updatedVersion = await db.transaction(async (tx) => {
