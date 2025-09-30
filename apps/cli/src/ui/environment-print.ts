@@ -70,7 +70,8 @@ function createConnectedBox(title: string, content: string[], colorFn: typeof ch
 function formatVariableForDisplay(key: string, value: string, decrypted: boolean, isOverridden?: boolean, isOverriding?: boolean): string {
   if (!decrypted) {
     const keyDisplay = isOverridden ? chalk.strikethrough(key) : key;
-    return keyDisplay + '=' + '<encrypted>';
+    const overwriteLabel = isOverriding ? ' ' + chalk.magenta.bold('overwrite') : '';
+    return keyDisplay + '=' + '<encrypted>' + overwriteLabel;
   }
   
   // Color coding for different types of values
@@ -89,10 +90,10 @@ function formatVariableForDisplay(key: string, value: string, decrypted: boolean
   const keyDisplay = isOverridden ? chalk.strikethrough(key) : key;
   const valueDisplay = isOverridden ? chalk.strikethrough(coloredValue) : coloredValue;
   
-  // Add override label for variables that override group variables
-  const overrideLabel = isOverriding ? ' ' + chalk.magenta.bold('override') : '';
+  // Add overwrite label for variables that overwrite group variables
+  const overwriteLabel = isOverriding ? ' ' + chalk.magenta.bold('overwrite') : '';
   
-  return keyDisplay + '=' + valueDisplay + overrideLabel;
+  return keyDisplay + '=' + valueDisplay + overwriteLabel;
 }
 
 function detectConflicts(variableGroups: VariableGroup[], environmentVars: Record<string, string>, environmentName: string): Record<string, string[]> {
@@ -130,23 +131,30 @@ function detectConflicts(variableGroups: VariableGroup[], environmentVars: Recor
 function detectOverrides(variableGroups: VariableGroup[], environmentVars: Record<string, string>): {
   overriddenKeys: Set<string>;
   overridingKeys: Set<string>;
+  groupsWithOverriddenKeys: Map<string, Set<string>>;
 } {
   const overriddenKeys = new Set<string>();
   const overridingKeys = new Set<string>();
+  const groupsWithOverriddenKeys = new Map<string, Set<string>>();
   
   // Find keys that exist in both environment and variable groups
   const environmentKeys = new Set(Object.keys(environmentVars));
   
   variableGroups.forEach(group => {
+    const overriddenInThisGroup = new Set<string>();
     Object.keys(group.content).forEach(key => {
       if (environmentKeys.has(key)) {
         overriddenKeys.add(key);
         overridingKeys.add(key);
+        overriddenInThisGroup.add(key);
       }
     });
+    if (overriddenInThisGroup.size > 0) {
+      groupsWithOverriddenKeys.set(group.name, overriddenInThisGroup);
+    }
   });
   
-  return { overriddenKeys, overridingKeys };
+  return { overriddenKeys, overridingKeys, groupsWithOverriddenKeys };
 }
 
 export function printEnvironment(options: EnvironmentPrintOptions): void {
@@ -155,7 +163,7 @@ export function printEnvironment(options: EnvironmentPrintOptions): void {
   console.log(); // Empty line for spacing
   
   // Detect override relationships
-  const { overriddenKeys, overridingKeys } = detectOverrides(variableGroups, environmentVars);
+  const { overriddenKeys, overridingKeys, groupsWithOverriddenKeys } = detectOverrides(variableGroups, environmentVars);
   
   // Collect all sections to display
   const sections: Array<{ title: string, content: string[], colorFn: typeof chalk.cyan }> = [];
@@ -177,8 +185,9 @@ export function printEnvironment(options: EnvironmentPrintOptions): void {
   // Add variable groups after environment variables
   variableGroups.forEach((group, index) => {
     const colorFn = GROUP_COLORS[index % GROUP_COLORS.length];
+    const overriddenInThisGroup = groupsWithOverriddenKeys.get(group.name) || new Set<string>();
     const content = Object.entries(group.content).map(([key, value]) =>
-      formatVariableForDisplay(key, value, decrypted, overriddenKeys.has(key), false)
+      formatVariableForDisplay(key, value, decrypted, overriddenInThisGroup.has(key), false)
     );
     
     if (content.length === 0) {
@@ -208,7 +217,7 @@ export function printEnvironment(options: EnvironmentPrintOptions): void {
   // Check for conflicts and display warning
   const conflicts = detectConflicts(variableGroups, environmentVars, environmentName);
   if (Object.keys(conflicts).length > 0) {
-    console.log(chalk.yellow.bold('Warning: duplicate keys:'));
+    console.log(chalk.yellow.bold('Duplicate keys:'));
     Object.entries(conflicts).forEach(([key, sources]) => {
       const sourceList = sources.join(', ');
       console.log(chalk.yellow(`${key} (${sourceList})`));
