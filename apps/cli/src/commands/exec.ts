@@ -15,12 +15,8 @@ export const execCommand = rootCmd.createCommand<BaseOptions>('exec')
     
     try {
       // Get and decrypt the environment
-      const { version, decryptedContent: envVars } = await getEnvironment({ path: new EnvironmentPath(path) }, true);
-      
-      if (!envVars) {
-        console.error('Failed to decrypt environment content');
-        process.exit(1);
-      }
+      const { version, decryptedContent } = await getEnvironment({ path: new EnvironmentPath(path) }, true);
+      const envVars = decryptedContent ?? {};
       
       // Process variable groups and merge with environment variables
       const allVariables: Record<string, string> = {};
