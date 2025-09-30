@@ -20,6 +20,14 @@ on:
 jobs:
   build-and-typecheck:
     runs-on: ubuntu-latest
+    env:
+      API_URL: "http://localhost:3000"
+      APP_URL: "http://localhost:3001"
+      STRIPE_SECRET_KEY: "sk_test_mock_key"
+      STRIPE_TEAM_PRICE_ID: "price_mock_id"
+      JWT_SECRET: "mock_jwt_secret_for_ci"
+      DATABASE_URL: "postgresql://mock:mock@localhost:5432/mock"
+      NEXT_PUBLIC_API_URL: "http://localhost:3000"
 
     steps:
     - name: Checkout repository
