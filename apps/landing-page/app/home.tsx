@@ -178,21 +178,21 @@ export default function Home({ latestRelease }: HomeProps) {
             <p className="text-xs text-neutral-500 mb-2">Install with npm:</p>
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-accent-500 to-accent-600 rounded-lg blur opacity-15 group-hover:opacity-25 transition-opacity"></div>
-              <div className="relative bg-neutral-900 border border-accent-500/30 rounded-lg p-2 flex items-center justify-between">
+              <button
+                onClick={copyInstallCommand}
+                className="relative w-full bg-neutral-900 border border-accent-500/30 rounded-lg p-2 flex items-center justify-between hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
                 <code className="text-accent-300 font-mono text-sm flex-1 text-center">
                   npm install -g @envie/cli
                 </code>
-                <button
-                  onClick={copyInstallCommand}
-                  className="ml-2 p-1 hover:bg-accent-500/20 rounded transition-colors"
-                >
+                <div className="ml-2 p-1">
                   {copied ? (
                     <Check className="w-3 h-3 text-accent-400" />
                   ) : (
-                    <Copy className="w-3 h-3 text-neutral-500 hover:text-accent-400" />
+                    <Copy className="w-3 h-3 text-neutral-500" />
                   )}
-                </button>
-              </div>
+                </div>
+              </button>
             </div>
           </div>
 
