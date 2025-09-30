@@ -16,6 +16,7 @@ on:
       - 'package.json'
       - 'bun.lock'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build-and-typecheck:
