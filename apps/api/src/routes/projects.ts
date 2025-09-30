@@ -38,7 +38,7 @@ export const getProjects = async ({ req, query }:
 
   let organizationsUserBelongsTo: Organization[] = [];
   if(query.organization) {
-    const organization = await getOrganization(query.organization, {
+    const organization = await getOrganization({ path: query.organization }, {
       requester: req.requester
     });
     if (!organization) {
@@ -93,7 +93,7 @@ export const createProject = async ({
     };
   }
 
-  const organization = await getOrganization(organizationIdOrName, {
+  const organization = await getOrganization({ path: organizationIdOrName }, {
     requester: req.requester,
     createProjects: true
   });
