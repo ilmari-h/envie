@@ -133,7 +133,7 @@ variableGroupCommand
     
     try {
       // Get environment data (variable group content)
-      const { version, decryptedContent, environment } = await getEnvironment({ path }, opts.unsafeDecrypt ?? false);
+      const { version, decryptedContent, environment } = await getEnvironment({ path: new EnvironmentPath(path) }, opts.unsafeDecrypt ?? false);
 
       // Create environment variables object (non-grouped variables)
       const environmentVars: Record<string, string> = {};
