@@ -1,11 +1,19 @@
 import { readFileSync } from 'fs';
-import { edwardsToMontgomeryPub } from '@noble/curves/ed25519';
+import { ed25519, edwardsToMontgomeryPub } from '@noble/curves/ed25519';
 import sshpk from 'sshpk';
-import { getKeypairPath } from './config';
+import { getToken } from './tokens';
+import { getInstanceUrl, getKeypairPath } from './config';
+import { AccessToken } from '../crypto/access-token';
 
 export interface Ed25519KeyPair {
   publicKey: Uint8Array;
   privateKey: Uint8Array;
+}
+
+export function newRandomEd25519KeyPair(): Ed25519KeyPair {
+  const privateKey = ed25519.utils.randomPrivateKey();
+  const publicKey = ed25519.getPublicKey(privateKey);
+  return { privateKey, publicKey };
 }
 
 export function readEd25519KeyPair(filePath: string): Ed25519KeyPair {
@@ -83,7 +91,20 @@ export function ed25519PublicKeyToX25519(ed25519PublicKey: Uint8Array): string {
 }
 
 
-export const getUserPrivateKey = async () => {
+export const getCurrentSessionKeypair = async () => {
+
+  // If we have an access token, get the contained keypair
+  const accessTokenValue = process.env.ENVIE_ACCESS_TOKEN;
+  if (accessTokenValue) {
+    try {
+      const accessToken = AccessToken.fromString(accessTokenValue);
+      return accessToken.getKeypair();
+    } catch (error) {
+      throw new Error('Found ENVIE_ACCESS_TOKEN but the format is invalid. Please double check your access token');
+    }
+  }
+
+  // No access token, get keypair from filesystem
   const keypairPath = getKeypairPath();
   if (!keypairPath) {
     return null;

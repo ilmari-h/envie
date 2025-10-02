@@ -168,13 +168,12 @@ export async function createEnvironmentHelper(
         fs.writeFileSync(opts.secretKeyFile, `${dekBase64}\n`, 'utf-8');
         console.log(
           `Backup secret key written to ${opts.secretKeyFile}.\n`
-          + chalk.red("STORE IT SOMEWHERE SAFE!\n")
-          + `It can be used to decrypt this ${params.environmentType.type}'s content without your keypair.`);
+          + `It can be used to recover this ${params.environmentType.type}'s content if you ever lose your keypair.`);
       } else {
         console.log(
           `Backup secret key: ${dekBase64}\n`
           + chalk.red("STORE IT SOMEWHERE SAFE!\n")
-          + `It can be used to decrypt this ${params.environmentType.type}'s content without your keypair.`);
+          + `It can be used to recover this ${params.environmentType.type}'s content if you ever lose your keypair.`);
       }
 
       return { dekBase64 };

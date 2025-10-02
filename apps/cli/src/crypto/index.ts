@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { decryptContent, encryptContent, EncryptedContent, encryptWithKeyExchangeX25519, unwrapKeyX25519, wrapKeyX25519, WrappedKeyX25519 } from "./utils";
-import { Ed25519KeyPair, ed25519PublicKeyToX25519, getUserPrivateKey } from "../utils/keypair";
+import { Ed25519KeyPair, ed25519PublicKeyToX25519, getCurrentSessionKeypair } from "../utils/keypair";
 import { ed25519 } from "@noble/curves/ed25519";
 
 export class DataEncryptionKey {
@@ -82,7 +82,7 @@ export class UserKeyPair {
 
   public static async getInstance(): Promise<UserKeyPair> {
     if (!UserKeyPair.#instance) {
-      const keyPair = await getUserPrivateKey();
+      const keyPair = await getCurrentSessionKeypair();
       if (!keyPair) {
         throw new Error('No key pair found, please set one using "envie config keypair <path>"');
       }
