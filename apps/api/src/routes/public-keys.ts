@@ -55,6 +55,14 @@ export const getPublicKeys = async ({
 export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract.publicKeys.setPublicKey> }) => {
   const { publicKey: { valueBase64: publicKey, algorithm, name }, existingEnvironmentAccessForNewKey } = req.body;
 
+  if(!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Cannot set public key for access token' }
+    }
+  }
+  const userId = req.requester.userId;
+
   if(algorithm !== 'ed25519') {
     return {
       status: 400 as const,
@@ -88,131 +96,79 @@ export const setPublicKey = async ({ req }: { req: TsRestRequest<typeof contract
     }
   }
 
-  // For users
-  if(isUserRequester(req.requester)) {
-    const userId = req.requester.userId;
-
-    // Check if the public key is already set
-    const user = await getUserByNameOrId(userId);
-    if ((user?.userPublicKeys.length ?? 0) >= MAX_USER_PUBLIC_KEYS) {
-      return {
-        status: 400 as const,
-        body: { message: `Maximum number of public keys (${MAX_USER_PUBLIC_KEYS}) reached` }
-      }
+  // Check if the public key is already set
+  const user = await getUserByNameOrId(userId);
+  if ((user?.userPublicKeys.length ?? 0) >= MAX_USER_PUBLIC_KEYS) {
+    return {
+      status: 400 as const,
+      body: { message: `Maximum number of public keys (${MAX_USER_PUBLIC_KEYS}) reached` }
     }
+  }
 
-    // Check if there are existing environment access entries
-    const existingEnvironmentAccess = await db.query.environmentAccess.findMany({
-      where: eq(Schema.environmentAccess.userId, userId)
-    });
-    if (existingEnvironmentAccess.length > 0
-      && existingEnvironmentAccessForNewKey?.length !== existingEnvironmentAccess.length) {
-        if(!existingEnvironmentAccessForNewKey?.length) {
-          return {
-            status: 400 as const,
-            body: { message: 'Missing new decryption data' }
-          }
-        }
-
+  // Check if there are existing environment access entries
+  const existingEnvironmentAccess = await db.query.environmentAccess.findMany({
+    where: eq(Schema.environmentAccess.userId, userId)
+  });
+  if (existingEnvironmentAccess.length > 0
+    && existingEnvironmentAccessForNewKey?.length !== existingEnvironmentAccess.length) {
+      if(!existingEnvironmentAccessForNewKey?.length) {
         return {
           status: 400 as const,
-          body: { message: `Provided ${existingEnvironmentAccessForNewKey?.length} decryption data, but ${existingEnvironmentAccess.length} required` }
+          body: { message: 'Missing new decryption data' }
         }
-    }
-
-    // Create new public key
-    await db.transaction(async (tx) => {
-       await tx.insert(Schema.publicKeys).values({
-        id: publicKey,
-        name,
-        algorithm: 'ed25519',
-        content: pubKeyBytes
-      }).onConflictDoNothing()
-
-      await tx.insert(Schema.userPublicKeys).values({
-        userId,
-        publicKeyId: publicKey
-      }).onConflictDoNothing();
-    });
-
-    // Add decryption data for existing environment access entries
-    if (existingEnvironmentAccessForNewKey?.length) {
-      // Find environment access IDs by userId and environment IDs
-      const environmentAccessIds = await db.query.environmentAccess.findMany({
-        where: eq(Schema.environmentAccess.userId, userId),
-        columns: { id: true, environmentId: true }
-      });
-
-      // Create mapping of environmentId to access ID
-      const envIdToAccessId = new Map(
-        environmentAccessIds.map(ea => [ea.environmentId, ea.id])
-      );
-
-      // Prepare bulk insert data for environmentDecryptionData
-      const decryptionDataToInsert = existingEnvironmentAccessForNewKey.map(data => {
-        const accessId = envIdToAccessId.get(data.environmentId);
-        if (!accessId) {
-          throw new Error(`No environment access found for environment ${data.environmentId}`);
-        }
-        
-        return {
-          environmentAccessId: accessId,
-          publicKeyId: publicKey,
-          ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
-          encryptedSymmetricKey: Buffer.from(data.encryptedSymmetricKey, 'base64')
-        };
-      });
-
-      // Bulk insert decryption data
-      await db.insert(Schema.environmentDecryptionData).values(decryptionDataToInsert);
-    }
-
-  // For access tokens
-  } else {
-    const accessTokenId = req.requester.accessTokenId;
-
-    // Check if the public key is already set
-    const existingAccessToken = await db.query.accessTokens.findFirst({
-      where: eq(Schema.accessTokens.id, accessTokenId),
-      with: {
-        publicKey: true
       }
-    });
-    if(!existingAccessToken) {
+
       return {
         status: 400 as const,
-        body: { message: 'Access token not found' }
+        body: { message: `Provided ${existingEnvironmentAccessForNewKey?.length} decryption data, but ${existingEnvironmentAccess.length} required` }
       }
-    }
+  }
 
-    // Check if it's the same key
-    if (Buffer.compare(existingAccessToken.publicKey.content, pubKeyBytes) === 0) {
-      return {
-        status: 400 as const,
-        body: { message: 'Given public key is the same as the one on record' }
+  // Create new public key
+  await db.transaction(async (tx) => {
+      await tx.insert(Schema.publicKeys).values({
+      id: publicKey,
+      name,
+      algorithm: 'ed25519',
+      content: pubKeyBytes
+    }).onConflictDoNothing()
+
+    await tx.insert(Schema.userPublicKeys).values({
+      userId,
+      publicKeyId: publicKey
+    }).onConflictDoNothing();
+  });
+
+  // Add decryption data for existing environment access entries
+  if (existingEnvironmentAccessForNewKey?.length) {
+    // Find environment access IDs by userId and environment IDs
+    const environmentAccessIds = await db.query.environmentAccess.findMany({
+      where: eq(Schema.environmentAccess.userId, userId),
+      columns: { id: true, environmentId: true }
+    });
+
+    // Create mapping of environmentId to access ID
+    const envIdToAccessId = new Map(
+      environmentAccessIds.map(ea => [ea.environmentId, ea.id])
+    );
+
+    // Prepare bulk insert data for environmentDecryptionData
+    const decryptionDataToInsert = existingEnvironmentAccessForNewKey.map(data => {
+      const accessId = envIdToAccessId.get(data.environmentId);
+      if (!accessId) {
+        throw new Error(`No environment access found for environment ${data.environmentId}`);
       }
-    }
-    await db.transaction(async (tx) => {
-      // Create new public key
-       await tx.insert(Schema.publicKeys).values({
-        id: publicKey,
-        name,
-        algorithm: 'ed25519',
-        content: pubKeyBytes
-      }).onConflictDoNothing()
       
-      // Remove old public key
-      await tx.delete(Schema.publicKeys).where(eq(Schema.publicKeys.id, existingAccessToken.publicKey.id));
-
-      // Set public key
-      await tx.update(Schema.accessTokens).set({
-        publicKeyId: publicKey
-      }).where(eq(Schema.accessTokens.id, accessTokenId));
-
-      // Delete all environment access entries for old key
-      // TODO: allow resetting with new decryption data
-      await tx.delete(Schema.environmentAccess).where(eq(Schema.environmentAccess.accessTokenId, accessTokenId));
+      return {
+        environmentAccessId: accessId,
+        publicKeyId: publicKey,
+        ephemeralPublicKey: Buffer.from(data.ephemeralPublicKey, 'base64'),
+        encryptedSymmetricKey: Buffer.from(data.encryptedSymmetricKey, 'base64')
+      };
     });
+
+    // Bulk insert decryption data
+    await db.insert(Schema.environmentDecryptionData).values(decryptionDataToInsert);
   }
 
   return {  

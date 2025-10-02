@@ -52,6 +52,11 @@ keypairCommand
   .argument('<pubkey>', 'Base64-encoded public key (Ed25519, OpenSSH format or just the key)')
   .description('Add a new public key to the server (allows you to use that keypair on this account)')
   .action(async function(pubkey: string) {
+    if (process.env.ENVIE_ACCESS_TOKEN) {
+      console.log('Using access token, cannot add public key');
+      process.exit(1);
+    }
+
     const client = createTsrClient();
     const base64Pubkey = Buffer.from(normalizeEd25519PublicKey(pubkey)).toString('base64');
     const userKeyPair = await UserKeyPair.getInstance();
