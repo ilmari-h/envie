@@ -7,6 +7,7 @@ import { normalizeEd25519PublicKey, readEd25519KeyPair } from '../utils/keypair'
 import { UserKeyPair, Ed25519PublicKey } from '../crypto';
 import { showPublicKeyWarning } from '../ui/public-key-warning';
 import { filepathCompletions } from '../utils/completions';
+import { AccessToken } from '../crypto/access-token';
 
 const rootCmd = new RootCommand();
 export const configCommand = rootCmd.createCommand('config')
@@ -111,6 +112,14 @@ keypairCommand
   .command('show')
   .description('Show the public key of your keypair')
   .action(async function() {
+
+    if (process.env.ENVIE_ACCESS_TOKEN) {
+      console.log('Access token public key:');
+      const accessToken = AccessToken.fromString(process.env.ENVIE_ACCESS_TOKEN);
+      console.log(Buffer.from(accessToken.publicKey).toString('base64'));
+      process.exit(0);
+    }
+
     const opts = this.opts<BaseOptions>();
     const client = createTsrClient();
     const currentPath = getKeypairPath();
@@ -212,6 +221,11 @@ nameCommand
   .command('set <name>')
   .description('Set your display name on the server')
   .action(async function(name: string) {
+    if (process.env.ENVIE_ACCESS_TOKEN) {
+      console.log('Using access token, cannot set display name');
+      process.exit(1);
+    }
+
     const opts = this.opts<BaseOptions>();
     const instanceUrl = getInstanceUrl();
 
@@ -258,6 +272,9 @@ nameCommand
       }
       
       if ('name' in response.body) {
+        if (process.env.ENVIE_ACCESS_TOKEN) {
+          console.log('Access token name:');
+        }
         console.log(response.body.name || 'No name set');
       } else {
         console.log('No name set');

@@ -30,7 +30,11 @@ export function getToken(instanceUrl: string): string | undefined {
   try {
     const content = readFileSync(tokensPath, 'utf-8');
     const tokens: TokenStore = JSON.parse(content);
-    return tokens[instanceUrl];
+    const tokenValue = tokens[instanceUrl];
+    if (!tokenValue) {
+      return undefined;
+    }
+    return tokenValue;
   } catch (error) {
     console.warn('Failed to read tokens file:', error);
     return undefined;

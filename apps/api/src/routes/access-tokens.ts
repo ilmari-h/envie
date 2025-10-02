@@ -55,7 +55,8 @@ export const deleteAccessToken = async ({ req }: { req: TsRestRequest<typeof con
   const { name } = req.params;
 
   // Delete the token if it belongs to the user
-  const result = await db.delete(Schema.accessTokens)
+  return await db.transaction(async (tx) => {
+    const [deletedAccessToken] = await tx.delete(Schema.accessTokens)
     .where(
       and(
         eq(Schema.accessTokens.name, name),
@@ -63,17 +64,23 @@ export const deleteAccessToken = async ({ req }: { req: TsRestRequest<typeof con
       )
     ).returning();
 
-  if (!result.length) {
-    return {
-      status: 404 as const,
-      body: { message: 'Access token not found' }
-    };
-  }
+    if (!deletedAccessToken) {
+      return {
+        status: 404 as const,
+        body: { message: 'Access token not found' }
+      };
+    }
 
-  return {
-    status: 200 as const,
-    body: { message: 'Access token deleted' }
-  };
+    const [deletedPublicKey] = await tx.delete(Schema.publicKeys).where(eq(Schema.publicKeys.id, deletedAccessToken.publicKeyId));
+    if (!deletedPublicKey) {
+      console.error('Public key not found for access token', deletedAccessToken.id);
+    }
+
+    return {
+      status: 200 as const,
+      body: { message: 'Access token deleted' }
+    };
+  });
 };
 
 export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof contract.accessTokens.createAccessToken> }) => {
@@ -115,15 +122,21 @@ export const createAccessToken = async ({ req }: { req: TsRestRequest<typeof con
   // Create access token and public key
   const result = await db.transaction(async (tx) => {
 
-    // Create public key - same name as access token
+    // Create public key
     const publicKeyInsertRows = await tx.insert(Schema.publicKeys).values({
       id: publicKey,
-      name: name,
+      name: `access-token:${name}`,
       content: pubKeyBytes,
       algorithm: 'ed25519' as const
     
       // Allow using same publickey for multiple access tokens
-    }).onConflictDoNothing().returning();
+    }).returning();
+    if (publicKeyInsertRows.length === 0) {
+      return {
+        status: 400 as const,
+        body: { message: 'Could not create public key for access token' }
+      }
+    }
 
     const accessTokenInsertRows = await tx.insert(Schema.accessTokens).values({
       id: nanoid(),

@@ -58,7 +58,7 @@ const s = initServer();
 const redis = createClient({ url: env.REDIS_CONNECTION_STRING });
 await redis.connect();
 
-const getToken = async (req: express.Request) => {
+const getAccessToken = async (req: express.Request) => {
   if (req.cookies[AUTH_COOKIE_NAME]) {
     return req.cookies[AUTH_COOKIE_NAME];
   } else if (req.headers.authorization?.startsWith('Bearer ')) {
@@ -73,7 +73,7 @@ const getApiKey = (req: express.Request) => {
 
 const requireAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   // Try JWT first
-  const loginToken = await getToken(req);
+  const loginToken = await getAccessToken(req);
   if (loginToken) {
     try {
     const decoded = jwt.verify(

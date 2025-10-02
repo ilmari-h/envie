@@ -1,12 +1,12 @@
-import { Command } from 'commander';
 import { createTsrClient } from '../utils/tsr-client';
 import { getInstanceUrl } from '../utils/config';
 import { printTable } from '../ui/table';
 import chalk from 'chalk';
 import { RootCommand, BaseOptions } from './root';
-import { normalizeEd25519PublicKey } from '../utils/keypair';
+import { newRandomEd25519KeyPair } from '../utils/keypair';
 import { confirm } from '../ui/confirm';
 import { tokenCompletions } from '../utils/completions';
+import { AccessToken } from '../crypto/access-token';
 
 type AccessTokenOptions = BaseOptions
 
@@ -93,12 +93,12 @@ accessTokenCommand
   .command('create')
   .description('Create a new access token')
   .argument('<name>', 'Name of the access token')
-  .argument('<public-key>', 'Base64-encoded public key (Ed25519, OpenSSH format or just the key)')
   .option('--expires-at <date>', 'Expiry date in YYYY-MM-DD format')
-  .action(async function(name: string, publicKey: string) {
+  .action(async function(name: string) {
     const opts = this.opts<CreateAccessTokenOptions>();
     const instanceUrl = getInstanceUrl();
-    
+    const newRandomKeyPair = newRandomEd25519KeyPair();
+
     try {
 
       const client = createTsrClient(instanceUrl);
@@ -106,7 +106,7 @@ accessTokenCommand
         body: {
           name,
           publicKey: {
-            valueBase64: Buffer.from(normalizeEd25519PublicKey(publicKey)).toString('base64'),
+            valueBase64: Buffer.from(newRandomKeyPair.publicKey).toString('base64'),
             algorithm: 'ed25519'
           },
           expiresAt: opts.expiresAt
@@ -118,9 +118,11 @@ accessTokenCommand
         process.exit(1);
       }
 
+      const accessToken = new AccessToken(response.body.tokenValue, newRandomKeyPair.privateKey);
+
       console.log(chalk.green(`Access token "${name}" created successfully.`));
       console.log(chalk.green(`Copy the token value and store it securely, it will not be shown again:`));
-      console.log(response.body.tokenValue);
+      console.log(accessToken.toString());
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
       process.exit(1);
