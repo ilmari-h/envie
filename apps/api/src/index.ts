@@ -430,7 +430,7 @@ app.get('/auth/github/callback',
       // Set cookie and redirect to the onboarding page
       res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});
       res.cookie(AUTH_HINT_COOKIE_NAME, JSON.stringify(authHintPayload), {domain: env.APP_DOMAIN, httpOnly: false});
-      res.redirect(`${env.FRONTEND_URL}/new-user/onboarding/organization`);
+      res.redirect(`${env.FRONTEND_URL}/onboarding/project-and-organization`);
     } else {
       // Set cookie and redirect to the dashboard
       res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});

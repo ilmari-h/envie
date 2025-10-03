@@ -40,7 +40,7 @@ export default function Sidebar({user}: {user: User}) {
   };
 
   const handleUpgrade = () => {
-    router.push('/new-user');
+    router.push('/onboarding');
   };
 
   if (!user) {
@@ -107,7 +107,7 @@ export default function Sidebar({user}: {user: User}) {
                   Manage Billing
                 </button>
               ) : (
-                  <Link href="/new-user">
+                  <Link href="/onboarding">
                   <Button 
                     variant="accent"
                     className="w-full mb-3"

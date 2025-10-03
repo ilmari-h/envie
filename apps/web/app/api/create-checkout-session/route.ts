@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       },
 
       success_url: `${env.APP_URL}/api/finish-checkout/{CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.APP_URL}/new-user`,
+      cancel_url: `${env.APP_URL}/onboarding`,
     });
 
     return NextResponse.json({ url: session.url });
