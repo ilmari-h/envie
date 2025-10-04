@@ -87,7 +87,6 @@
         "next": "^15.3.0",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
-        "react-markdown": "^10.1.0",
       },
       "devDependencies": {
         "@repo/eslint-config": "*",
