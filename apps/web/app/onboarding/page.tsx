@@ -70,7 +70,7 @@ export default function NewUserPage() {
           <div className="w-full max-w-4xl mx-auto">
             
             {/* Three column layout: Features | Free | Team */}
-            <div className="grid grid-cols-[200px_1fr] gap-8 md:grid-cols-[200px_1fr] grid-cols-1">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-[200px_1fr]">
               {/* Feature column - just text on background */}
               <div className="hidden md:block">
                 <div className="pt-[52px]">
@@ -88,7 +88,7 @@ export default function NewUserPage() {
               </div>
 
               {/* Plans section */}
-              <div className="grid grid-cols-2 gap-8 md:grid-cols-2 grid-cols-1">
+              <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               {/* Free Plan */}
               <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden relative pb-20">
                 <div className="p-4 bg-neutral-800">
