@@ -3,11 +3,7 @@ import { guidePages } from '../guide-pages';
 import { notFound } from 'next/navigation';
 import { NextPage } from './markdown-content';
 
-interface PageProps {
-  params: {
-    page_title: string;
-  };
-}
+
 
 async function fetchGuideContent(pageTitle: string): Promise<string> {
   const url = `https://raw.githubusercontent.com/ilmari-h/envie/refs/heads/main/docs/${pageTitle}.md`;
@@ -46,8 +42,8 @@ function getNextPage(currentPageTitle: string): NextPage | undefined {
   };
 }
 
-export default async function GuidePage({ params }: PageProps) {
-  const { page_title } = params;
+export default async function GuidePage({ params }: { params: Promise<{ page_title: string }> }) {
+  const { page_title } = await params;
   const markdownContent = await fetchGuideContent(page_title);
   const nextPage = getNextPage(page_title);
   
