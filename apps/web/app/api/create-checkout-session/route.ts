@@ -10,7 +10,7 @@ const stripe = env.STRIPE_SECRET_KEY ? new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-08-27.basil',
 }) : null;
 
-export const createCheckoutSessionSchema = z.object({
+const createCheckoutSessionSchema = z.object({
   quantity: z.number().min(1).optional().default(1),
   organizationName: z.string().min(1),
 });
