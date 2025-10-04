@@ -198,7 +198,7 @@ export default function Home({ latestRelease }: HomeProps) {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
-            <Link href="https://web.envie.cloud/new-user">
+            <Link href="https://web.envie.cloud/onboarding">
               <Button variant="accent" className='min-w-[130px]'>Start Building</Button>
             </Link>
             <div className="w-px h-6 bg-neutral-600 hidden sm:block mx-2"></div>

@@ -17,7 +17,7 @@ export default function Header() {
             <Image src="/github.svg" alt="GitHub" width={16} height={16} className="brightness-0 invert mr-1 opacity-60 group-hover:opacity-100 transition-opacity" style={{filter: 'brightness(0) invert(1) sepia(1) saturate(0) hue-rotate(0deg)'}} />
             <span>Star on GitHub</span>
           </a>
-          <Link href="https://web.envie.cloud/new-user">
+          <Link href="https://web.envie.cloud/onboarding">
             <Button variant="accent">Sign Up</Button>
           </Link>
         </div>

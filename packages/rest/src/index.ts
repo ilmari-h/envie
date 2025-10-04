@@ -217,6 +217,7 @@ const user = c.router({
       200: z.object({
         id: z.string(),
         name: z.string(),
+        email: z.string().email().nullable(),
         authMethod: z.enum(['github', 'email', 'token']),
         limits: z.object({
           maxOrganizations: z.number().int(),
@@ -237,6 +238,18 @@ const user = c.router({
     path: '/users/me/name',
     body: z.object({
       name: nameSchema
+    }),
+    responses: {
+      200: c.type<{ message: string }>(),
+      403: c.type<{ message: string }>(),
+      400: c.type<{ message: string }>()
+    }
+  },
+  updateEmail: {
+    method: 'POST',
+    path: '/users/me/email',
+    body: z.object({
+      email: z.string().email()
     }),
     responses: {
       200: c.type<{ message: string }>(),

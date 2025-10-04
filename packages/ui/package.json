@@ -21,8 +21,10 @@
     "typescript": "5.8.2"
   },
   "dependencies": {
+    "@heroui/popover": "^2.3.26",
     "@sglara/cn": "^1.0.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0"
   }
 }

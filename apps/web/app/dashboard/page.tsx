@@ -6,13 +6,13 @@ import { createTsrClient } from "../tsr-server";
 export default async function DashboardPage() {
   const user = await getAuthenticatedUser()
   if(!user) {
-    return redirect('/new-user');
+    return redirect('/onboarding');
   }
 
   const tsr = await createTsrClient();
   const userData = await tsr.user.getUser()
   if(userData.status !== 200) {
-    return redirect('/new-user');
+    return redirect('/onboarding');
   }
   return <Dashboard user={userData.body} />;
 }

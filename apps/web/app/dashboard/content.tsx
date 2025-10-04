@@ -98,7 +98,7 @@ export default function Dashboard({user}: {user: User}) {
             <p className="text-neutral-400 text-sm mb-3">
               For detailed documentation, check out the{" "}
               <a 
-                href="https://github.com/ilmari-h/envie/blob/main/README.md" 
+                href="/guide" 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:text-blue-300 underline transition-colors"
