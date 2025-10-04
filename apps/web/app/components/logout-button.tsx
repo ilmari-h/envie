@@ -5,7 +5,7 @@ import { LogOut } from "lucide-react";
 import { env } from "next-runtime-env";
 import { cn } from "@sglara/cn";
 
-export const LogoutButton = (className?: string) => {
+export const LogoutButton = ({className}: {className?: string}) => {
   return (
     <Button
       icon={<LogOut className="w-4 h-4" />}
