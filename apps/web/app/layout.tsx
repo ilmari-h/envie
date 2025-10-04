@@ -17,9 +17,25 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "envie",
-  description: "A simple way to manage your environment variables",
-};
+  title: 'Envie - manage your environment variables',
+  description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
+  icons: {
+    icon: '/icon-small.png',
+  },
+  openGraph: {
+    title: 'Envie - manage your environment variables',
+    description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
+    type: 'website',
+    url: 'https://web.envie.cloud',
+    siteName: 'Envie',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Envie - manage your environment variables',
+    description: 'Speed up development: One command away from prod, staging, or dev. Keep your and your team\'s environments secure and organized.',
+  },
+}
+
 
 export default function RootLayout({
   children,

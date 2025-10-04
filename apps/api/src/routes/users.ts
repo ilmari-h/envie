@@ -26,6 +26,7 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
       body: { 
         id: accessToken.createdBy,
         name: accessToken.name,
+        email: null,
         authMethod: 'token' as const,
         publicKeys: [{
           valueBase64: accessToken.publicKey.id,
@@ -58,6 +59,7 @@ export const getMe = async ({ req }: { req: TsRestRequest<typeof contract.user.g
     body: {
       id: user.id,
       name: user.name,
+      email: user.email,
       authMethod: req.requester.userId.startsWith('github:') ? 'github' : 'email' as "github" | "email",
       publicKeys: user.userPublicKeys.map(upk => ({
         valueBase64: upk.publicKey.id,
@@ -85,6 +87,22 @@ export const updateName = async ({ req }: { req: TsRestRequest<typeof contract.u
   return {
     status: 200 as const,
     body: { message: 'Name updated' }
+  }
+}
+
+export const updateEmail = async ({ req }: { req: TsRestRequest<typeof contract.user.updateEmail> }) => {
+  const { email } = req.body;
+  if(!isUserRequester(req.requester)) {
+    return {
+      status: 403 as const,
+      body: { message: 'Unauthorized' }
+    }
+  }
+
+  await db.update(Schema.users).set({ email }).where(eq(Schema.users.id, req.requester.userId));
+  return {
+    status: 200 as const,
+    body: { message: 'Email updated' }
   }
 }
 

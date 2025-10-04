@@ -33,7 +33,7 @@ export default function NewUserPage() {
       team: 'Create up to 3 custom team organizations'
     },
     {
-      name: 'Share environments with team members',
+      name: 'Invite team members',
       free: false,
       team: true
     },
@@ -66,22 +66,39 @@ export default function NewUserPage() {
           </div>
         </div>
         
-        <div className="w-full max-w-6xl px-4">
-
-            <div className="w-full max-w-4xl mx-auto">
-              
-              <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-                <div className="grid grid-cols-3 gap-4 p-4 bg-neutral-800">
-                  <div className="text-sm font-medium text-neutral-300">Feature</div>
-                  <div className="text-sm font-medium text-neutral-300 text-center">Free</div>
-                  <div className="text-sm font-medium text-neutral-300 text-center">Team</div>
+        <div className="w-full max-w-6xl md:px-4 px-12 mt-12">
+          <div className="w-full max-w-4xl mx-auto">
+            
+            {/* Three column layout: Features | Free | Team */}
+            <div className="grid grid-cols-[200px_1fr] gap-8 md:grid-cols-[200px_1fr] grid-cols-1">
+              {/* Feature column - just text on background */}
+              <div className="hidden md:block">
+                <div className="pt-[52px]">
+                  {features.map((feature, index) => (
+                    <div key={index}>
+                      <div className="text-sm text-neutral-300 h-[48px] flex items-center justify-end pr-4">
+                        {feature.name}
+                      </div>
+                      {index !== features.length - 1 && (
+                        <div className="h-[1px] bg-gradient-to-r from-transparent to-accent-800" />
+                      )}
+                    </div>
+                  ))}
                 </div>
-                
+              </div>
+
+              {/* Plans section */}
+              <div className="grid grid-cols-2 gap-8 md:grid-cols-2 grid-cols-1">
+              {/* Free Plan */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden relative pb-20">
+                <div className="p-4 bg-neutral-800">
+                  <div className="text-sm font-medium text-neutral-300 text-center">Free</div>
+                </div>
                 <div className="divide-y divide-neutral-800">
                   {features.map((feature, index) => (
-                    <div key={index} className="grid grid-cols-3 gap-4">
-                      <div className="text-sm text-neutral-300 p-4">{feature.name}</div>
-                      <div className="flex justify-center p-4">
+                    <div key={index} className="flex items-center md:justify-center justify-between p-4">
+                      <div className="text-xs text-neutral-400 md:hidden">{feature.name}</div>
+                      <div className="">
                         {typeof feature.free === 'boolean' ? (
                           feature.free ? (
                             <Check className="w-4 h-4 text-accent-400" />
@@ -92,7 +109,28 @@ export default function NewUserPage() {
                           <span className="text-xs text-neutral-400 text-center">{feature.free}</span>
                         )}
                       </div>
-                      <div className="flex justify-center bg-accent-500/5 p-4">
+                    </div>
+                  ))}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
+                  <Link href="/onboarding/account-setup?isFree=true">
+                    <Button variant="regular" className="min-w-[180px]">
+                      Continue with Free Plan
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Team Plan */}
+              <div className="bg-white/[.03] border border-white/20 rounded-lg overflow-hidden relative pb-20">
+                <div className="p-4 bg-white/[.08]">
+                  <div className="text-sm font-medium text-foreground text-center">Team</div>
+                </div>
+                <div className="divide-y divide-white/10">
+                  {features.map((feature, index) => (
+                    <div key={index} className="flex items-center md:justify-center justify-between p-4">
+                      <div className="text-xs text-neutral-400 md:hidden">{feature.name}</div>
+                      <div className="">
                         {typeof feature.team === 'boolean' ? (
                           feature.team ? (
                             <Check className="w-4 h-4 text-accent-400" />
@@ -106,22 +144,18 @@ export default function NewUserPage() {
                     </div>
                   ))}
                 </div>
+                <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
+                  <Link href="/onboarding/account-setup">
+                    <Button variant="regular" className="min-w-[180px] bg-white/[.08] hover:bg-white/[.12] border-white/20">
+                      Continue with Team Plan
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              </div>
             </div>
           </div>
 
-          {/* Bottom Buttons */}
-          <div className="flex justify-center gap-4 mt-8">
-            <Link href="/onboarding/project-and-organization?isFree=true">
-              <Button variant="regular" className="min-w-[180px]">
-                Continue with Free Plan
-              </Button>
-            </Link>
-            <Link href="/onboarding/project-and-organization">
-              <Button variant="accent" className="min-w-[180px]">
-                Continue with Team Plan
-              </Button>
-            </Link>
-          </div>
         </div>
       </main>
       <footer className="p-2 text-[10px] text-neutral-600 text-center font-medium">

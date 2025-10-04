@@ -25,11 +25,10 @@ import { env } from './env';
 import { getOrganizations, createOrganization, updateOrganization, getOrganization, getOrganizationMembers, createOrganizationInvite, acceptOrganizationInvite, getOrganizationByInvite, updateAccess, listOrganizationInvites, deleteOrganizationInvite, organizationExists } from './routes/organizations';
 import { getProjects, createProject, getProject, updateProject, deleteProject } from './routes/projects';
 import { and, eq, or, gt, isNull } from 'drizzle-orm';
-import { getMe, updateName, listUsers } from './routes/users';
+import { getMe, updateName, listUsers, updateEmail } from './routes/users';
 import { getPublicKeys, setPublicKey, getDecryptionKeys } from './routes/public-keys';
 import { createClient } from "redis";
 import { getAccessTokens, createAccessToken, deleteAccessToken } from './routes/access-tokens';
-import { nanoid } from 'nanoid';
 
 // Cookie that contains the JWT token for auth
 const AUTH_COOKIE_NAME = 'envie_token';
@@ -254,6 +253,10 @@ const router = s.router(contract, {
       middleware: [requireAuth],
       handler: updateName
     },
+    updateEmail: {
+      middleware: [requireAuth],
+      handler: updateEmail
+    },
     listUsers: {
       middleware: [requireAuth],
       handler: listUsers
@@ -430,7 +433,7 @@ app.get('/auth/github/callback',
       // Set cookie and redirect to the onboarding page
       res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});
       res.cookie(AUTH_HINT_COOKIE_NAME, JSON.stringify(authHintPayload), {domain: env.APP_DOMAIN, httpOnly: false});
-      res.redirect(`${env.FRONTEND_URL}/onboarding/project-and-organization`);
+      res.redirect(`${env.FRONTEND_URL}/onboarding/account-setup`);
     } else {
       // Set cookie and redirect to the dashboard
       res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});

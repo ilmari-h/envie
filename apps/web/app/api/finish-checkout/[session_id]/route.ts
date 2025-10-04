@@ -55,21 +55,13 @@ export async function GET(_: NextRequest, context: { params: Promise<{ session_i
       }
 
       const initialOrganizationName = checkoutSession.metadata?.initial_organization_name;
-      const initialProjectName = checkoutSession.metadata?.initial_project_name;
-      if(initialOrganizationName && initialProjectName) {
+      if(initialOrganizationName) {
         const [organization] = await tx.insert(organizations).values({
           name: initialOrganizationName,
           createdById: authenticatedUser.userId,
         }).returning();
         if(!organization) {
           return { message: 'Failed to create organization' };
-        }
-        const [project] = await tx.insert(projects).values({
-          name: initialProjectName,
-          organizationId: organization.id,
-        }).returning();
-        if(!project) {
-          return { message: 'Failed to create project' };
         }
 
         // Give user role to the organization

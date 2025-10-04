@@ -107,7 +107,7 @@ export default function Sidebar({user}: {user: User}) {
                   Manage Billing
                 </button>
               ) : (
-                  <Link href="/onboarding">
+                  <Link href="/onboarding/account-setup">
                   <Button 
                     variant="accent"
                     className="w-full mb-3"

@@ -25,7 +25,7 @@ function FieldInfo({ field }: { field: AnyFieldApi }) {
   );
 }
 
-export default function ProjectAndOrganizationContent({ 
+export default function AccountSetupContent({ 
   personalOrgName,
   email,
   isFree
@@ -37,16 +37,24 @@ export default function ProjectAndOrganizationContent({
   const [planData, setPlanData] = useState<PlanSelection | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const router = useRouter();
-  const { mutateAsync: createProject } = tsr.projects.createProject.useMutation();
+  const { mutateAsync: updateEmail } = tsr.user.updateEmail.useMutation();
+
+  console.log('personalOrgName', personalOrgName);
 
   const form = useForm({
     defaultValues: {
       organizationName: '',
-      teamSize: 5,
+      teamSize: 3,
       email: email ?? '',
     },
     onSubmit: async ({ value }) => {
-      
+
+      await updateEmail({
+        body: {
+          email: value.email,
+        },
+      });
+
       if (isFree) {
         // Create project in personal organization
         if (!personalOrgName) {
@@ -54,13 +62,6 @@ export default function ProjectAndOrganizationContent({
         }
 
         recordConversion(0);
-        await createProject({
-          body: {
-            name: 'default-project', // Default project name for free users
-            description: '',
-            organizationIdOrName: personalOrgName,
-          },
-        });
         router.push('/dashboard');
       } else {
         // Start Stripe checkout flow
@@ -77,7 +78,6 @@ export default function ProjectAndOrganizationContent({
             body: JSON.stringify({
               quantity: quantity,
               organizationName: value.organizationName,
-              projectName: 'default-project',
             }),
           });
 
@@ -97,64 +97,12 @@ export default function ProjectAndOrganizationContent({
     },
   });
 
-  useEffect(() => {
-    // Read plan selection from localStorage
-    const stored = localStorage.getItem('envie-plan-selection');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as PlanSelection;
-        setPlanData(parsed);
-        
-        // Load onboarding data if exists and set default values
-        const onboardingStored = localStorage.getItem('envie-onboarding');
-        if (onboardingStored) {
-          try {
-            const onboardingData = JSON.parse(onboardingStored);
-            form.setFieldValue('organizationName', onboardingData.organizationName || '');
-            form.setFieldValue('teamSize', parsed.teamSize);
-            form.setFieldValue('email', onboardingData.email || '');
-          } catch (error) {
-            console.error('Failed to parse onboarding data:', error);
-          }
-        } else {
-          form.setFieldValue('teamSize', parsed.teamSize);
-        }
-      } catch (error) {
-        console.error('Failed to parse plan data:', error);
-        router.push('/onboarding');
-      }
-    } else {
-      // No plan data, redirect back to plan selection
-      router.push('/onboarding');
-    }
-  }, [router, form]);
 
   const calculatePrice = (teamSize: number): number => {
     // $5 for 3 members, $5 for each additional member
     return (teamSize - 2) * 5;
   };
 
-  const handleTeamSizeChange = (newTeamSize: number) => {
-    form.setFieldValue('teamSize', newTeamSize);
-    if (planData) {
-      const updatedPlanData: PlanSelection = {
-        ...planData,
-        teamSize: newTeamSize
-      };
-      localStorage.setItem('envie-plan-selection', JSON.stringify(updatedPlanData));
-      setPlanData(updatedPlanData);
-    }
-  };
-
-  if (!planData) {
-    return (
-      <div>
-        <main className="flex flex-col items-center justify-center gap-3 h-full px-4">
-          <p className="text-neutral-400 text-xs">Loading...</p>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -170,13 +118,8 @@ export default function ProjectAndOrganizationContent({
         >
           <div className="relative text-center px-4">
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              {isFree ? 'Create your first project' : 'Configure your organization'}
+              Account setup
             </h1>
-            <p className="text-neutral-400 text-sm">
-              {isFree 
-                ? 'Set up your first project and start managing your environment variables' 
-                : 'Configure your organization and first project'}
-            </p>
           </div>
         </div>
         
@@ -259,33 +202,46 @@ export default function ProjectAndOrganizationContent({
                       Choose the number of seats in your organization.
                     </p>
 
-                    <div className="flex items-end gap-4">
-                      <div className="flex-1">
-                        <NumberInput
-                          value={form.getFieldValue('teamSize')}
-                          onChange={handleTeamSizeChange}
-                          min={3}
-                          max={1000}
-                          icon={<Users className="w-4 h-4" />}
-                          size="md"
-                        />
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-neutral-100">
-                          ${calculatePrice(form.getFieldValue('teamSize'))}
+                    <form.Field
+                      name="teamSize"
+                      validators={{
+                        onChange: ({ value }) => {
+                          if (value < 3) return 'Team size must be at least 3';
+                          if (value > 1000) return 'Team size cannot exceed 1000';
+                          return undefined;
+                        },
+                      }}
+                      children={(field) => (
+                        <div className="flex items-end gap-4">
+                          <div className="flex-1">
+                            <NumberInput
+                              value={field.state.value}
+                              onChange={(value) => field.handleChange(value)}
+                              min={3}
+                              max={1000}
+                              icon={<Users className="w-4 h-4" />}
+                              size="md"
+                            />
+                            <FieldInfo field={field} />
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-neutral-100">
+                              ${calculatePrice(field.state.value)}
+                            </div>
+                            <div className="text-sm text-neutral-400">
+                              per month
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-sm text-neutral-400">
-                          per month
-                        </div>
-                      </div>
-                    </div>
+                      )}
+                    />
                   </div>
                 )}
 
                 {isFree && (
                   <div className="text-neutral-400 text-xs">
                     <p>Want a custom organization name and the ability to invite others to collaborate?</p>
-                    <Link href="/onboarding/project-and-organization" className="text-accent-600">Switch to a paid plan</Link>
+                    <Link href="/onboarding/account-setup" className="text-accent-600">Switch to a paid plan</Link>
                   </div>
                 )}
               </div>
@@ -301,7 +257,10 @@ export default function ProjectAndOrganizationContent({
                   Email
                 </h2>
                 <p className="text-neutral-400 text-xs">
-                  Please enter your email address.
+                  Please enter your email address.*
+                </p>
+                <p className="text-neutral-400 text-[10px]">
+                  * by providing your email address, you agree to receive product updates and emails necessary for the service such as account verification.
                 </p>
               </div>
               
@@ -340,7 +299,7 @@ export default function ProjectAndOrganizationContent({
                     className="min-w-[200px]"
                     variant={isFree ? 'regular' : 'accent'}
                   >
-                    {isProcessingPayment ? 'Processing...' : isSubmitting ? 'Submitting...' : isFree ? 'Continue' : 'Continue to Payment'}
+                    {isProcessingPayment ? 'Processing...' : isSubmitting ? 'Submitting...' : isFree ? 'Continue' : 'Continue to Checkout'}
                   </Button>
                 )}
               />
