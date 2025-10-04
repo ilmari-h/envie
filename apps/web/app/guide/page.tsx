@@ -1,7 +1,6 @@
 "use server"
 
 import { marked } from "marked";
-import { FolderOpen, FolderPlus, Server } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@repo/ui/button";
