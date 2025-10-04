@@ -4,6 +4,7 @@ import React from 'react';
 import { Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@repo/ui/button';
+import { env } from 'next-runtime-env';
 
 export default function NewUserPage() {
   const features = [
@@ -113,7 +114,7 @@ export default function NewUserPage() {
                   ))}
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
-                  <Link href="/onboarding/account-setup?isFree=true">
+                  <Link href={`${env("NEXT_PUBLIC_API_URL")}/auth/github?onboarding=free`}>
                     <Button variant="regular" className="min-w-[180px]">
                       Continue with Free Plan
                     </Button>
@@ -145,7 +146,7 @@ export default function NewUserPage() {
                   ))}
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-center">
-                  <Link href="/onboarding/account-setup">
+                  <Link href={`${env("NEXT_PUBLIC_API_URL")}/auth/github?onboarding=team`}>
                     <Button variant="regular" className="min-w-[180px] bg-white/[.08] hover:bg-white/[.12] border-white/20">
                       Continue with Team Plan
                     </Button>

@@ -1,8 +1,5 @@
 import { LoginButton } from "./components/login-button";
 import { LogoutButton } from "./components/logout-button";
-import Sidebar from "./components/sidebar";
-import { redirect } from "next/navigation";
-import { getAuthHint } from "./utils/get-auth-hint";
 import { getAuthenticatedUser } from "./auth/helpers";
 import { Button } from "@repo/ui/button";
 import Link from "next/link";

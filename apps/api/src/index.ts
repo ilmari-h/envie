@@ -391,7 +391,7 @@ app.get('/auth/github', (req, res, next) => {
   const onboarding = req.query.onboarding as string | undefined;
   passport.authenticate('github', { 
     session: false, 
-    state: cliToken ?? (onboarding ? 'onboarding' : undefined)
+    state: cliToken ?? (onboarding ? 'onboarding:' + onboarding : undefined)
   })(req, res, next);
 });
 
@@ -429,11 +429,12 @@ app.get('/auth/github/callback',
       // Set the token in Redis allowing CLI to get it with another request to /auth/cli/login
       await redis.set(`cli_login:${state}`, token, {expiration: {type: 'EX', value: 60 * 10}});
       res.redirect(`${env.FRONTEND_URL}/login/success`);
-    } else if (state === 'onboarding') {
+    } else if (state?.startsWith('onboarding:')) {
+      const onboarding = state.split(':')[1];
       // Set cookie and redirect to the onboarding page
       res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});
       res.cookie(AUTH_HINT_COOKIE_NAME, JSON.stringify(authHintPayload), {domain: env.APP_DOMAIN, httpOnly: false});
-      res.redirect(`${env.FRONTEND_URL}/onboarding/account-setup`);
+      res.redirect(`${env.FRONTEND_URL}/onboarding/account-setup?isFree=${onboarding === 'free' ? 'true' : 'false'}`);
     } else {
       // Set cookie and redirect to the dashboard
       res.cookie(AUTH_COOKIE_NAME, token, {domain: env.APP_DOMAIN, httpOnly: true});
