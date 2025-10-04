@@ -49,16 +49,17 @@ export default function WebSidebar({user}: {user: User}) {
     <Sidebar>
       {/* Action buttons */}
       <div className="mt-4 space-y-2">
-        <Button
-          variant={currentPath === '/dashboard' ? 'regular' : 'ghost'}
-          className="w-full justify-start border-none"
-          onClick={() => router.push('/')}
-        >
+        <Link href="/dashboard" className="block">
+          <Button
+            variant={currentPath === '/dashboard' ? 'regular' : 'ghost'}
+            className="w-full justify-start border-none"
+          >
           <Home className="w-4 h-4" />
-          Home
-        </Button>
+            Home
+          </Button>
+        </Link>
 
-        <Link href="/guide" target="_blank" className="block">
+        <Link href="/guide" className="block">
           <Button
             variant="ghost"
             className="w-full justify-start"

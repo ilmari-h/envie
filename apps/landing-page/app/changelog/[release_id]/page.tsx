@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import Markdown from '../../components/markdown';
+import Markdown from '@repo/ui/markdown';
 
 interface GitHubRelease {
   id: number;
