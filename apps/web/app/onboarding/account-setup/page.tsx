@@ -27,7 +27,6 @@ export default async function ProjectAndOrganizationPage({
     : null;
 
   const personalOrgNameToShow = isFree === 'true' ? personalOrgName : null;
-  console.log('personalOrgNameToShow', personalOrgNameToShow);
 
   return <AccountSetupContent
     personalOrgName={personalOrgNameToShow}
