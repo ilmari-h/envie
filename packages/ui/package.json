@@ -23,8 +23,10 @@
   "dependencies": {
     "@heroui/popover": "^2.3.26",
     "@sglara/cn": "^1.0.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^15.6.6"
   }
 }

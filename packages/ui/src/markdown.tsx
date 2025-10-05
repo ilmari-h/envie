@@ -1,12 +1,45 @@
+"use client";
 
 import ReactMarkdown from 'react-markdown';
+import { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { gruvboxDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 interface MarkdownProps {
   children: string;
   className?: string;
 }
 
-export default function Markdown({ children, className = "" }: MarkdownProps) {
+function CopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="absolute top-2 right-2 p-1.5 rounded-md bg-neutral-800/80 hover:bg-neutral-700/80 transition-colors opacity-0 group-hover:opacity-100"
+      title="Copy to clipboard"
+    >
+      {copied ? (
+        <Check className="w-4 h-4 text-green-400" />
+      ) : (
+        <Copy className="w-4 h-4 text-neutral-400" />
+      )}
+    </button>
+  );
+}
+
+export default function Markdown({ children, className = "", ...rest }: MarkdownProps) {
   return (
     <div className={`prose prose-invert prose-lg max-w-none ${className}`}>
       <ReactMarkdown
@@ -20,12 +53,34 @@ export default function Markdown({ children, className = "" }: MarkdownProps) {
           ol: ({children}) => <ol className="text-neutral-300 mb-4 space-y-2 list-decimal list-inside ml-4">{children}</ol>,
           li: ({children}) => <li className="leading-relaxed">{children}</li>,
           code: ({children}) => {
-            return (
-              <div className="bg-neutral-700/40 p-2 rounded-lg">
-                <code
-                  className="text-accent-300 px-2 py-1 rounded text-sm font-mono whitespace-pre-wrap">
+            // Check if we're inside a pre by looking at the component tree
+            const isInline = typeof children === 'string' && !children.includes('\n');
+            if (isInline) {
+              return (
+                <code className="bg-neutral-700/40 text-accent-300 px-1.5 py-0.5 rounded text-sm font-mono">
                   {children}
                 </code>
+              )
+            }
+            const languageMatch = /language-(\w+)/.exec(className || '')
+            return (
+              <div className="relative group bg-neutral-900/60 p-3 rounded-lg border-accent-500/30 border">
+                <CopyButton content={children as string} />
+                  <SyntaxHighlighter
+                    {...rest}
+                    className="text-sm"
+                    PreTag="div"
+                    children={String(children).replace(/\n$/, '')}
+                    language={languageMatch?.[1] ?? "bash"}
+                    wrapLongLines={true}
+                    customStyle={{ 
+                      background: "transparent", 
+                      // margin: 0,
+                      // overflowX: "auto",
+                      // maxWidth: "100%"
+                    }}
+                    style={gruvboxDark}
+                  />
               </div>
             )
           },

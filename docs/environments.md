@@ -74,7 +74,7 @@ envie exec <organization>:<project>:<environment-name>
 envie exec <organization>:<project>:<environment-name>@version npm -- run dev
 ```
 
-### Different dev environments for different developers with a `.envie` file
+### Different dev environments for different developers with a .envie file
 
 When you have multiple developers working on the same project, each one of them can specify their own environment using a `.envie` file.
 
@@ -86,7 +86,7 @@ Now when using `envie exec` with `default` argument for the environment e.g. `en
 
 Envie will read the environment name from the developer-specific `.envie` file.
 
-### Example with `package.json`
+### Example with package.json
 
 You can easily integrate envie with any development setup.
 For example, here's how to use envie in a web development project together with scripts in your `package.json` file.

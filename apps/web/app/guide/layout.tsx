@@ -106,7 +106,7 @@ export default async function GuideLayout({
                     {header.subheaders.map((subheader, subIndex) => (
                       <Link 
                         key={subIndex} 
-                        href={`/guide/${guidePages[index]?.slug}#${subheader}`} 
+                        href={`/guide/${guidePages[index]?.slug}#${encodeURIComponent(subheader)}`} 
                         className="block"
                       >
                         <Button
@@ -125,7 +125,7 @@ export default async function GuideLayout({
         </Sidebar>
 
         {/* Main content area - positioned next to sidebar */}
-        <main className="flex flex-col items-center justify-start gap-8 px-8 py-8 md:ml-64 max-w-[1000px] mt-10 flex-1">
+        <main className="flex flex-col justify-start gap-8 px-8 py-8 md:ml-64 max-w-[1000px] mt-10 flex-1">
           {children}
         </main>
       </div>
