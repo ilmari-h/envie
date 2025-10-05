@@ -8,12 +8,13 @@ interface ButtonProps {
   children: ReactNode | string;
   className?: string;
   icon?: ReactNode;
+  iconPosition?: "left" | "right";
   variant?: "regular" | "accent" | "destructive" | "ghost";
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
 }
 
-export const Button = ({ children, className, icon, onClick, disabled, type, ...props }: ButtonProps) => {
+export const Button = ({ children, className, icon, onClick, disabled, type, iconPosition = "left", ...props }: ButtonProps) => {
   const variant = props.variant || "regular";
   return (
     <button 
@@ -31,8 +32,9 @@ export const Button = ({ children, className, icon, onClick, disabled, type, ...
       disabled={disabled}
       type={type}
     >
-      {icon}
+      {iconPosition === "left" && icon}
       {children}
+      {iconPosition === "right" && icon}
     </button>
   );
 };

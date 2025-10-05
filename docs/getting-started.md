@@ -1,3 +1,8 @@
+Welcome to Envie user guide!
+
+Envie is a self-hostable, open-source secret manager. Envie allows you to securely store API keys, application credentials and other application secrets.
+
+Envie is easy to integrate with any production pipeline or developer environment, working as a dropin replacement for .env files and tools like dotenv.
 
 ### 📦 Installation
 
@@ -9,7 +14,7 @@ To install it globally on your machine, run:
 npm install -g @envie/cli
 ```
 
-### 🚀 Basic Setup
+### ⚙️ Basic Setup
 
 When using Envie for the first time, run the command `envie` without arguments to bring up a setup wizard.
 
