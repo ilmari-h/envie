@@ -80,7 +80,7 @@ When you have multiple developers working on the same project, each one of them 
 
 Place the `.envie` file at the root of your project and add it to your `.gitignore`
 
-Inside the file specify your dev environment e.g. `acme-corp:project-name:joshs-dev-env`.
+Inside the file specify your dev environment e.g. `organization:project:staging`.
 
 Now when using `envie exec` with `default` argument for the environment e.g. `envie exec default ./some-command.sh`
 

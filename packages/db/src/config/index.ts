@@ -2,6 +2,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import * as Schema from "../schema";
+import path from "path";
+import { fileURLToPath } from "url";
 export * as Schema from "../schema";
 // Database connection config
 const connectionString = process.env.DATABASE_URL ?? "postgres://localhost:5432/envie";
@@ -21,9 +23,13 @@ export async function runMigrations() {
     console.log("Running migrations...");
     
     const migrationDb = drizzle(migrationClient);
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const migrationsFolder = path.join(__dirname, "../drizzle");
     
     await migrate(migrationDb, {
-      migrationsFolder: "./drizzle",
+      migrationsFolder,
     });
     
     console.log("Migrations completed successfully");

@@ -57,14 +57,14 @@ export default function Markdown({ children, className = "", ...rest }: Markdown
             const isInline = typeof children === 'string' && !children.includes('\n');
             if (isInline) {
               return (
-                <code className="bg-neutral-700/40 text-accent-300 px-1.5 py-0.5 rounded text-sm font-mono">
+                <code className="bg-neutral-900/60 text-neutral-200 px-1.5 py-0.5 text-sm font-mono border-neutral-800 border">
                   {children}
                 </code>
               )
             }
             const languageMatch = /language-(\w+)/.exec(className || '')
             return (
-              <div className="relative group bg-neutral-900/60 p-3 rounded-lg border-accent-500/30 border">
+              <div className="relative group bg-neutral-900/60 p-3 border-neutral-800 border">
                 <CopyButton content={children as string} />
                   <SyntaxHighlighter
                     {...rest}
@@ -86,7 +86,7 @@ export default function Markdown({ children, className = "", ...rest }: Markdown
           },
           pre: ({children}) => <div className="mb-6">{children}</div>,
           strong: ({children}) => <strong className="font-semibold">{children}</strong>,
-          em: ({children}) => <em className="text-accent-400 italic">{children}</em>,
+          em: ({children}) => <em className="text-accent-300 italic">{children}</em>,
           a: ({href, children}) => (
             <a 
               href={href} 
