@@ -1,7 +1,7 @@
 import express from 'express';
 import { createExpressEndpoints, initServer } from '@ts-rest/express';
 import { contract } from '@repo/rest';
-import { db, generateNanoid, Schema } from '@repo/db';
+import { db, generateNanoid, Schema, runMigrations } from '@repo/db';
 import passport from 'passport';
 import cookieParser from 'cookie-parser';
 import { Strategy as GitHubStrategy } from 'passport-github';
@@ -35,6 +35,9 @@ const AUTH_COOKIE_NAME = 'envie_token';
 
 // This cookie is just a hint for frontend to know when the token expires
 const AUTH_HINT_COOKIE_NAME = 'envie_token_expiry';
+
+// Start by running migrations
+await runMigrations();
 
 const app = express();
 app.use(express.json());

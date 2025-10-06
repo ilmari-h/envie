@@ -1,5 +1,5 @@
 {
-  "id": "ae6f1119-2422-4de6-ba48-edface031446",
+  "id": "ef9c20b1-e9b4-4be0-9624-997a625a1ab4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -36,6 +36,12 @@
         },
         "email": {
           "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stripe_customer_id": {
+          "name": "stripe_customer_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -85,8 +91,7 @@
           "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'8x8uq5zsj28i3hz9'"
+          "notNull": true
         },
         "description": {
           "name": "description",
@@ -424,25 +429,17 @@
           "primaryKey": false,
           "notNull": true
         },
-        "free_form": {
-          "name": "free_form",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "project_id": {
           "name": "project_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "preserved_versions": {
-          "name": "preserved_versions",
-          "type": "integer",
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": 100
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -467,6 +464,19 @@
           "tableTo": "projects",
           "columnsFrom": [
             "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "environments_organization_id_organizations_id_fk": {
+          "name": "environments_organization_id_organizations_id_fk",
+          "tableFrom": "environments",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
           ],
           "columnsTo": [
             "id"
@@ -1097,6 +1107,131 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.variable_groups": {
+      "name": "variable_groups",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "environment_id": {
+          "name": "environment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "variable_groups_environment_id_environments_id_fk": {
+          "name": "variable_groups_environment_id_environments_id_fk",
+          "tableFrom": "variable_groups",
+          "tableTo": "environments",
+          "columnsFrom": [
+            "environment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.environment_variable_groups": {
+      "name": "environment_variable_groups",
+      "schema": "",
+      "columns": {
+        "required_by_environment_version_id": {
+          "name": "required_by_environment_version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "variable_group_id": {
+          "name": "variable_group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "environment_variable_groups_required_by_environment_version_id_environment_versions_id_fk": {
+          "name": "environment_variable_groups_required_by_environment_version_id_environment_versions_id_fk",
+          "tableFrom": "environment_variable_groups",
+          "tableTo": "environment_versions",
+          "columnsFrom": [
+            "required_by_environment_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "environment_variable_groups_variable_group_id_variable_groups_id_fk": {
+          "name": "environment_variable_groups_variable_group_id_variable_groups_id_fk",
+          "tableFrom": "environment_variable_groups",
+          "tableTo": "variable_groups",
+          "columnsFrom": [
+            "variable_group_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
