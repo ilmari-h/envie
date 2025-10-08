@@ -10,11 +10,6 @@ on:
       - 'bun.lock'
   pull_request:
     branches: [main]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'package.json'
-      - 'bun.lock'
   workflow_dispatch:
   workflow_call:
 
