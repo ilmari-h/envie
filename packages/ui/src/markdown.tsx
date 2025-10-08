@@ -91,8 +91,6 @@ export default function Markdown({ children, className = "", ...rest }: Markdown
             <a 
               href={href} 
               className="text-accent-400 hover:text-accent-300 transition-colors underline"
-              target="_blank"
-              rel="noopener noreferrer"
             >
               {children}
             </a>

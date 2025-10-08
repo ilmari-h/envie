@@ -12,20 +12,6 @@ export const guidePages: GuidePage[] = [
    slug: "getting-started",
  },
  {
-   title: "Configuration",
-   slug: "configuration",
-   children: [
-    {
-      title: "Local configuration",
-      slug: "local-configuration",
-    },
-    {
-      title: "Workspaces",
-      slug: "workspaces",
-    },
-   ]
- },
- {
    title: "Projects",
    slug: "projects",
    children: [
@@ -72,6 +58,20 @@ export const guidePages: GuidePage[] = [
     {
       title: "Invite users",
       slug: "invite-users",
+    },
+   ]
+ },
+ {
+   title: "Configuration",
+   slug: "configuration",
+   children: [
+    {
+      title: "Local configuration",
+      slug: "local-configuration",
+    },
+    {
+      title: "Workspaces",
+      slug: "workspaces",
     },
    ]
  },
