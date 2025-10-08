@@ -6,9 +6,10 @@ import { Menu, ArrowLeft } from "lucide-react";
 
 interface SidebarProps {
   children: React.ReactNode;
+  header?: string
 }
 
-export function Sidebar({ children }: SidebarProps) {
+export function Sidebar({ children, header }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -53,7 +54,7 @@ export function Sidebar({ children }: SidebarProps) {
             />
 
             <span className="text-base font-bold text-logo bg-clip-text ml-[-1px] italic">
-              nvie
+              {header ?? "nvie"}
             </span>
 
             {/* Collapse button - only on mobile */}

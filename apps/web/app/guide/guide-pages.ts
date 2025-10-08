@@ -12,20 +12,6 @@ export const guidePages: GuidePage[] = [
    slug: "getting-started",
  },
  {
-   title: "Configuration",
-   slug: "configuration",
-   children: [
-    {
-      title: "Local configuration",
-      slug: "local-configuration",
-    },
-    {
-      title: "Workspaces",
-      slug: "workspaces",
-    },
-   ]
- },
- {
    title: "Projects",
    slug: "projects",
    children: [
@@ -76,12 +62,36 @@ export const guidePages: GuidePage[] = [
    ]
  },
  {
+   title: "Configuration",
+   slug: "configuration",
+   children: [
+    {
+      title: "Local configuration",
+      slug: "local-configuration",
+    },
+    {
+      title: "Workspaces",
+      slug: "workspaces",
+    },
+   ]
+ },
+ {
    title: "Deploy with Envie",
    slug: "deploy-with-envie",
    children: [
     {
       title: "Access tokens",
       slug: "access-tokens",
+    },
+   ]
+ },
+ {
+   title: "Self-hosting",
+   slug: "self-hosting",
+   children: [
+    {
+      title: "Host Envie with Docker",
+      slug: "host-with-docker",
     },
    ]
  },

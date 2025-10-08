@@ -20,12 +20,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 0.9,
     },
-    ...guidePages.map((page) => ({
-      url: `${baseUrl}/guide/${page.slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'daily' as const,
-      priority: 1.0,
-    })),
+    ...guidePages.flatMap((page) => {
+      const pages = [{
+        url: `${baseUrl}/guide/${page.slug}`,
+        lastModified: new Date(),
+        changeFrequency: 'daily' as const,
+        priority: 1.0,
+      }];
+      
+      if (page.children) {
+        pages.push(...page.children.map((child) => ({
+          url: `${baseUrl}/guide/${page.slug}/${child.slug}`,
+          lastModified: new Date(),
+          changeFrequency: 'daily' as const,
+          priority: 0.9,
+        })));
+      }
+      
+      return pages;
+    }),
     {
       url: `${baseUrl}/onboarding`,
       lastModified: new Date(),

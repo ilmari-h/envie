@@ -4,9 +4,9 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     API_URL: z.string().url(),
-    APP_URL: z.string().url(),
-    STRIPE_SECRET_KEY: z.string(),
-    STRIPE_TEAM_PRICE_ID: z.string(),
+    APP_URL: z.string().url().optional(),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_TEAM_PRICE_ID: z.string().optional(),
     JWT_SECRET: z.string(),
     DATABASE_URL: z.string().url(),
     GOOGLE_ANALYTICS_ID: z.string().optional(),

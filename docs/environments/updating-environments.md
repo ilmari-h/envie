@@ -1,6 +1,5 @@
-### Updating an environment
-
-> *NOTE*: only users that have been given the *write* permission to the environment can update it
+> *NOTE*: only users that have been given the *write* permission to the environment can update it.
+> Read about [Access control](/guide/environments/access-control) to learn more.
 
 You can set the value of a variable in your environment with the following command:
 
