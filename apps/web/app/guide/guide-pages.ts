@@ -85,4 +85,14 @@ export const guidePages: GuidePage[] = [
     },
    ]
  },
+ {
+   title: "Self-hosting",
+   slug: "self-hosting",
+   children: [
+    {
+      title: "Host Envie with Docker",
+      slug: "host-with-docker",
+    },
+   ]
+ },
 ]
