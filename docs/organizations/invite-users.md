@@ -20,4 +20,4 @@ envie organization set-access <organization-name> <user> \
 --edit-organization=false \
 ```
 
-You must explicitly grant them access to any environments they need. See [Environment access control](https://web.envie.cloud/guide/environments/access-control)
+You must explicitly grant users access to environments. See [Environment access control](https://web.envie.cloud/guide/environments/access-control)
