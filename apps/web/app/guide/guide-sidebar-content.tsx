@@ -19,11 +19,14 @@ export function GuideSidebarContent() {
           <Link href={`/guide/${page.slug}`} className="block">
             <Button
               variant="ghost"
-              className="w-full justify-start font-semibold text-left"
+              className="opacity-100 w-full justify-start font-semibold text-left"
               disabled={isCurrentPath(`/guide/${page.slug}`)}
             >
               {index + 1}.{" "}{page.title}
             </Button>
+            {isCurrentPath(`/guide/${page.slug}`) && (
+              <div className="w-full h-[1px] bg-gradient-to-r from-transparent via-neutral-400 to-transparent" />
+            )}
           </Link>
           {page.children && page.children.length > 0 && (
             <div className="ml-4 space-y-1">
