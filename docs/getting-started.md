@@ -10,7 +10,7 @@ Envie is available as a CLI tool on npm.
 
 To install it globally on your machine, run:
 
-```
+```bash
 npm install -g @envie/cli
 ```
 
@@ -22,7 +22,7 @@ This wizard will help you with the initial configuration: setting up your keypai
 
 Once you have run the setup wizard you can login by running:
 
-```
+```bash
 envie login
 ```
 

@@ -1,28 +1,88 @@
 export type GuidePage = {
-  url: string;
   title: string;
   slug: string;
+  children?: GuidePage[];
 }
+
+export const baseUrl = "https://raw.githubusercontent.com/ilmari-h/envie/refs/heads/main/docs";
 
 export const guidePages: GuidePage[] = [
  {
-   url: "https://raw.githubusercontent.com/ilmari-h/envie/refs/heads/main/docs/getting-started.md",
    title: "Getting started",
    slug: "getting-started",
  },
  {
-   url: "https://raw.githubusercontent.com/ilmari-h/envie/refs/heads/main/docs/projects.md",
+   title: "Configuration",
+   slug: "configuration",
+   children: [
+    {
+      title: "Local configuration",
+      slug: "local-configuration",
+    },
+    {
+      title: "Workspaces",
+      slug: "workspaces",
+    },
+   ]
+ },
+ {
    title: "Projects",
    slug: "projects",
+   children: [
+    {
+      title: "Creating a project",
+      slug: "creating-a-project",
+    },
+   ]
  },
  {
-   url: "https://raw.githubusercontent.com/ilmari-h/envie/refs/heads/main/docs/environments.md",
    title: "Environments",
    slug: "environments",
+   children: [
+    {
+      title: "Environment basics",
+      slug: "environment-basics",
+    },
+    {
+      title: "Using environments",
+      slug: "using-environments",
+    },
+    {
+      title: "Updating environments",
+      slug: "updating-environments",
+    },
+    {
+      title: "Access control",
+      slug: "access-control",
+    },
+    {
+      title: "Dev environments",
+      slug: "dev-environments",
+    },
+    {
+      title: "Version history",
+      slug: "version-history",
+    },
+   ]
  },
  {
-   url: "https://raw.githubusercontent.com/ilmari-h/envie/refs/heads/main/docs/deploy-prod.md",
+   title: "Organizations",
+   slug: "organizations",
+   children: [
+    {
+      title: "Invite users",
+      slug: "invite-users",
+    },
+   ]
+ },
+ {
    title: "Deploy with Envie",
-   slug: "deploy-prod",
+   slug: "deploy-with-envie",
+   children: [
+    {
+      title: "Access tokens",
+      slug: "access-tokens",
+    },
+   ]
  },
 ]

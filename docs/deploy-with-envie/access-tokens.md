@@ -1,4 +1,5 @@
-The recommended way to use Envie in production is with access token authentication. Access tokens allow you to run CLI commands without requiring you to complete browser login. This makes it easy to use Envie programmatically e.g. from a Dockerfile or some other deployment script.
+The recommended way to use Envie in production is with access token authentication. Access tokens allow you to run CLI commands without requiring you to complete browser login.
+This makes it easy to invoke Envie programmatically e.g. from a Dockerfile or some other deployment script.
 
 ### Creating and using access tokens
 
@@ -21,3 +22,4 @@ Now, you can use the access token by setting the environment variable `ENVIE_ACC
 ```Dockerfile
 CMD ["envie", "exec", "organization:project:environment", "my-program.sh"]
 ```
+
