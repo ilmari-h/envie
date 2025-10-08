@@ -38,6 +38,15 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
+# Create entrypoint script to modify required env vars for this image
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'if [ -n "$API_URL" ] && [ -z "$NEXT_PUBLIC_API_URL" ]; then' >> /entrypoint.sh && \
+    echo '  export NEXT_PUBLIC_API_URL="$API_URL"' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo 'exec "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+RUN cp /entrypoint.sh /app/entrypoint.sh
+
 # Switch to non-root user
 USER nextjs
 
@@ -52,4 +61,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
 
-CMD ["node", "apps/web/server.js"]
+CMD ["/app/entrypoint.sh", "node", "apps/web/server.js"]

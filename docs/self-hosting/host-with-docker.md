@@ -1,6 +1,6 @@
 > Having trouble with setup? Don't hesitate to reach out for support via email: <support@envie.cloud>
 
-Envie is available on Docker hub as a docker image. To self-host, you need these two images:
+Envie is available on Docker Hub. To self-host, you need these two images:
 
 - [envie-api](https://hub.docker.com/r/salhdev/envie-api)
 - [envie-web](https://hub.docker.com/r/salhdev/envie-web)
@@ -8,7 +8,7 @@ Envie is available on Docker hub as a docker image. To self-host, you need these
 Other prerequisites:
 - A PostgreSQL instance, versions 16.x or 17.x should be fine
 - A Redis instance
-- GitHub OAuth application (used for login)
+- GitHub OAuth application (this is used for login). For a guide on how to create one, see <https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app>
 
 To get started, pull the two docker images from the Docker Hub registry:
 
@@ -45,7 +45,6 @@ Then start the web Client:
 
 ```bash
 docker run -p 80:3000 \
--e NEXT_PUBLIC_API_URL=<your-api-url> \
 -e API_URL=<your-api-url> \
 -e JWT_SECRET=<same-as-api> \
 -e DATABASE_URL=<same-as-api> \
