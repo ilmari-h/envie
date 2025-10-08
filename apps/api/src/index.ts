@@ -37,7 +37,11 @@ const AUTH_COOKIE_NAME = 'envie_token';
 const AUTH_HINT_COOKIE_NAME = 'envie_token_expiry';
 
 // Start by running migrations
+try {
 await runMigrations();
+} catch (e) {
+  console.error('Failed to run migrations', e);
+}
 
 const app = express();
 app.use(express.json());
