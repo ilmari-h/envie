@@ -23,10 +23,11 @@ export async function runMigrations() {
     console.log("Running migrations...");
     
     const migrationDb = drizzle(migrationClient);
-
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const migrationsFolder = path.join(__dirname, "../drizzle");
+    
+    // Use absolute path in production, relative path in dev
+    const migrationsFolder = process.env.NODE_ENV === 'production' 
+      ? '/app/packages/db/drizzle'
+      : path.join(path.dirname(fileURLToPath(import.meta.url)), "../drizzle");
     
     await migrate(migrationDb, {
       migrationsFolder,
