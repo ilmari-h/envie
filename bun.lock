@@ -111,7 +111,9 @@
       "version": "0.1.0",
       "dependencies": {
         "@repo/db": "*",
+        "@repo/rest": "*",
         "@repo/ui": "*",
+        "@sglara/cn": "^1.0.0",
         "@t3-oss/env-nextjs": "^0.13.4",
         "@tanstack/react-form": "^1.23.5",
         "@tanstack/react-query": "5",
