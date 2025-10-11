@@ -20,13 +20,14 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@types/node": "^24.7.1",
     "drizzle-orm": "0.43.1",
     "nanoid": "^5.1.5",
     "postgres": "3.4.5"
   },
-	"resolutions": {
-		"@types/minimatch": "5.1.2"
-	},
+  "resolutions": {
+    "@types/minimatch": "5.1.2"
+  },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
