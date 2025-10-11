@@ -14,8 +14,8 @@
     "variables"
   ],
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves",
-    "dev": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves --watch",
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
     "lint": "eslint src/",
     "check-types": "tsc --noEmit"
   },

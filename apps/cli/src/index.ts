@@ -16,6 +16,7 @@ import logger from './logging';
 import { checkIfFirstTime, wizard } from './wizard';
 import { getDotfileEnvironment, getWorkspaceProjectPath } from './utils/config';
 import chalk from 'chalk';
+import { checkUpdateAvailable, doVersionCheck, getCliVersion } from './utils/version';
 
 async function startProgram(program: Command, commands: AutocompleteCommand[]) {
 
@@ -84,9 +85,22 @@ async function startProgram(program: Command, commands: AutocompleteCommand[]) {
       : argumentSuggestions
     reply(Promise.resolve(suggestions))
   }
+  
+  // Setup autocomplete
   complete.onAsync('complete', autocompleteCallback as unknown as omelette.CallbackAsync)
 
-  complete.next( () => {
+  // Initialize program
+  complete.next( async () => {
+
+    // Version command
+    const versionOutput = await doVersionCheck();
+    program.version(
+      getCliVersion() + (versionOutput ? `\n\n${versionOutput}` : ''),
+    );
+
+    program.addHelpText('afterAll', versionOutput ? `\n\n${versionOutput}` : '');
+
+    //Add commands
     for (const command of commands) {
       program.addCommand(command);
     }
