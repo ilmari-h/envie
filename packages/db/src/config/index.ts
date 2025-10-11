@@ -24,9 +24,10 @@ export async function runMigrations() {
     
     const migrationDb = drizzle(migrationClient);
 
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const migrationsFolder = path.join(__dirname, "../drizzle");
+    // Use different migration paths based on environment
+    const migrationsFolder = process.env.NODE_ENV === "production" 
+      ? "/app/packages/db/drizzle"
+      : path.join(path.dirname(fileURLToPath(import.meta.url)), "../drizzle");
     
     await migrate(migrationDb, {
       migrationsFolder,
