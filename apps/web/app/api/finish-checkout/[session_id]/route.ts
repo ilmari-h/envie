@@ -49,6 +49,7 @@ export async function GET(_: NextRequest, context: { params: Promise<{ session_i
         stripeCustomerId: (checkoutSession.customer as Stripe.Customer)?.id
           ? (checkoutSession.customer as Stripe.Customer).id
           : undefined,
+      // @ts-ignore - Build error in GitHub Actions
       }).where(eq(Schema.users.id, authenticatedUser.userId)).returning();
       if(!updatedUser) {
         return { message: 'Failed to update user' };

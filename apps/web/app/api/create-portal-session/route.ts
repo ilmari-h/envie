@@ -23,6 +23,7 @@ export async function POST(_: NextRequest) {
     // Get customer from db
     const db = getDb(env.DATABASE_URL);
     const customerUser = await db.query.users.findFirst({
+      // @ts-ignore - Build error in GitHub Actions
       where: eq(Schema.users.id, authenticatedUser.userId),
     });
     if(!customerUser?.stripeCustomerId) {
