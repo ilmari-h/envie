@@ -140,6 +140,9 @@
         "tailwindcss": "^3.4.17",
         "typescript": "5.8.2",
       },
+      "peerDependencies": {
+        "drizzle-orm": "^0.43.1",
+      },
     },
     "packages/db": {
       "name": "@repo/db",
