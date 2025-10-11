@@ -128,7 +128,7 @@ const health = c.router({
     method: 'GET',
     path: '/health',
     responses: {
-      200: c.type<{ status: 'ok' }>()
+      200: z.object({ status: z.literal('ok') })
     }
   }
 });
