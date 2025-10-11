@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "esbuild src/index.ts --bundle --format=esm --outdir=dist --sourcemap --platform=node && tsc --emitDeclarationOnly --outDir dist --noEmitOnError false",
     "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
@@ -20,15 +20,18 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "drizzle-orm": "^0.43.1",
+    "drizzle-orm": "0.43.1",
     "nanoid": "^5.1.5",
     "postgres": "3.4.5"
   },
+	"resolutions": {
+		"@types/minimatch": "5.1.2"
+	},
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
     "drizzle-kit": "0.31.1",
-    "tsup": "^8.4.0",
+    "esbuild": "^0.24.0",
     "typescript": "5.8.2"
   }
 }
