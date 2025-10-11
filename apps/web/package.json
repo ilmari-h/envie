@@ -21,6 +21,7 @@
     "@tanstack/react-query": "5",
     "@ts-rest/core": "^3.52.1",
     "@ts-rest/react-query": "^3.52.1",
+    "@types/jsonwebtoken": "^9.0.10",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.508.0",
     "marked": "^16.3.0",
