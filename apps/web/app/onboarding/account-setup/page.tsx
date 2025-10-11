@@ -17,7 +17,7 @@ export default async function ProjectAndOrganizationPage({
   const tsr = await createTsrClient();
   
   const [userResponse, organizationsResponse] = await Promise.all([
-    tsr.user.getUser(),
+    tsr.user!.getUser(),
     tsr.organizations.getOrganizations({})
   ]);
 

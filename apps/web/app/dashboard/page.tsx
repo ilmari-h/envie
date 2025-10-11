@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   }
 
   const tsr = await createTsrClient();
-  const userData = await tsr.user.getUser()
+  const userData = await tsr.user!.getUser()
   if(userData.status !== 200) {
     return redirect('/onboarding');
   }
