@@ -2,8 +2,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import * as Schema from "../schema";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 export * as Schema from "../schema";
 // Database connection config
 const connectionString = process.env.DATABASE_URL ?? "postgres://localhost:5432/envie";

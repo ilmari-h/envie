@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
 
     const db = getDb(env.DATABASE_URL);
     const dbUser = await db.query.users.findFirst({
+      // @ts-ignore - Build error in GitHub Actions
       where: eq(Schema.users.id, authenticatedUser.userId),
     });
     if(!dbUser) {

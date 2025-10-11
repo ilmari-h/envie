@@ -1,6 +1,6 @@
 {
   "name": "@envie/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,8 +14,8 @@
     "variables"
   ],
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves",
-    "dev": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs --external:sshpk --external:@noble/curves --watch",
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
     "lint": "eslint src/",
     "check-types": "tsc --noEmit"
   },
@@ -23,9 +23,13 @@
     "@noble/curves": "^1.9.2",
     "@ts-rest/core": "^3.52.1",
     "@types/winston": "^2.4.4",
+    "chalk": "^5.6.2",
     "commander": "^14.0.0",
     "sshpk": "^1.18.0",
     "winston": "^3.17.0"
+  },
+  "peerDependencies": {
+    "zod": "3.24.4"
   },
   "devDependencies": {
     "@repo/rest": "*",

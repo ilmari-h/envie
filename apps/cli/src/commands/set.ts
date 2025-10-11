@@ -12,11 +12,10 @@ type SetOptions = BaseOptions & {
 
 const rootCmd = new RootCommand();
 export const setCommand = rootCmd.createCommand<SetOptions>('set')
-  .description('Set an environment variable')
+  .description('Set environment variables')
   .argumentWithSuggestions('<environment-path>', 'Environment path in format "organization-name:project-name:env-name"', variableGroupAndEnvironmentCompletions)
-  .argumentWithSuggestions('<key-value>', 'Key-value pair in format "key=value" or as separate arguments', () => Promise.resolve([]))
-  .argumentWithSuggestions('[value]', 'Value if provided separately from key OR the path of another environment to copy the key from there', variableGroupAndEnvironmentCompletions)
-  .action(async function(path: string, keyValue: string, separateValue?: string) {
+  .argument('[KEY=VALUE...]', 'Space-separated key=value pairs')
+  .action(async function(path: string, keyValuePairs: string[]) {
     const opts = this.opts<SetOptions>();
     const instanceUrl = getInstanceUrl();
     const environmentPath = new EnvironmentPath(path);
@@ -24,64 +23,28 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
     const client = createTsrClient(instanceUrl);
     
     try {
-      // Parse key-value pair
-      let key: string, value: string;
-      if (separateValue !== undefined) {
-
-        const tryCopyValueFromOtherEnvironment = async () => {
-          try {
-            const otherValueEnvironment = new EnvironmentPath(separateValue)
-            const otherEnvironmentResponse = await client.environments.getEnvironments({
-              query: {
-                path: otherValueEnvironment.toString(),
-                pubkey: userKeyPair.publicKey.toBase64()
-              }
-            })
-            if (otherEnvironmentResponse.status !== 200 || otherEnvironmentResponse.body.length === 0) {
-              return null;
-            }
-
-            const environment = otherEnvironmentResponse.body[0];
-            if (!environment.decryptionData) {
-              console.error('Error: No decryption data found for environment');
-              process.exit(1);
-            }
-
-            // Unwrap the environment's encryption key
-            const dek = (await UserKeyPair.getInstance()).unwrapKey({
-              wrappedKey: environment.decryptionData.wrappedEncryptionKey,
-              ephemeralPublicKey: environment.decryptionData.ephemeralPublicKey
-            });
-            if(!environment.version) {
-              console.error(`Tried to copy value from \`${otherValueEnvironment.toString()}\`, but no version found`);
-              process.exit(1);
-            }
-            const decryptedContent = dek.decryptContent(environment.version.content);
-            const parsedEnv = parseEnv(decryptedContent) as Record<string, string | number>;
-            if(!parsedEnv[key]) {
-              console.error(`Tried to copy value from \`${otherValueEnvironment.toString()}\`, but key \`${key}\` not found`);
-              process.exit(1);
-            }
-            return String(parsedEnv[key]);
-          } catch (error) {
-            return null;
-          }
-        }
-
-        key = keyValue;
-        value = await tryCopyValueFromOtherEnvironment() ?? separateValue;
-      } else {
-        const parts = keyValue.split('=');
-        if (parts.length !== 2) {
-          console.error('Error: Key-value pair must be in format "key=value" or provided as separate arguments');
-          process.exit(1);
-        }
-        [key, value] = parts;
+      // Parse key-value pairs
+      if (keyValuePairs.length === 0) {
+        console.error('Error: At least one key=value pair must be provided');
+        process.exit(1);
       }
 
-      if (!key.trim()) {
-        console.error('Error: Key cannot be empty');
-        process.exit(1);
+      const parsedPairs: Array<{ key: string; value: string }> = [];
+      
+      for (const keyValue of keyValuePairs) {
+        const parts = keyValue.split('=');
+        if (parts.length !== 2) {
+          console.error(`Error: Key-value pair must be in format "key=value", got: "${keyValue}"`);
+          process.exit(1);
+        }
+        
+        const [key, value] = parts;
+        if (!key.trim()) {
+          console.error('Error: Key cannot be empty');
+          process.exit(1);
+        }
+        
+        parsedPairs.push({ key: key.trim(), value });
       }
 
       // First get the environment to get the decryption data
@@ -120,12 +83,16 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
         // Parse current content into lines
         const lines = Object.entries(parseEnv(currentContent) as Record<string, string>)
           .map(([key, value]) => `${key}=${value}`);
-        const existingKeyIndex = lines.findIndex(line => line.startsWith(`${key}=`));
 
-        if (existingKeyIndex !== -1) {
-          lines[existingKeyIndex] = `${key}=${value}`;
-        } else {
-          lines.push(`${key}=${value}`);
+        // Update/add each key-value pair
+        for (const { key, value } of parsedPairs) {
+          const existingKeyIndex = lines.findIndex(line => line.startsWith(`${key}=`));
+          
+          if (existingKeyIndex !== -1) {
+            lines[existingKeyIndex] = `${key}=${value}`;
+          } else {
+            lines.push(`${key}=${value}`);
+          }
         }
 
         // Encrypt the updated content

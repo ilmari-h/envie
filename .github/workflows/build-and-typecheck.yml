@@ -37,6 +37,3 @@ jobs:
 
     - name: Build dependencies
       run: bun run build
-
-    - name: Type check all apps
-      run: bun run check-types

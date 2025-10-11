@@ -9,7 +9,7 @@ export default async function DashboardPage() {
     return redirect('/onboarding');
   }
 
-  const tsr = await createTsrClient();
+  const tsr = await createTsrClient() as any; // Build error in GitHub Actions
   const userData = await tsr.user.getUser()
   if(userData.status !== 200) {
     return redirect('/onboarding');

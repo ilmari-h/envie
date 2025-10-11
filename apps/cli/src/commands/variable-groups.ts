@@ -89,22 +89,17 @@ variableGroupCommand
 variableGroupCommand
   .commandWithSuggestions('create')
   .description('Create a new variable group')
-  .argumentWithSuggestions('<organization:name>', 'Variable group path (organization:name)', organizationCompletionsWithTrailingColon)
+  .argumentWithSuggestions('<organization>', 'Organization name', organizationCompletions)
+  .argument('<variable-group>', 'Variable group name')
   .argument('[KEY=VALUE...]', 'Optional space-separated key=value pairs')
   .option('--file <path>', 'File containing environment variables')
   .option('--secret-key-file <path>', 'File to store the generated secret key in')
   .option('--description <description>', 'Description for the variable group')
-  .action(async function(pathParam: string, keyValuePairs: string[]) {
+  .action(async function(organization: string, name: string, keyValuePairs: string[]) {
     const opts = this.opts<CreateVariableGroupOptions & { file?: string }>();
     
-    // Parse organization:name format
-    const pathParts = pathParam.split(':');
-    if (pathParts.length !== 2) {
-      console.error('Error: Variable group path must be in format "organization:name"');
-      process.exit(1);
-    }
-    
-    const [organization, name] = pathParts;
+    // Create the path parameter for the helper
+    const pathParam = `${organization}:${name}`;
     
     await createEnvironmentHelper({
       pathParam,

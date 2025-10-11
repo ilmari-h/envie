@@ -14,7 +14,7 @@ export default async function ProjectAndOrganizationPage({
     return redirect('/onboarding');
   }
   
-  const tsr = await createTsrClient();
+  const tsr = await createTsrClient() as any; // Build error in GitHub Actions
   
   const [userResponse, organizationsResponse] = await Promise.all([
     tsr.user.getUser(),

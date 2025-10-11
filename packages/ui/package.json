@@ -18,12 +18,14 @@
     "@types/react": "19.1.0",
     "@types/react-dom": "19.1.1",
     "eslint": "^9.26.0",
-    "typescript": "5.8.2"
+    "typescript": "5.8.2",
+    "next": "^15.3.0"
   },
   "dependencies": {
     "@heroui/popover": "^2.3.26",
     "@sglara/cn": "^1.0.0",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "lucide-react": "^0.545.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
