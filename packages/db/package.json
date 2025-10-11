@@ -20,6 +20,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@types/node": "^24.7.1",
     "drizzle-orm": "^0.43.1",
     "nanoid": "^5.1.5",
     "postgres": "3.4.5"
