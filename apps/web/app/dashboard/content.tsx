@@ -3,9 +3,7 @@
 
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
-import { tsr } from '../tsr';
 import Sidebar from '../components/sidebar';
-import { type AuthenticatedUser } from '../auth/helpers';
 import { contract } from '@repo/rest';
 import { ClientInferResponseBody } from '@ts-rest/core';
 

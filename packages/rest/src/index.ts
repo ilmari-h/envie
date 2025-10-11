@@ -147,7 +147,7 @@ const publicKeys = c.router({
           algorithm: z.enum(['ed25519', 'rsa'])
         }))
       }),
-      404: c.type<{ message: string }>(),
+      404: z.object({ message: z.string() }),
     }
   },
   setPublicKey: {
@@ -168,9 +168,9 @@ const publicKeys = c.router({
       ).optional(),
     }),
     responses: {
-      200: c.type<{ message: string }>(),
-      403: c.type<{ message: string }>(),
-      400: c.type<{ message: string }>()
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      400: z.object({ message: z.string() })
     }
   },
   getDecryptionKeys: {
@@ -229,8 +229,8 @@ const user = c.router({
           algorithm: z.enum(['ed25519', 'rsa'])
         })),
       }),
-      401: c.type<{ message: string }>(),
-      404: c.type<{ message: string }>()
+      401: z.object({ message: z.string() }),
+      404: z.object({ message: z.string() })
     }
   },
   updateName: {
@@ -240,9 +240,9 @@ const user = c.router({
       name: nameSchema
     }),
     responses: {
-      200: c.type<{ message: string }>(),
-      403: c.type<{ message: string }>(),
-      400: c.type<{ message: string }>()
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      400: z.object({ message: z.string() })
     }
   },
   updateEmail: {
@@ -252,9 +252,9 @@ const user = c.router({
       email: z.string().email()
     }),
     responses: {
-      200: c.type<{ message: string }>(),
-      403: c.type<{ message: string }>(),
-      400: c.type<{ message: string }>()
+      200: z.object({ message: z.string() }),
+      403: z.object({ message: z.string() }),
+      400: z.object({ message: z.string() })
     }
   },
   listUsers: {
