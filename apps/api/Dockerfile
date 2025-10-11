@@ -33,8 +33,9 @@ WORKDIR /app
 COPY --from=builder --chown=bun:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=bun:nodejs /app/apps/api/package.json ./package.json
 
-# Copy workspace dependencies that are needed at runtime
-COPY --from=builder --chown=bun:nodejs /app/packages ./packages
+# Copy workspace dependencies that are needed at runtime (excluding UI package)
+COPY --from=builder --chown=bun:nodejs /app/packages/db ./packages/db
+COPY --from=builder --chown=bun:nodejs /app/packages/rest ./packages/rest
 COPY --from=builder --chown=bun:nodejs /app/node_modules ./node_modules
 
 # Switch to non-root user
