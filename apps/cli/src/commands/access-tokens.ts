@@ -7,11 +7,12 @@ import { newRandomEd25519KeyPair } from '../utils/keypair';
 import { confirm } from '../ui/confirm';
 import { tokenCompletions } from '../utils/completions';
 import { AccessToken } from '../crypto/access-token';
+import { ExpiryFromNow } from './utils/expiry-from-now';
 
 type AccessTokenOptions = BaseOptions
 
 type CreateAccessTokenOptions = AccessTokenOptions & {
-  expiresAt?: string;
+  expiry?: string;
 };
 
 const rootCmd = new RootCommand();
@@ -93,11 +94,12 @@ accessTokenCommand
   .command('create')
   .description('Create a new access token')
   .argument('<name>', 'Name of the access token')
-  .option('--expires-at <date>', 'Expiry date in YYYY-MM-DD format')
+  .option('--expiry <date>', 'Access expiry date in duration format (e.g., "1h", "1h30m", "1d", "1w", "1m", "1y")')
   .action(async function(name: string) {
     const opts = this.opts<CreateAccessTokenOptions>();
     const instanceUrl = getInstanceUrl();
     const newRandomKeyPair = newRandomEd25519KeyPair();
+    const expiryDate = opts.expiry ? new ExpiryFromNow(opts.expiry) : undefined;
 
     try {
 
@@ -109,7 +111,7 @@ accessTokenCommand
             valueBase64: Buffer.from(newRandomKeyPair.publicKey).toString('base64'),
             algorithm: 'ed25519'
           },
-          expiresAt: opts.expiresAt
+          expiresAt: expiryDate ? expiryDate.toDate().toISOString() : undefined
         }
       });
 
