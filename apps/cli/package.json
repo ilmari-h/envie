@@ -28,6 +28,9 @@
     "sshpk": "^1.18.0",
     "winston": "^3.17.0"
   },
+  "peerDependencies": {
+    "zod": "3.24.4"
+  },
   "devDependencies": {
     "@repo/rest": "*",
     "@repo/eslint-config": "*",
