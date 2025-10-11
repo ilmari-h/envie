@@ -29,6 +29,9 @@
     "stripe": "^18.5.0",
     "zod": "^3.24.4"
   },
+  "peerDependencies": {
+    "drizzle-orm": "^0.43.1"
+  },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
