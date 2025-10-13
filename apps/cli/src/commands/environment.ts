@@ -118,6 +118,44 @@ environmentCommand
   });
 
 environmentCommand
+  .commandWithSuggestions('clone')
+  .description('Clone an environment into a new environment')
+  .argumentWithSuggestions('<source-path>', 'Environment path to clone', environmentCompletions)
+  .argumentWithSuggestions('<target-path>', 'New environment path', projectCompletionsWithTrailingColon)
+  .option('--secret-key-file <path>', 'File to store the generated secret key in')
+  .action(async function(sourcePathParam: string, targetPathParam: string) {
+    const opts = this.opts<CreateEnvironmentOptions & { secretKeyFile?: string }>();
+
+    try {
+      const sourcePath = new EnvironmentPath(sourcePathParam);
+      const targetPath = new EnvironmentPath(targetPathParam);
+
+      // Fetch and decrypt source environment
+      const { decryptedContent } = await getEnvironment({ path: sourcePath }, true);
+
+      if (!decryptedContent) {
+        console.error('Error: Failed to decrypt source environment content');
+        process.exit(1);
+      }
+
+      const keyValuePairs = Object.entries(decryptedContent).map(([key, value]) => `${key}=${value}`);
+
+      // Create target environment with cloned key/value pairs
+      await createEnvironmentHelper({
+        pathParam: targetPathParam,
+        keyValuePairs,
+        environmentType: {
+          type: 'environment',
+          project: targetPath.projectPath.toString()
+        }
+      }, opts);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+environmentCommand
   .commandWithSuggestions('show')
   .description('Show an environment')
   .argumentWithSuggestions('<path>', 'Environment path (or name if rest of the path is specified in envierc.json)', environmentCompletions)
