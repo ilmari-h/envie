@@ -115,7 +115,7 @@ All of these can have different access control rules (more on that later).
 You can create an environment from an existing *.env* file on your disk with:
 
 ```bash
-envie environment create <organization>:<project>:<environment-name> <path-to-env-file>
+envie environment create <organization>:<project>:<environment-name> --file <path-to-env-file>
 ```
 
 Or if you already have an environment and want to update it from a *.env* file on your disk

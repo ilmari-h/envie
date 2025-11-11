@@ -15,7 +15,7 @@ envie environment create <organization>:<project>:<environment-name> KEY1=VALUE1
 You can also create it from an existing `.env` file with the following command
 
 ```bash
-envie environment create <organization>:<project>:<environment-name> ./path/to/.env
+envie environment create <organization>:<project>:<environment-name> --file ./path/to/.env
 ```
 
 ### Viewing your environment
