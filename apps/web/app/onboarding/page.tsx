@@ -74,10 +74,10 @@ export default function NewUserPage() {
             <div className="grid grid-cols-1 gap-8 md:grid-cols-[200px_1fr]">
               {/* Feature column - just text on background */}
               <div className="hidden md:block">
-                <div className="pt-[52px]">
+                <div className="pt-[56px]">
                   {features.map((feature, index) => (
                     <div key={index}>
-                      <div className="text-sm text-neutral-300 h-[48px] flex items-center justify-end pr-4">
+                      <div className="text-sm text-neutral-300 h-[47px] flex items-center justify-end pr-4 mt-[0px]">
                         {feature.name}
                       </div>
                       {index !== features.length - 1 && (
@@ -97,7 +97,7 @@ export default function NewUserPage() {
                 </div>
                 <div className="divide-y divide-neutral-800">
                   {features.map((feature, index) => (
-                    <div key={index} className="flex items-center md:justify-center justify-between p-4">
+                    <div key={index} className="flex items-center md:justify-center justify-between p-4 h-[48px]">
                       <div className="text-xs text-neutral-400 md:hidden">{feature.name}</div>
                       <div className="">
                         {typeof feature.free === 'boolean' ? (
@@ -129,7 +129,7 @@ export default function NewUserPage() {
                 </div>
                 <div className="divide-y divide-white/10">
                   {features.map((feature, index) => (
-                    <div key={index} className="flex items-center md:justify-center justify-between p-4">
+                    <div key={index} className="flex items-center md:justify-center justify-between p-4 h-[48px]">
                       <div className="text-xs text-neutral-400 md:hidden">{feature.name}</div>
                       <div className="">
                         {typeof feature.team === 'boolean' ? (
