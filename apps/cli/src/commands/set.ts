@@ -32,13 +32,14 @@ export const setCommand = rootCmd.createCommand<SetOptions>('set')
       const parsedPairs: Array<{ key: string; value: string }> = [];
       
       for (const keyValue of keyValuePairs) {
-        const parts = keyValue.split('=');
-        if (parts.length !== 2) {
+        const equalsIndex = keyValue.indexOf('=');
+        if (equalsIndex === -1) {
           console.error(`Error: Key-value pair must be in format "key=value", got: "${keyValue}"`);
           process.exit(1);
         }
         
-        const [key, value] = parts;
+        const key = keyValue.substring(0, equalsIndex);
+        const value = keyValue.substring(equalsIndex + 1);
         if (!key.trim()) {
           console.error('Error: Key cannot be empty');
           process.exit(1);
