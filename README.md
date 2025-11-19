@@ -127,13 +127,20 @@ envie environment update <organization>:<project>:<environment-name> <path-to-en
 You can also update a single environment variable at a time with:
 
 ```bash
+# Set a literal value
 envie set <organization>:<project>:<environment-name> KEY=value
 
-# or
-envie set <organization>:<project>:<environment-name> KEY value
+# Clone a key from another environment (same key name)
+envie set <organization>:<project>:<environment-name> KEY --from org:project:other-env
 
-# or copy from another environment
-envie set <organization>:<project>:<environment-name> KEY org:project:other-env
+# Clone and remap (copy SOURCE_KEY as KEY)
+envie set <organization>:<project>:<environment-name> KEY=SOURCE_KEY --from org:project:other-env
+
+# Clone multiple keys at once
+envie set <organization>:<project>:<environment-name> API_KEY DB_URL --from org:project:staging
+
+# Mix cloning and remapping
+envie set <organization>:<project>:<environment-name> PUBLIC_KEY=PRIVATE_KEY API_SECRET --from org:project:prod
 ```
 
 To remove an environment variable, run:
